@@ -1,0 +1,241 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ────────────────────────────────────────────────────
+    function isAuth() { return request.auth != null; }
+    function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function isAdmin() {
+      return isAuth() && getUserData().userType in ['admin', 'super_admin'];
+    }
+    function isModerator() {
+      return isAuth() && getUserData().userType in ['admin', 'super_admin', 'moderator'];
+    }
+    function isMerchant() {
+      return isAuth() && getUserData().userType == 'merchant';
+    }
+    function isShopOwner(shopId) {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/shops/$(shopId)) &&
+        get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid;
+    }
+    function notDeleted() { return resource.data.isDeleted != true; }
+    function notSuspended() { return resource.data.isSuspended != true; }
+
+    // ── Users ────────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow create: if isOwner(userId)
+        && !request.resource.data.keys().hasAny(['userType'])
+        || request.resource.data.userType in ['customer', 'merchant'];
+      allow update: if isOwner(userId)
+        // ✅ Fix #135: منع self-escalation إلى admin/moderator
+        && !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['userType']))
+        || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+
+      // Favorites sub-collection
+      match /favorites/{itemId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // ── Shops ───────────────────────────────────────────────────────────────
+    match /shops/{shopId} {
+      allow read: if resource.data.isSuspended != true || isModerator();
+      allow create: if isMerchant()
+        // ✅ Fix #135: إضافة حقل id صريح مطابق لـ document id
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.id == shopId;
+      allow update: if isShopOwner(shopId)
+        // ✅ Fix #135: منع تغيير ownerId أو isSuspended من قِبَل التاجر
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId', 'isSuspended', 'isFeatured'])
+        || isModerator();
+      allow delete: if isAdmin();
+    }
+
+    // ── Products ─────────────────────────────────────────────────────────────
+    match /products/{productId} {
+      allow read: if resource.data.isVisible == true && resource.data.isShopHidden != true
+        || isModerator()
+        || (isAuth() && isShopOwner(resource.data.shopId));
+      allow create: if isAuth() && isShopOwner(request.resource.data.shopId)
+        && request.resource.data.id == productId;
+      allow update: if isAuth() && isShopOwner(resource.data.shopId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['shopId', 'isShopHidden'])
+        || isModerator();
+      allow delete: if isAuth() && isShopOwner(resource.data.shopId) || isModerator();
+    }
+
+    // ── Offers ───────────────────────────────────────────────────────────────
+    match /offers/{offerId} {
+      allow read: if resource.data.isActive == true && resource.data.isShopHidden != true
+        || isModerator()
+        || (isAuth() && isShopOwner(resource.data.shopId));
+      allow create: if isAuth() && isShopOwner(request.resource.data.shopId)
+        && request.resource.data.id == offerId;
+      allow update: if isAuth() && isShopOwner(resource.data.shopId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['shopId', 'isShopHidden'])
+        || isModerator();
+      allow delete: if isAuth() && isShopOwner(resource.data.shopId) || isModerator();
+    }
+
+    // ── Services ─────────────────────────────────────────────────────────────
+    match /services/{serviceId} {
+      allow read: if resource.data.isVisible == true && resource.data.isShopHidden != true
+        || isModerator()
+        || (isAuth() && resource.data.ownerId == request.auth.uid);
+      allow create: if isAuth()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.id == serviceId;
+      allow update: if isAuth() && resource.data.ownerId == request.auth.uid
+        || isModerator();
+      allow delete: if isAuth() && resource.data.ownerId == request.auth.uid || isModerator();
+    }
+
+    // ── Reviews ──────────────────────────────────────────────────────────────
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        // ✅ Fix #135: منع نشر تقييم لعنصر لا يوجد
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5;
+      allow update: if isAuth() && resource.data.userId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'targetId'])
+        || isModerator();
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid || isModerator();
+    }
+
+    // ── Categories ───────────────────────────────────────────────────────────
+    match /categories/{catId} {
+      allow read: if true;
+      allow write: if isModerator();
+    }
+
+    // ── Activation Codes ─────────────────────────────────────────────────────
+    match /activation_codes/{codeId} {
+      allow read: if isModerator()
+        || (isAuth() && resource.data.isUsed == false);
+      allow create, update, delete: if isModerator();
+    }
+
+    // ── Ads (إعلانات تجارية) ──────────────────────────────────────────────────
+    match /ads/{adId} {
+      allow read: if resource.data.isActive == true || isModerator();
+      allow create: if isAuth()
+        && (isShopOwner(request.resource.data.shopId) || isModerator())
+        && request.resource.data.id == adId;
+      allow update, delete: if isAuth()
+        && isShopOwner(resource.data.shopId) || isModerator();
+    }
+
+    // ── Job Ads ───────────────────────────────────────────────────────────────
+    match /job_ads/{adId} {
+      allow read: if true;
+      allow create: if isAuth()
+        && request.resource.data.posterId == request.auth.uid
+        && request.resource.data.id == adId;
+      allow update, delete: if isAuth() && resource.data.posterId == request.auth.uid
+        || isModerator();
+    }
+
+    // ── Service Requests ──────────────────────────────────────────────────────
+    match /service_requests/{reqId} {
+      allow read: if true;
+      allow create: if isAuth()
+        && request.resource.data.posterId == request.auth.uid
+        && request.resource.data.id == reqId;
+      allow update: if isAuth() && resource.data.posterId == request.auth.uid
+        || isModerator();
+      allow delete: if isAuth() && resource.data.posterId == request.auth.uid
+        || isModerator();
+
+      match /bids/{bidId} {
+        allow read: if isAuth();
+        allow create: if isAuth() && request.resource.data.bidderId == request.auth.uid;
+        allow update, delete: if isAuth() && resource.data.bidderId == request.auth.uid
+          || isModerator();
+      }
+    }
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+    match /notifications/{notifId} {
+      allow read, update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isModerator();
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid || isModerator();
+    }
+
+    // ── Notification Queue ────────────────────────────────────────────────────
+    match /notification_queue/{docId} {
+      allow create: if isAuth();
+      allow read, update, delete: if isModerator();
+    }
+
+    // ── Wishlists ─────────────────────────────────────────────────────────────
+    match /wishlists/{listId} {
+      allow read: if isAuth() && (
+        resource.data.ownerId == request.auth.uid
+        || request.auth.uid in resource.data.collaborators
+        || resource.data.isPublic == true
+      );
+      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if isAuth() && (
+        resource.data.ownerId == request.auth.uid
+        || request.auth.uid in resource.data.collaborators
+      );
+      allow delete: if isAuth() && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ── Complaints ────────────────────────────────────────────────────────────
+    match /complaints/{complaintId} {
+      allow read: if isAuth() && resource.data.userId == request.auth.uid || isModerator();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update: if isModerator();
+      allow delete: if isModerator();
+    }
+
+    // ── Dealer Listings (بيع المستعمل) ───────────────────────────────────────
+    match /dealer_listings/{listingId} {
+      allow read: if true;
+      allow create: if isAuth()
+        && request.resource.data.sellerId == request.auth.uid
+        && request.resource.data.id == listingId;
+      allow update, delete: if isAuth() && resource.data.sellerId == request.auth.uid
+        || isModerator();
+    }
+
+    // ── Settings ──────────────────────────────────────────────────────────────
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isModerator();
+    }
+
+    // ── Admin Audit Log ───────────────────────────────────────────────────────
+    match /admin_audit_log/{logId} {
+      allow read: if isModerator();
+      allow create: if isModerator();
+      allow update, delete: if false; // سجل للقراءة فقط — لا حذف أبدًا
+    }
+
+    // ── Service Providers ────────────────────────────────────────────────────
+    match /service_providers/{providerId} {
+      allow read: if true;
+      allow write: if isAuth() && request.auth.uid == providerId || isModerator();
+    }
+
+    // ── Referrals ─────────────────────────────────────────────────────────────
+    match /referrals/{referralId} {
+      allow read: if isAuth() && (
+        resource.data.referrerId == request.auth.uid
+        || resource.data.referredId == request.auth.uid
+      ) || isModerator();
+      allow create: if isAuth() && request.resource.data.referredId == request.auth.uid;
+      allow update: if isModerator();
+      allow delete: if false;
+    }
+  }
+}

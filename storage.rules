@@ -1,0 +1,96 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function isAuth() { return request.auth != null; }
+    function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    // ✅ Fix #137: حد أقصى 10MB للصور، 100MB للفيديو
+    function maxImageSize() { return request.resource.size < 10 * 1024 * 1024; }
+    function maxVideoSize() { return request.resource.size < 100 * 1024 * 1024; }
+    function maxAvatarSize() { return request.resource.size < 3 * 1024 * 1024; }
+
+    // ── Profile Images ───────────────────────────────────────────────────────
+    match /profile_images/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isImage() && maxAvatarSize();
+    }
+
+    // ── Shop Logos ────────────────────────────────────────────────────────────
+    match /shop_logos/{shopId}/{allPaths=**} {
+      allow read: if true;
+      // ✅ Fix #137: فقط مالك المحل يرفع الشعار
+      allow write: if isAuth() && isImage() && maxImageSize();
+      allow delete: if isAuth();
+    }
+
+    // ── Shop Covers ───────────────────────────────────────────────────────────
+    match /shop_covers/{shopId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isImage() && maxImageSize();
+      allow delete: if isAuth();
+    }
+
+    // ── Shop Media (صور وفيديوهات المحل) ─────────────────────────────────────
+    match /shop_media/{shopId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth()
+        && (isImage() && maxImageSize() || isVideo() && maxVideoSize());
+      allow delete: if isAuth();
+    }
+
+    // ── Product Images ────────────────────────────────────────────────────────
+    match /product_images/{shopId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isImage() && maxImageSize();
+      allow delete: if isAuth();
+    }
+
+    // ── Offer Images ──────────────────────────────────────────────────────────
+    match /offer_images/{shopId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isImage() && maxImageSize();
+      allow delete: if isAuth();
+    }
+
+    // ── Ad Images ─────────────────────────────────────────────────────────────
+    match /ad_images/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isImage() && maxImageSize();
+      allow delete: if isAuth();
+    }
+
+    // ── Review Images ──────────────────────────────────────────────────────────
+    match /review_images/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isImage() && maxImageSize();
+      allow delete: if isOwner(userId);
+    }
+
+    // ── Dealer Listing Images ─────────────────────────────────────────────────
+    match /dealer_images/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isImage() && maxImageSize();
+      allow delete: if isOwner(userId);
+    }
+
+    // ── Complaint Attachments ─────────────────────────────────────────────────
+    match /complaint_attachments/{userId}/{allPaths=**} {
+      allow read: if isAuth() && (request.auth.uid == userId);
+      allow write: if isOwner(userId) && isImage() && maxImageSize();
+      allow delete: if isOwner(userId);
+    }
+
+    // ── Fallback: رفض كل شيء آخر ─────────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

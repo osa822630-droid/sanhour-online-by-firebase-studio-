@@ -1,0 +1,40 @@
+{
+  "hosting": {
+    "site": "sanhour-online",
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "sanhour-online",
+          "appId": "1:345802587606:android:d3d580b9d9f61d4445f877",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "sanhour-online",
+          "configurations": {
+            "android": "1:345802587606:android:d3d580b9d9f61d4445f877",
+            "ios": "1:345802587606:ios:5a311c49020f5cef45f877",
+            "macos": "1:345802587606:ios:5a311c49020f5cef45f877",
+            "web": "1:345802587606:web:3e0741082a4938a745f877",
+            "windows": "1:345802587606:web:02f5bac62ec9bc2245f877"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,99 @@
+Analyzing myapp...                                              
+
+  error • The argument type 'AndroidProvider' can't be assigned to the parameter type 'AndroidAppCheckProvider'.  • lib/main.dart:77:22 • argument_type_not_assignable
+  error • The argument type 'AppleProvider' can't be assigned to the parameter type 'AppleAppCheckProvider'.  • lib/main.dart:80:20 • argument_type_not_assignable
+  error • 2 positional arguments expected by 'fromMap', but 1 found • lib/main.dart:592:59 • not_enough_positional_arguments
+   info • Statements in an if should be enclosed in a block • lib/providers/auth_provider.dart:220:40 • curly_braces_in_flow_control_structures
+   info • Don't use 'BuildContext's across async gaps • lib/screens/add_product_screen.dart:76:7 • use_build_context_synchronously
+  error • The constructor 'Radio.adaptive' doesn't have type parameters • lib/screens/advanced_search_screen.dart:637:46 • wrong_number_of_type_arguments_constructor
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/advanced_search_screen.dart:639:25 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/advanced_search_screen.dart:641:25 • deprecated_member_use
+  error • The constructor 'Radio.adaptive' doesn't have type parameters • lib/screens/advanced_search_screen.dart:670:46 • wrong_number_of_type_arguments_constructor
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/advanced_search_screen.dart:672:25 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/advanced_search_screen.dart:674:25 • deprecated_member_use
+  error • The constructor 'Radio.adaptive' doesn't have type parameters • lib/screens/advanced_search_screen.dart:703:46 • wrong_number_of_type_arguments_constructor
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/advanced_search_screen.dart:705:25 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/advanced_search_screen.dart:707:25 • deprecated_member_use
+  error • The getter 'createdAt' isn't defined for the type 'AdModel' • lib/screens/all_ads_screen.dart:73:20 • undefined_getter
+  error • The getter 'createdAt' isn't defined for the type 'AdModel' • lib/screens/all_ads_screen.dart:74:20 • undefined_getter
+  error • The getter 'createdAt' isn't defined for the type 'AdModel' • lib/screens/all_ads_screen.dart:233:26 • undefined_getter
+  error • The getter 'createdAt' isn't defined for the type 'AdModel' • lib/screens/all_ads_screen.dart:235:29 • undefined_getter
+  error • The getter 'createdAt' isn't defined for the type 'AdModel' • lib/screens/all_ads_screen.dart:235:50 • undefined_getter
+  error • The getter 'createdAt' isn't defined for the type 'AdModel' • lib/screens/all_ads_screen.dart:235:73 • undefined_getter
+  error • The method 'empty' isn't defined for the type 'CategoryModel' • lib/screens/categories_screen.dart:218:35 • undefined_method
+warning • The left operand can't be null, so the right operand is never executed • lib/screens/categories_screen.dart:301:33 • dead_null_aware_expression
+warning • The left operand can't be null, so the right operand is never executed • lib/screens/categories_screen.dart:301:65 • dead_null_aware_expression
+  error • The named parameter 'initialCategory' isn't defined • lib/screens/categories_screen.dart:323:21 • undefined_named_parameter
+  error • The method 'removeFromCollection' isn't defined for the type 'FavoritesProvider' • lib/screens/collection_detail_screen.dart:476:38 • undefined_method
+  error • The method 'renameCollection' isn't defined for the type 'FavoritesProvider' • lib/screens/collection_detail_screen.dart:530:19 • undefined_method
+warning • Unused import: '../providers/auth_provider.dart' • lib/screens/home_screen.dart:12:8 • unused_import
+warning • Unused import: '../widgets/horizontal_list.dart' • lib/screens/home_screen.dart:14:8 • unused_import
+  error • The method 'filterByCategory' isn't defined for the type 'ShopsProvider' • lib/screens/home_screen.dart:277:36 • undefined_method
+  error • The named parameter 'initialQuery' isn't defined • lib/screens/home_screen.dart:286:33 • undefined_named_parameter
+  error • The method 'HorizontalListWidget' isn't defined for the type '_HomeScreenState' • lib/screens/home_screen.dart:325:29 • undefined_method
+  error • The method 'HorizontalListWidget' isn't defined for the type '_HomeScreenState' • lib/screens/home_screen.dart:335:29 • undefined_method
+  error • The method 'HorizontalListWidget' isn't defined for the type '_HomeScreenState' • lib/screens/home_screen.dart:347:29 • undefined_method
+warning • The value of the local variable 'category' isn't used • lib/screens/home_screen.dart:621:25 • unused_local_variable
+  error • The method 'HorizontalListWidget' isn't defined for the type '_HomeScreenState' • lib/screens/home_screen.dart:739:9 • undefined_method
+   info • Don't use 'BuildContext's across async gaps • lib/screens/merchant/add_shop_screen.dart:46:7 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps • lib/screens/merchant/edit_shop_screen.dart:69:7 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/screens/merchant/merchant_products_tab.dart:569:40 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/screens/merchant/merchant_services_tab.dart:107:33 • use_build_context_synchronously
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/merchant/team_management_screen.dart:116:13 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/merchant/team_management_screen.dart:117:13 • deprecated_member_use
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/merchant/team_management_screen.dart:126:13 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/merchant/team_management_screen.dart:127:13 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/merchant/team_management_screen.dart:218:41 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/merchant/team_management_screen.dart:219:31 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/merchant/team_management_screen.dart:234:45 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/merchant/team_management_screen.dart:235:35 • deprecated_member_use
+  error • The method 'updateUserBusinessType' isn't defined for the type 'ApiService' • lib/screens/merchant_type_screen.dart:33:24 • undefined_method
+warning • The value of the local variable 'clientName' isn't used • lib/screens/my_service_history_screen.dart:354:29 • unused_local_variable
+warning • Unused import: '../providers/favorites_provider.dart' • lib/screens/notifications_screen.dart:8:8 • unused_import
+warning • The value of the field '_selectedCategory' isn't used • lib/screens/offers_screen.dart:22:16 • unused_field
+warning • The left operand can't be null, so the right operand is never executed • lib/screens/offers_screen.dart:44:33 • dead_null_aware_expression
+warning • The left operand can't be null, so the right operand is never executed • lib/screens/offers_screen.dart:71:33 • dead_null_aware_expression
+warning • The left operand can't be null, so the right operand is never executed • lib/screens/offers_screen.dart:71:65 • dead_null_aware_expression
+warning • The left operand can't be null, so the right operand is never executed • lib/screens/offers_screen.dart:246:45 • dead_null_aware_expression
+warning • Unused import: 'notifications_screen.dart' • lib/screens/options_screen.dart:19:8 • unused_import
+warning • Unused import: 'about_screen.dart' • lib/screens/options_screen.dart:20:8 • unused_import
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/screens/options_screen.dart:88:20 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/screens/options_screen.dart:94:20 • use_build_context_synchronously
+   info • Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check • lib/screens/options_screen.dart:570:19 • use_build_context_synchronously
+warning • The value of the field '_searchQuery' isn't used • lib/screens/sanhour_dealer_screen.dart:20:10 • unused_field
+   info • Don't use 'BuildContext's across async gaps • lib/screens/splash_screen.dart:50:36 • use_build_context_synchronously
+  error • The method 'scheduleSubscriptionReminder' isn't defined for the type 'NotificationService' • lib/screens/subscription_screen.dart:211:35 • undefined_method
+   info • 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/subscription_screen.dart:436:13 • deprecated_member_use
+   info • 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre • lib/screens/subscription_screen.dart:438:13 • deprecated_member_use
+  error • The method 'updateAdStatus' isn't defined for the type 'ApiService' • lib/screens/tabs/admin_ads_tab.dart:55:24 • undefined_method
+  error • The method 'deleteAd' isn't defined for the type 'ApiService' • lib/screens/tabs/admin_ads_tab.dart:87:24 • undefined_method
+  error • All final variables must be initialized, but 'ad' isn't • lib/screens/tabs/admin_ads_tab.dart:292:9 • final_not_initialized_constructor
+  error • A value of type 'String?' can't be assigned to a variable of type 'String' • lib/screens/tabs/admin_ads_tab.dart:327:21 • invalid_assignment
+   info • Don't use 'BuildContext's across async gaps • lib/screens/tabs/admin_ads_tab.dart:349:7 • use_build_context_synchronously
+  error • The named parameter 'displayLocations' isn't defined • lib/screens/tabs/admin_ads_tab.dart:386:11 • undefined_named_parameter
+  error • The getter 'ltr' isn't defined for the type 'TextDirection' • lib/screens/tabs/admin_ads_tab.dart:515:42 • undefined_getter
+  error • The getter 'ltr' isn't defined for the type 'TextDirection' • lib/screens/tabs/admin_ads_tab.dart:566:46 • undefined_getter
+warning • The value of the local variable 'status' isn't used • lib/screens/tabs/admin_complaints_tab.dart:146:11 • unused_local_variable
+   info • 'encryptedSharedPreferences' is deprecated and shouldn't be used. EncryptedSharedPreferences is deprecated and will be removed in v11. The Jetpack Security library is deprecated by Google. Your data will be automatically migrated to custom ciphers on first access. Remove this parameter - it will be ignored • lib/services/cache_service.dart:40:30 • deprecated_member_use
+warning • The value of the local variable 'link' isn't used • lib/services/deep_link_service.dart:231:11 • unused_local_variable
+  error • The named parameter 'settings' is required, but there's no corresponding argument • lib/services/notification_service.dart:47:26 • missing_required_argument
+  error • Too many positional arguments: 0 expected, but 1 found • lib/services/notification_service.dart:48:7 • extra_positional_arguments_could_be_named
+  error • Const variables must be initialized with a constant value • lib/services/notification_service.dart:74:27 • const_initialized_with_non_constant_value
+  error • The constructor being called isn't a const constructor • lib/services/notification_service.dart:74:27 • const_with_non_const
+  error • The named parameter 'id' is required, but there's no corresponding argument • lib/services/notification_service.dart:665:26 • missing_required_argument
+  error • Too many positional arguments: 0 expected, but 4 found • lib/services/notification_service.dart:666:7 • extra_positional_arguments_could_be_named
+  error • The named parameter 'id' is required, but there's no corresponding argument • lib/services/notification_service.dart:696:26 • missing_required_argument
+  error • The named parameter 'notificationDetails' is required, but there's no corresponding argument • lib/services/notification_service.dart:696:26 • missing_required_argument
+  error • The named parameter 'scheduledDate' is required, but there's no corresponding argument • lib/services/notification_service.dart:696:26 • missing_required_argument
+  error • Too many positional arguments: 0 expected, but 5 found • lib/services/notification_service.dart:697:7 • extra_positional_arguments_could_be_named
+  error • The named parameter 'id' is required, but there's no corresponding argument • lib/services/notification_service.dart:721:26 • missing_required_argument
+  error • The named parameter 'notificationDetails' is required, but there's no corresponding argument • lib/services/notification_service.dart:721:26 • missing_required_argument
+  error • The named parameter 'scheduledDate' is required, but there's no corresponding argument • lib/services/notification_service.dart:721:26 • missing_required_argument
+  error • Too many positional arguments: 0 expected, but 5 found • lib/services/notification_service.dart:722:7 • extra_positional_arguments_could_be_named
+   info • Invalid use of a private type in a public API • lib/services/product_service.dart:385:17 • library_private_types_in_public_api
+   info • Invalid use of a private type in a public API • lib/services/product_service.dart:420:17 • library_private_types_in_public_api
+   info • 'statusBarColor' is deprecated and shouldn't be used. This property is deprecated and no longer in use. Please use 'statusBarLight' instead • lib/utils/image_helper.dart:66:15 • deprecated_member_use
+  error • The named parameter 'mainCategory' isn't defined • lib/widgets/ad_carousel.dart:217:54 • undefined_named_parameter
+  error • The named parameter 'mainCategory' isn't defined • lib/widgets/category_list.dart:104:48 • undefined_named_parameter
+
+95 issues found. (ran in 6.1s)
