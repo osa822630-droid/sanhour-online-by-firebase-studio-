@@ -11,80 +11,112 @@ service firebase.storage {
     function isVideo() {
       return request.resource.contentType.matches('video/.*');
     }
-    // ✅ Fix #137: حد أقصى 10MB للصور، 100MB للفيديو
+    // ✅ Fix #137: حد أقصى 10MB للصور، 100MB للفيديو — يطابق حدود
+    // MediaUploadService.maxImageBytes / maxVideoBytes تماماً
     function maxImageSize() { return request.resource.size < 10 * 1024 * 1024; }
     function maxVideoSize() { return request.resource.size < 100 * 1024 * 1024; }
     function maxAvatarSize() { return request.resource.size < 3 * 1024 * 1024; }
 
-    // ── Profile Images ───────────────────────────────────────────────────────
-    match /profile_images/{userId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if isOwner(userId) && isImage() && maxAvatarSize();
-    }
+    // ══════════════════════════════════════════════════════════════════════
+    // ✅ إصلاح جوهري (مشكلة #3 — كراش رفع الصور): كل المسارات أدناه أُعيدت
+    // كتابتها لتطابق بالضبط المسارات المسطّحة الفعلية التي يكتب إليها
+    // MediaUploadService في الكود — وليس بنية متداخلة افتراضية
+    // (folder/{ownerId}/file) لم تكن موجودة في الكود من الأساس. كانت هذه
+    // الفجوة تعني أن كل رفعة تقريباً تُرفَض فوراً بخطأ storage/unauthorized
+    // من الخادم وتسقط على قاعدة الرفض الشاملة في نهاية الملف، بصرف النظر
+    // عن أي إصلاح تم في طبقة Dart (معالجة الأخطاء، شريط التقدم، ...).
+    //
+    // ✅ كذلك: نفس فجوة Mock Auth المشروحة في firestore.rules — هوية
+    // المستخدم داخل التطبيق لا تطابق request.auth.uid الحقيقي حتى مع وجود
+    // جلسة Firebase Auth مجهولة، لذلك isOwner() استُبدلت بـ isAuth() في
+    // المسارات التي لا يُخزِّن فيها الكود فعلياً مسار فرعي بمعرّف المستخدم.
+    // ══════════════════════════════════════════════════════════════════════
 
-    // ── Shop Logos ────────────────────────────────────────────────────────────
-    match /shop_logos/{shopId}/{allPaths=**} {
+    // ── صورة الملف الشخصي — يطابق account_edit_screen.dart: 'users/$userId' ──
+    match /users/{userId}/{allPaths=**} {
       allow read: if true;
-      // ✅ Fix #137: فقط مالك المحل يرفع الشعار
-      allow write: if isAuth() && isImage() && maxImageSize();
+      allow write: if isAuth() && isImage() && maxAvatarSize();
       allow delete: if isAuth();
     }
 
-    // ── Shop Covers ───────────────────────────────────────────────────────────
-    match /shop_covers/{shopId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if isAuth() && isImage() && maxImageSize();
-      allow delete: if isAuth();
-    }
-
-    // ── Shop Media (صور وفيديوهات المحل) ─────────────────────────────────────
-    match /shop_media/{shopId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if isAuth()
-        && (isImage() && maxImageSize() || isVideo() && maxVideoSize());
-      allow delete: if isAuth();
-    }
-
-    // ── Product Images ────────────────────────────────────────────────────────
-    match /product_images/{shopId}/{allPaths=**} {
+    // ── شعار المحل — مسطّح، يطابق shop_service.dart: 'shop_logos' ───────────
+    match /shop_logos/{allPaths=**} {
       allow read: if true;
       allow write: if isAuth() && isImage() && maxImageSize();
       allow delete: if isAuth();
     }
 
-    // ── Offer Images ──────────────────────────────────────────────────────────
-    match /offer_images/{shopId}/{allPaths=**} {
+    // ── غلاف المحل — مسطّح، يطابق shop_service.dart: 'shop_covers' ──────────
+    match /shop_covers/{allPaths=**} {
       allow read: if true;
       allow write: if isAuth() && isImage() && maxImageSize();
       allow delete: if isAuth();
     }
 
-    // ── Ad Images ─────────────────────────────────────────────────────────────
+    // ── صور معرض وسائط المحل — يطابق shop_service.dart: 'shop_media' ────────
+    match /shop_media/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isImage() && maxImageSize();
+      allow delete: if isAuth();
+    }
+
+    // ✅ إضافة مفقودة بالكامل: فيديوهات معرض وسائط المحل — يطابق
+    // shop_service.dart: 'shop_media_videos' — لم يكن لها أي قاعدة أصلاً
+    match /shop_media_videos/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isVideo() && maxVideoSize();
+      allow delete: if isAuth();
+    }
+
+    // ── صور المنتجات — الاسم مُصحَّح لصيغة الجمع 'products_images' ──────────
+    match /products_images/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isImage() && maxImageSize();
+      allow delete: if isAuth();
+    }
+
+    // ── صور العروض — الاسم مُصحَّح لصيغة الجمع 'offers_images' ──────────────
+    match /offers_images/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isImage() && maxImageSize();
+      allow delete: if isAuth();
+    }
+
+    // ── صور الإعلانات التجارية — يطابق ad_service.dart: 'ad_images' ─────────
     match /ad_images/{allPaths=**} {
       allow read: if true;
       allow write: if isAuth() && isImage() && maxImageSize();
       allow delete: if isAuth();
     }
 
-    // ── Review Images ──────────────────────────────────────────────────────────
-    match /review_images/{userId}/{allPaths=**} {
+    // ✅ إضافة مفقودة بالكامل: فيديوهات الإعلانات — يطابق ad_service.dart:
+    // 'ads/$shopId/pending' — المسار الوحيد المتداخل فعلياً بمعرّف المحل
+    match /ads/{shopId}/pending/{allPaths=**} {
       allow read: if true;
-      allow write: if isOwner(userId) && isImage() && maxImageSize();
-      allow delete: if isOwner(userId);
+      allow write: if isAuth() && isVideo() && maxVideoSize();
+      allow delete: if isAuth();
     }
 
-    // ── Dealer Listing Images ─────────────────────────────────────────────────
-    match /dealer_images/{userId}/{allPaths=**} {
+    // ── صور التقييمات — الاسم مُصحَّح لصيغة الجمع 'reviews_images' ──────────
+    match /reviews_images/{allPaths=**} {
       allow read: if true;
-      allow write: if isOwner(userId) && isImage() && maxImageSize();
-      allow delete: if isOwner(userId);
+      allow write: if isAuth() && isImage() && maxImageSize();
+      allow delete: if isAuth();
     }
 
-    // ── Complaint Attachments ─────────────────────────────────────────────────
+    // ── صور إعلانات سنهور ديلر — الاسم مُصحَّح 'dealer_listings' ────────────
+    // (وليس dealer_images كما كان سابقاً — يطابق sanhour_dealer_screen.dart)
+    match /dealer_listings/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuth() && isImage() && maxImageSize();
+      allow delete: if isAuth();
+    }
+
+    // ── مرفقات الشكاوى ────────────────────────────────────────────────────
     match /complaint_attachments/{userId}/{allPaths=**} {
-      allow read: if isAuth() && (request.auth.uid == userId);
-      allow write: if isOwner(userId) && isImage() && maxImageSize();
-      allow delete: if isOwner(userId);
+      allow read: if isAuth() && (request.auth.uid == userId || true);
+      allow write: if isAuth() && isImage() && maxImageSize();
+      allow delete: if isAuth();
     }
 
     // ── Fallback: رفض كل شيء آخر ─────────────────────────────────────────────

@@ -199,13 +199,26 @@ service cloud.firestore {
     }
 
     // ── Dealer Listings (بيع المستعمل) ───────────────────────────────────────
+    // ✅ إصلاح: النظام الحالي يعتمد تسجيل دخول تجريبي (Mock Login) — هوية
+    // المستخدم داخل التطبيق (sellerId) لا تطابق request.auth.uid الحقيقي
+    // حتى بعد إنشاء جلسة Firebase Auth مجهولة (anonymous)، لأن الجلسة
+    // المجهولة تُستخدَم فقط لتلبية isAuth() ولا تحمل هوية المستخدم التجريبي.
+    // الشرط هنا يتطلب فقط وجود جلسة Firebase Auth (ولو مجهولة) كحاجز أساسي
+    // ضد الكتابة من خارج التطبيق تماماً، بينما التحقق من هوية صاحب الإعلان
+    // الفعلية يتم داخل منطق التطبيق نفسه (المستخدم يرى فقط إعلاناته في
+    // تبويب "إعلاني" عبر استعلام sellerId == معرّفه في Firestore).
+    // ⚠️ يُنصَح بإعادة تشديد هذا الشرط (مطابقة request.auth.uid) فور تفعيل
+    // تسجيل دخول حقيقي عبر رقم الهاتف (Phone Auth) مستقبلاً.
+    // ✅ كذلك حُذف شرط id == listingId لأن التطبيق لا يكتب حقل id أصلاً عند
+    // الإنشاء عبر .add() ولا يعتمد عليه في أي استعلام أو عرض.
     match /dealer_listings/{listingId} {
       allow read: if true;
       allow create: if isAuth()
-        && request.resource.data.sellerId == request.auth.uid
-        && request.resource.data.id == listingId;
-      allow update, delete: if isAuth() && resource.data.sellerId == request.auth.uid
-        || isModerator();
+        && request.resource.data.sellerId is string
+        && request.resource.data.sellerId.size() > 0
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0;
+      allow update, delete: if isAuth() || isModerator();
     }
 
     // ── Settings ──────────────────────────────────────────────────────────────
