@@ -102,7 +102,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                   .search(val.recognizedWords);
             });
           },
-          listenOptions: stt.SpeechListenOptions(localeId: 'ar_EG'),
+          localeId: 'ar_EG',
         );
       } else {
         if (mounted) setState(() => _isListening = false);

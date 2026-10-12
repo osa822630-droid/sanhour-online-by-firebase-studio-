@@ -51,7 +51,7 @@ class ShopDetailProvider with ChangeNotifier {
       _products  = results[0] as List<Product>;
       _offers    = results[1] as List<Offer>;
       _reviews   = results[2] as List<Review>;
-      _services  = (results[3] as List).cast<Map<String, dynamic>>();
+      _services  = results[3] as List<Map<String, dynamic>>;
       _isLoading = false;
     } catch (e) {
       _isLoading = false;

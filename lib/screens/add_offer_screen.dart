@@ -178,11 +178,16 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
       }
 
       if (!mounted) return;
-      Navigator.pop(context, true);
+      // ✅ إصلاح: كان الترتيب معكوساً (pop قبل showSnackBar) — الرسالة كانت
+      // تُعرض على Context شاشة على وشك الإزالة فلا تظهر للمستخدم أبداً.
+      // الآن: نعرض الرسالة أولاً، ننتظر لحظة ليراها المستخدم، ثم نغلق.
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(_isEditing ? '✅ تم تحديث العرض' : '✅ تم نشر العرض'),
         backgroundColor: Colors.green,
       ));
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       // ✅ MediaUploadException يحمل رسالة عربية جاهزة للعرض مباشرة
@@ -233,6 +238,7 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
             if (_offerType == 'discount' ||
                 _offerType == 'price_drop') ...[
               DropdownButtonFormField<Product>(
+                // ✅ إصلاح API قديم: value مُهملة لصالح initialValue (Flutter 3.32+)
                 initialValue: _selectedProduct,
                 decoration: const InputDecoration(
                     labelText: 'اختر المنتج', border: OutlineInputBorder()),

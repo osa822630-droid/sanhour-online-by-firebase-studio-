@@ -298,7 +298,7 @@ class _MainScreenState extends State<MainScreen> {
                 trailing: Switch(
                   value: tp.isDarkMode,
                   onChanged: (_) => tp.toggleTheme(),
-                  activeThumbColor: const Color(0xFF5E35B1),
+                  activeColor: const Color(0xFF5E35B1),
                 ),
               ),
             ),

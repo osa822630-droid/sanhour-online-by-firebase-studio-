@@ -173,6 +173,7 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
 
               // نوع الرسالة
               DropdownButtonFormField<String>(
+                // ✅ إصلاح API قديم: value مُهملة لصالح initialValue (Flutter 3.32+)
                 initialValue: _type,
                 decoration: const InputDecoration(
                   labelText: 'نوع الرسالة',

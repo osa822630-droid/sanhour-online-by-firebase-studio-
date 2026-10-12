@@ -106,6 +106,4 @@ class WishlistItem {
       addedAt: parsedAt,
     );
   }
-
-  Null get itemType => null;
 }

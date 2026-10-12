@@ -100,6 +100,12 @@ class AnalyticsService {
     } catch (_) {}
   }
 
+  Future<void> logAdvancedSearch(String query, Map<String, String> filters) async {
+    try {
+      await _analytics.logEvent(name: 'advanced_search', parameters: {'query': query, ...filters});
+    } catch (_) {}
+  }
+
   // ✅ Fix #139: لا نُرسل بيانات شخصية (PII) — query يُقتطع ولا يُرسل كاملاً
   Future<void> logAdvancedSearch(String query, Map<String, dynamic> filters) async {
     try {

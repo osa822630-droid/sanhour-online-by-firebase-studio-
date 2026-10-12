@@ -1,4 +1,5 @@
 // lib/utils/app_theme.dart
+// ✅ Pro #220: مركزة ألوان التطبيق في مكان واحد لسهولة التغيير
 import 'package:flutter/material.dart';
 
 class AppColors {
@@ -59,6 +60,8 @@ class AppTheme {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
+    // ✅ إصلاح API قديم: ThemeData.cardTheme يتوقع CardThemeData وليس
+    // CardTheme (تطبيع أنواع الثيمات Component theme normalization)
     cardTheme: CardThemeData(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -89,6 +92,7 @@ class AppTheme {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
+    // ✅ إصلاح API قديم: ThemeData.cardTheme يتوقع CardThemeData وليس CardTheme
     cardTheme: CardThemeData(
       elevation: 2,
       color: const Color(0xFF1E1E2E),

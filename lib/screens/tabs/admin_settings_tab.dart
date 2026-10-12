@@ -1,11 +1,11 @@
 // lib/screens/tabs/admin_settings_tab.dart
 // ✅ إعادة كتابة كاملة — إزالة comment الـ placeholder وإصلاح كل الوظائف
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/database_seeder.dart';
 import '../../services/api_service.dart';
 import '../seeder_screen.dart';
+import '../../utils/constants.dart';
 
 class AdminSettingsTab extends StatefulWidget {
   const AdminSettingsTab({super.key});
@@ -25,7 +25,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
 
   bool _isKeyVisible = false;
   bool _isLoading = false;
-  final bool _isSeeding = false;
+  bool _isSeeding = false;
   bool _isCleaning = false;
   bool _isSendingNotif = false;
 
@@ -182,7 +182,8 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
   // ✅ يفتح SeederScreen الجديدة بدلاً من استدعاء DatabaseSeeder.seedDatabase() مباشرة
   // — تُعرض التقدم لكل مرحلة مع نسبة مئوية وسجل تفاصيل
   Future<void> _seedDatabase() async {
-    if (!kDebugMode) {
+    // ✅ إصلاح مشكلة #5
+    if (!BuildFlags.mockModeEnabled) {
       _showSnackBar('غير متاح في بيئة الإنتاج', Colors.orange);
       return;
     }
@@ -354,6 +355,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                         'none';
                   }
                   return DropdownButtonFormField<String>(
+                    // ✅ إصلاح API قديم: value مُهملة لصالح initialValue (Flutter 3.32+)
                     initialValue: current,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),

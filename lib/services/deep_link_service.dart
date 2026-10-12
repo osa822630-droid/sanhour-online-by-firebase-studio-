@@ -233,7 +233,6 @@ $link
     String? subtitle,
     required VoidCallback onShare,
   }) async {
-    // ignore: unused_local_variable
     final link = buildLink(type: ShareableType.shop, id: id);
 
     await showModalBottomSheet(

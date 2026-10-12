@@ -65,6 +65,9 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
   String? get error => _error;
   String? get searchQuery => _searchQuery;
   String? get selectedRegion => _selectedRegion;
+  // ✅ إصلاح: getter مفقود — كان يمنع الشاشات من قراءة الفئة الحالية
+  // المُختارة قبل تنفيذ عملية تحدّث تحافظ على الفلتر
+  String? get selectedCategory => _selectedCategory;
 
   List<String> get availableRegions {
     final regions = _allShops

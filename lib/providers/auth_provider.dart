@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../services/gemini_service.dart';
 import '../services/notification_service.dart';
+import '../utils/constants.dart';
 
 enum AuthStatus {
   uninitialized,
@@ -72,7 +73,13 @@ class AuthProvider with ChangeNotifier {
     }
 
     final firebaseUser = _auth.currentUser;
-    if (firebaseUser != null) {
+    // ✅ إصلاح: تجاهل جلسة Firebase Auth المجهولة (anonymous) هنا — هذه
+    // الجلسة تُستخدَم فقط لتلبية شرط isAuth() في Firestore Security Rules
+    // (حتى تعمل عمليات الكتابة)، وليست هوية المستخدم الفعلية. هوية
+    // المستخدم الحقيقية تُستعاد من user_id المحفوظ في SharedPreferences عبر
+    // نظام تسجيل الدخول التجريبي الحالي. بدون هذا الشرط، أي جلسة مجهولة
+    // سابقة كانت ستُعامَل خطأً كأنها UID مستخدم حقيقي مخزَّن في Firestore.
+    if (firebaseUser != null && !firebaseUser.isAnonymous) {
       _status = AuthStatus.authenticating;
       notifyListeners();
       await _fetchUserData(firebaseUser.uid);
@@ -83,10 +90,31 @@ class AuthProvider with ChangeNotifier {
     if (userId != null) {
       _status = AuthStatus.authenticating;
       notifyListeners();
+      // ✅ إعادة تأسيس جلسة Firebase Auth المجهولة عند استعادة جلسة الدخول
+      // التجريبي من SharedPreferences مباشرةً (بعد إعادة تشغيل التطبيق)
+      await _ensureAnonymousSession();
       await _fetchUserData(userId);
     } else {
       _status = AuthStatus.unauthenticated;
       notifyListeners();
+    }
+  }
+
+  /// ✅ يُنشئ جلسة Firebase Auth مجهولة (anonymous) إن لم تكن موجودة بالفعل.
+  /// ضرورية فقط لتلبية شرط `request.auth != null` في Firestore Security
+  /// Rules، حتى تنجح عمليات الكتابة (نشر منتج، إضافة إعلان ديلر، تقييم...)
+  /// بدلاً من أن يرفضها الخادم بصمت. لا علاقة لها بهوية المستخدم الفعلية في
+  /// التطبيق — تلك تُدار بالكامل عبر نظام تسجيل الدخول التجريبي (Mock
+  /// Login) ومُعرِّف المستخدم المخزَّن في Firestore/SharedPreferences.
+  Future<void> _ensureAnonymousSession() async {
+    try {
+      if (_auth.currentUser == null) {
+        await _auth.signInAnonymously();
+      }
+    } catch (e) {
+      // ✅ فشل هذه الخطوة لا يجب أن يوقف تسجيل الدخول التجريبي — القراءة
+      // وتصفح التطبيق يبقيان يعملان، وقد تفشل فقط بعض عمليات الكتابة لاحقاً
+      debugPrint('Anonymous auth session error (non-fatal): $e');
     }
   }
 
@@ -185,14 +213,13 @@ class AuthProvider with ChangeNotifier {
     _status = AuthStatus.authenticating;
     notifyListeners();
 
-    /*
-    // ✅ Fix #123: Mock credentials محظورة في Production
-    if (!kDebugMode && _isMockCredentials(phone, password)) {
+    // ✅ Fix #123 + #5/#6: Mock credentials محظورة إلا في وضع الاختبار
+    // (Debug عادي أو --dart-define=ENABLE_MOCK_MODE=true صراحةً)
+    if (!BuildFlags.mockModeEnabled && _isMockCredentials(phone, password)) {
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       return 'رقم الهاتف أو كلمة المرور غير صحيحة';
     }
-    */
 
     try {
       if (!_isMockLogin(phone, password)) {
@@ -220,6 +247,9 @@ class AuthProvider with ChangeNotifier {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('is_guest', false);
         await prefs.setString('user_id', _user!.id);
+        // ✅ إنشاء جلسة Firebase Auth مجهولة — ضرورية لتلبية isAuth() في
+        // Firestore Security Rules عند أي عملية كتابة لاحقة
+        await _ensureAnonymousSession();
         _status = AuthStatus.authenticated;
         _onLoginSuccess();
         notifyListeners();
@@ -238,10 +268,8 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _handleMockLogin(String phone, String password) async {
     String userType = 'customer';
-    if (phone == '01008908728') {
-      userType = 'admin';
-    // ignore: curly_braces_in_flow_control_structures
-    } else if (phone == '01234567890') userType = 'merchant';
+    if (phone == '01008908728') userType = 'admin';
+    else if (phone == '01234567890') userType = 'merchant';
 
     final normalizedPhone = _normalizePhone(phone);
     final snap = await _firestore

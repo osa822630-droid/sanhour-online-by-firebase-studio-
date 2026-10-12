@@ -1,12 +1,15 @@
 // lib/screens/sanhour_dealer_screen.dart
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 import '../providers/auth_provider.dart';
 import '../services/media_upload_service.dart';
 import '../widgets/cached_image.dart';
+import '../widgets/error_state_widget.dart';
 import 'login_screen.dart';
 
 class SanhourDealerScreen extends StatefulWidget {
@@ -124,6 +127,18 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
             if (snap.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
+            // ✅ إصلاح: التحقق من الخطأ قبل اعتباره "لا توجد بيانات" — كان
+            // فشل الاستعلام (غالباً بسبب نقص Firestore Index) يظهر بصمت
+            // كـ "لا توجد إعلانات" بدلاً من رسالة خطأ واضحة، فتبدو الشاشة
+            // وكأنها "لا تعمل" من غير أي تفسير
+            if (snap.hasError) {
+              developer.log('dealer_listings browse query error: ${snap.error}',
+                  name: 'SanhourDealerScreen');
+              return ErrorStateWidget(
+                message: 'تعذّر تحميل الإعلانات. تحقق من اتصالك وحاول مجدداً.',
+                onRetry: () => setState(() {}),
+              );
+            }
             final docs = snap.data?.docs ?? [];
             if (docs.isEmpty) {
               return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -200,9 +215,14 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
         builder: (_, ctrl) => SingleChildScrollView(
           controller: ctrl,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            if (data['imageUrl'] != null && (data['imageUrl'] as String).isNotEmpty)
+            // ✅ إصلاح: الحقل الصحيح imageUrls (مصفوفة) وليس imageUrl —
+            // كانت هذه الصورة لا تظهر أبداً في تفاصيل الإعلان بسبب قراءة
+            // حقل غير موجود في أي وثيقة
+            if ((data['imageUrls'] as List?)?.isNotEmpty == true)
               SizedBox(height: 250, width: double.infinity,
-                  child: CachedImage(imageUrl: data['imageUrl'], fit: BoxFit.cover)),
+                  child: CachedImage(
+                      imageUrl: (data['imageUrls'] as List).first as String,
+                      fit: BoxFit.cover)),
             Padding(padding: const EdgeInsets.all(20), child: Column(
               crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(data['title'] ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
@@ -238,10 +258,23 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                 ]),
               ),
               const SizedBox(height: 16),
+              // ✅ إصلاح: الزر كان فارغاً تماماً (onPressed: () {}) — الآن
+              // يفتح تطبيق الاتصال فعلياً برقم البائع
               if (data['phone'] != null) SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () async {
+                    final phone = data['phone'].toString();
+                    final uri = Uri.parse('tel:$phone');
+                    try {
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri);
+                      }
+                    } catch (e) {
+                      developer.log('dealer call launch error: $e',
+                          name: 'SanhourDealerScreen');
+                    }
+                  },
                   icon: const Icon(Icons.call),
                   label: Text('اتصل بالبائع: ${data['phone']}'),
                   style: ElevatedButton.styleFrom(
@@ -283,12 +316,30 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
 
   Widget _buildMyAdTab(AuthProvider auth) {
     return StreamBuilder<QuerySnapshot>(
+      // ✅ إصلاح جوهري: الحقل المُخزَّن فعلياً في كل الوثائق هو sellerId وليس
+      // userId — كان هذا الخطأ يجعل هذا التبويب يُظهر "لم تنشر أي إعلانات"
+      // دائماً بصرف النظر عمّا نشره المستخدم فعلياً، لأن الاستعلام كان يبحث
+      // في حقل غير موجود بالمرة في أي وثيقة
       stream: FirebaseFirestore.instance.collection('dealer_listings')
-          .where('userId', isEqualTo: auth.user!.id)
+          .where('sellerId', isEqualTo: auth.user!.id)
           .orderBy('createdAt', descending: true)
           .limit(5)
           .snapshots(),
       builder: (ctx, snap) {
+        // ✅ إصلاح: عرض مؤشر تحميل أثناء انتظار أول استجابة — كان الكود
+        // يقفز مباشرةً لعرض "لا توجد إعلانات" أثناء الانتظار
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        // ✅ إصلاح: التحقق من الخطأ بدلاً من تجاهله بصمت
+        if (snap.hasError) {
+          developer.log('dealer_listings myAds query error: ${snap.error}',
+              name: 'SanhourDealerScreen');
+          return ErrorStateWidget(
+            message: 'تعذّر تحميل إعلاناتك. تحقق من اتصالك وحاول مجدداً.',
+            onRetry: () => setState(() {}),
+          );
+        }
         final docs = snap.data?.docs ?? [];
         // إعلان نشط هذا الشهر
         final now = DateTime.now();
@@ -356,7 +407,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                     subtitle: Text('${data['price']} جنيه · ${data['category']}'),
                     trailing: Switch(
                       value: data['isActive'] ?? false,
-                      activeThumbColor: Colors.deepPurple,
+                      activeColor: Colors.deepPurple,
                       onChanged: (val) {
                         FirebaseFirestore.instance.collection('dealer_listings').doc(d.id).update({'isActive': val});
                       },
@@ -454,6 +505,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
               TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'رقم التواصل *', border: OutlineInputBorder())),
               const SizedBox(height: 10),
               DropdownButtonFormField<String>(
+                // ✅ إصلاح API قديم: value مُهملة لصالح initialValue (Flutter 3.32+)
                 initialValue: selectedCat,
                 decoration: const InputDecoration(labelText: 'الفئة', border: OutlineInputBorder()),
                 items: _cats.where((c) => c != 'الكل').map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
@@ -499,7 +551,18 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                             backgroundColor: Colors.red));
                       }
                     } catch (e) {
+                      // ✅ إصلاح: كان هذا الفرع يُعيد ضبط الزر بصمت من غير أي
+                      // رسالة للمستخدم عند فشل حفظ الإعلان في Firestore
+                      // (مثل رفض الصلاحيات أو مشكلة اتصال) — الآن يُعرض سبب
+                      // واضح ويُسجَّل الخطأ الحقيقي في السجل للمطوّر
+                      developer.log('dealer listing publish error: $e',
+                          name: 'SanhourDealerScreen');
                       setSheetState(() => submitting = false);
+                      if (ctx.mounted) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                            content: Text('تعذّر نشر الإعلان. تحقق من اتصالك وحاول مجدداً.'),
+                            backgroundColor: Colors.red));
+                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white,

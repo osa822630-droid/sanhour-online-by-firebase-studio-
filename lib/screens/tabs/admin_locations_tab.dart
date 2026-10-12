@@ -153,7 +153,7 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
               value: _showLocationFilter,
               onChanged: (v) =>
                   setState(() => _showLocationFilter = v),
-              activeThumbColor: const Color(0xFF5E35B1),
+              activeColor: const Color(0xFF5E35B1),
             ),
           ]),
 

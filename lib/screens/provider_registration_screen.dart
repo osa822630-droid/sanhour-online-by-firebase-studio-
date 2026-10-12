@@ -119,6 +119,9 @@ class _ProviderRegistrationScreenState
         backgroundColor: Colors.green,
         duration: Duration(seconds: 3),
       ));
+      // ✅ إصلاح: تأخير بسيط قبل الإغلاق حتى تظهر رسالة النجاح فعلياً
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;

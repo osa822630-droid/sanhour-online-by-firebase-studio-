@@ -18,8 +18,6 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
     with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   // ✅ Fix #104/#106/#107: تخزين رسالة الخطأ
-  // ignore: unused_field
-  // ignore: unused_field
   String? _errorMsg;
   List<Map<String, dynamic>> _allComplaints = [];
   List<Map<String, dynamic>> _filteredComplaints = [];
@@ -148,7 +146,6 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
         : (item['adminReply'] as String?); // backward compat
 
     final hasReply = replyText != null && replyText.isNotEmpty;
-    // ignore: unused_local_variable
     final status = item['status'] as String? ?? 'pending';
     final type = item['type'] as String? ?? 'شكوى';
     final repliedAt = item['repliedAt'];
@@ -281,7 +278,7 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
                               fontSize: 13)),
                     ]),
                     const SizedBox(height: 6),
-                    Text(replyText,
+                    Text(replyText!,
                         style: const TextStyle(fontSize: 13, height: 1.4)),
                     if (repliedAtStr.isNotEmpty) ...[
                       const SizedBox(height: 4),
@@ -408,9 +405,9 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
       // ✅ إشعار فوري للمستخدم
       if (userId.isNotEmpty) {
         await FirebaseFirestore.instance.collection('notifications').add({
-          'title': '💬 رد على "${title.length > 30 ? '${title.substring(0, 30)}...' : title}"',
+          'title': '💬 رد على "${title.length > 30 ? title.substring(0, 30) + '...' : title}"',
           'body': replyText.length > 80
-              ? '${replyText.substring(0, 80)}...'
+              ? replyText.substring(0, 80) + '...'
               : replyText,
           'type': 'complaint_reply',
           'targetUserId': userId,
@@ -429,7 +426,7 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
             .add({
           'title': '💬 رد جديد على شكواك',
           'body': replyText.length > 80
-              ? '${replyText.substring(0, 80)}...'
+              ? replyText.substring(0, 80) + '...'
               : replyText,
           'targetUserId': userId,
           'data': {

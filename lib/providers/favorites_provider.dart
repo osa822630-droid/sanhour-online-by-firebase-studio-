@@ -325,7 +325,7 @@ class FavoritesProvider with ChangeNotifier {
     if (_user == null) return;
     // التحقق أن المجموعة ملك للمستخدم الحالي
     final existing = _collections.any(
-        (c) => c.id == collectionId && c.ownerId == _user?.id);
+        (c) => c.id == collectionId && c.ownerId == _user.id);
     if (!existing) {
       throw Exception('لا يمكنك حذف مجموعة لا تملكها.');
     }

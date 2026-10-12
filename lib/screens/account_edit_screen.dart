@@ -173,12 +173,10 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
       ));
       return null;
     } finally {
-      if (mounted) {
-        setState(() {
+      if (mounted) setState(() {
         _isUploadingPhoto = false;
         _photoProgress = null;
       });
-      }
     }
   }
 
@@ -251,6 +249,10 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
         content: Text('تم حفظ التغييرات بنجاح ✅'),
         backgroundColor: Colors.green,
       ));
+      // ✅ إصلاح: كان الإغلاق يحدث فوراً بعد عرض الرسالة، فتُدمَّر الرسالة مع
+      // الشاشة قبل أن يراها المستخدم فعلياً — تأخير بسيط يضمن ظهورها بوضوح
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;

@@ -158,6 +158,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
         content: Text(_isEditing ? '✅ تم تعديل المنتج' : '✅ تم إضافة المنتج'),
         backgroundColor: Colors.green,
       ));
+      // ✅ إصلاح: تأخير بسيط قبل الإغلاق حتى تظهر رسالة النجاح فعلياً للمستخدم
+      // بدلاً من أن تُدمَّر مع الشاشة فور إغلاقها
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
       navigator.pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -265,6 +269,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               const SizedBox(height: 12),
 
               DropdownButtonFormField<String>(
+                // ✅ إصلاح API قديم: value مُهملة لصالح initialValue (Flutter 3.32+)
                 initialValue: catNames.contains(_selectedCategory)
                     ? _selectedCategory
                     : catNames.first,

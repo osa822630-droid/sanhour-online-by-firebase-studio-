@@ -2,8 +2,6 @@
 // ✅ إضافة: دليل الاستخدام → يعود للـ OnboardingScreen
 // ✅ إضافة: شكاواي → MyComplaintsScreen
 // ✅ باقي الكود بدون تغيير
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -12,7 +10,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/theme_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
-// ignore: unused_import
 import 'merchant_dashboard.dart';
 import 'admin_dashboard.dart';
 import 'report_problem_screen.dart';
@@ -167,7 +164,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
               ),
               value: isDark,
               onChanged: (_) => themeProvider.toggleTheme(),
-              activeThumbColor: Colors.deepPurple,
+              activeColor: Colors.deepPurple,
             ),
             const Divider(height: 1),
             SwitchListTile(
@@ -178,7 +175,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
               secondary: const Icon(Icons.campaign, color: Colors.deepPurple),
               value: _showStartupAds,
               onChanged: _toggleAdsPreference,
-              activeThumbColor: Colors.deepPurple,
+              activeColor: Colors.deepPurple,
             ),
           ]),
 

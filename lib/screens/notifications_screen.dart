@@ -59,9 +59,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           if (topic == 'all') return true;
           if (topic == 'merchants' && userType == 'merchant') return true;
           if (topic == 'customers' &&
-              (userType == 'customer' || userType == 'user')) {
-            return true;
-          }
+              (userType == 'customer' || userType == 'user')) return true;
           if (topic == null) return true;
           return false;
         }).toList();

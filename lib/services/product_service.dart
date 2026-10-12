@@ -68,7 +68,6 @@ class ProductService {
     // QA Fix #03: دعم كلٍّ من Firebase Auth والـ Mock Auth
     // ✅ mock_user كـ fallback لتجنب رفض عمليات الـ Mock Auth
     final firebaseUser = _auth.currentUser;
-    // ignore: unused_local_variable
     final ownerId = productData['ownerId'] as String? ?? firebaseUser?.uid ?? 'mock_user';
 
     // التحقق من الـ ownership فقط إذا كان Firebase Auth نشطاً
@@ -201,7 +200,6 @@ class ProductService {
     // QA Fix #03: دعم كلٍّ من Firebase Auth والـ Mock Auth
     // ✅ mock_user كـ fallback لتجنب رفض عمليات الـ Mock Auth
     final firebaseUser = _auth.currentUser;
-    // ignore: unused_local_variable
     final ownerId = offerData['ownerId'] as String? ?? firebaseUser?.uid ?? 'mock_user';
 
     if (firebaseUser != null) {

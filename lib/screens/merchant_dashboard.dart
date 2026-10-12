@@ -1,6 +1,6 @@
 // lib/screens/merchant_dashboard.dart
 // ✅ Phase 1 Fix #09: إصلاح TabController Mismatch.
-// كان _tabController يُبنى بـ length: 5 دائماً in initState،
+// كان _tabController يُبنى بـ length: 5 دائماً في initState،
 // بينما TabBar يعرض 4 أو 5 tabs بناءً على canViewShopStats.
 // هذا يُسبب Assertion Error فورياً لأي تاجر بصلاحيات محدودة.
 //
@@ -144,15 +144,11 @@ class _MerchantDashboardState extends State<MerchantDashboard>
             IconButton(
               tooltip: 'آراء العملاء',
               icon: const Icon(Icons.rate_review_outlined),
-              onPressed: () {
-                final String currentId = _currentShop!.id;
-                Navigator.push(
+              onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) =>
-                          MerchantReviewsScreen(shopId: currentId)),
-                );
-              },
+                      builder: (_) =>
+                          MerchantReviewsScreen(shopId: _currentShop!.id))),
             ),
             IconButton(
               tooltip: 'إعدادات المتجر',

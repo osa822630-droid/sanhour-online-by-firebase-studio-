@@ -145,7 +145,10 @@ class _AddShopScreenState extends State<AddShopScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('🎉 تم إنشاء المحل بنجاح!'), backgroundColor: Colors.green),
         );
-        Navigator.pop(context, true);
+        // ✅ إصلاح: تأخير بسيط قبل الإغلاق حتى تظهر رسالة النجاح فعلياً
+        // للمستخدم بدلاً من أن تُدمَّر مع الشاشة فوراً
+        await Future.delayed(const Duration(milliseconds: 600));
+        if (mounted) Navigator.pop(context, true);
       }
     } catch (e) {
       if (!mounted) return;

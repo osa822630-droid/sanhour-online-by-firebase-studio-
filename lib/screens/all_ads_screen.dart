@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../models/ad_model.dart';
 import '../services/ad_service.dart';
+import '../widgets/cached_image.dart';
 import '../widgets/app_footer.dart';
 import '../widgets/context_search_bar.dart';
 // ✅ Fix #141: استخدام AdminAdCard المشترك بدلاً من بطاقة مكررة

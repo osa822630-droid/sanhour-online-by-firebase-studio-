@@ -1,5 +1,38 @@
 // lib_utils_constants.dart
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+
+// =========================================================
+// 0. أعلام البناء (Build Flags) — ✅ إصلاح مشكلتَي #5 و#6
+// =========================================================
+// الداتا الوهمية (DatabaseSeeder) والحسابات الوهمية (Mock Login) كانتا
+// معطَّلتين بالكامل في أي بناء بخلاف kDebugMode — يعني `flutter build apk`
+// العادي (وهو release افتراضياً) كان يُعطِّلهما تماماً، رغم أن التطبيق ما
+// زال في مرحلة اختبار ولا يحتاج تسجيل دخول حقيقي بعد.
+//
+// الحل: علامة بناء صريحة إضافية (`--dart-define`) منفصلة تماماً عن نوع
+// البناء (debug/release) — تتيح لك بناء APK بمزايا الاختبار فعّالة حتى
+// لو كان "release" من ناحية التحسين والأداء:
+//
+//   flutter build apk --release --dart-define=ENABLE_MOCK_MODE=true
+//
+// وبناء عادي (بدون هذه المزايا، جاهز أقرب للإطلاق الفعلي):
+//
+//   flutter build apk --release
+//
+// ملاحظة: تبقى مزايا الاختبار مُفعَّلة تلقائياً دائماً أثناء `flutter run`
+// العادي (kDebugMode) دون الحاجة لأي علامة إضافية — هذا التغيير لا يكسر
+// سير العمل الحالي في وضع التطوير إطلاقاً.
+class BuildFlags {
+  BuildFlags._();
+
+  static const bool _explicitMockFlag =
+      bool.fromEnvironment('ENABLE_MOCK_MODE', defaultValue: false);
+
+  /// ✅ true في: (أ) أي تشغيل Debug عادي (flutter run)، أو
+  /// (ب) أي بناء يحمل صراحةً --dart-define=ENABLE_MOCK_MODE=true
+  static bool get mockModeEnabled => kDebugMode || _explicitMockFlag;
+}
 
 // =========================================================
 // 1. ثوابت التطبيق الرئيسية (App Info & Colors)

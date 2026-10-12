@@ -27,9 +27,8 @@ class _AdminAdsTabState extends State<AdminAdsTab> {
   int _totalClicks = 0;
   int _activeCount = 0;
   // ✅ Fix #163: فلتر نشط / منتهي
-  final String _filterStatus = 'all'; // 'all' | 'active' | 'inactive'
+  String _filterStatus = 'all'; // 'all' | 'active' | 'inactive'
 
-  // ignore: unused_element
   List<AdModel> get _filteredAds {
     switch (_filterStatus) {
       case 'active':
@@ -328,7 +327,7 @@ class AdminAdCard extends StatelessWidget {
                 Switch(
                   value: ad.isActive,
                   onChanged: (_) => onToggle(),
-                  activeThumbColor: Colors.green,
+                  activeColor: Colors.green,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 IconButton(
@@ -353,7 +352,6 @@ class _AdFormScreen extends StatefulWidget {
   final VoidCallback onSaved;
   final AdModel? ad;
 
-  // ignore: unused_element_parameter
   const _AdFormScreen({required this.onSaved, this.ad});
 
   @override
@@ -618,6 +616,7 @@ class _AdFormScreenState extends State<_AdFormScreen> {
           _sectionLabel('عند الضغط (Action)'),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
+            // ✅ إصلاح API قديم: value مُهملة لصالح initialValue (Flutter 3.32+)
             initialValue: _targetType,
             decoration: const InputDecoration(border: OutlineInputBorder()),
             items: const [
@@ -643,6 +642,7 @@ class _AdFormScreenState extends State<_AdFormScreen> {
             const SizedBox(height: 12),
             if (_targetType == 'screen')
               DropdownButtonFormField<String>(
+                // ✅ إصلاح API قديم: value مُهملة لصالح initialValue (Flutter 3.32+)
                 initialValue: _screenOptions.keys.first,
                 decoration: const InputDecoration(
                   labelText: 'الشاشة المستهدفة',

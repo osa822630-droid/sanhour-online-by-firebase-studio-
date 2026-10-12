@@ -245,7 +245,7 @@ class _OffersScreenState extends State<OffersScreen> {
                   if (offer.description.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
-                      offer.description,
+                      offer.description!,
                       style: TextStyle(
                           color: Colors.grey[500], fontSize: 13),
                       maxLines: 2,

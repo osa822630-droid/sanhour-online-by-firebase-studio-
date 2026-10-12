@@ -23,6 +23,13 @@ class AdCarousel extends StatefulWidget {
 
 class _AdCarouselState extends State<AdCarousel> {
   int _currentIndex = 0;
+  // ✅ إصلاح الكراش: تتبّع "هوية" قائمة الإعلانات الحالية — إذا تغيّرت (عدد
+  // مختلف أو إعلانات مختلفة بعد التحديث) نُجبر CarouselSlider على إعادة
+  // البناء من الصفر بدلاً من محاولة "التكيّف" مع قائمة بحجم مختلف. هذا هو
+  // السبب الجذري للكراش/الجليتش عند الضغط على تحديث: الـ package الداخلي
+  // لـ CarouselSlider يحتفظ بـ PageController وindex داخليين، ولو تغيّر طول
+  // القائمة فجأة أثناء autoPlay النشط، يحدث RangeError داخلي أحياناً.
+  String? _lastAdsSignature;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +38,16 @@ class _AdCarouselState extends State<AdCarousel> {
 
     if (ads.isEmpty) return const SizedBox.shrink();
 
+    // ✅ إصلاح الكراش: توقيع فريد لمحتوى القائمة الحالية (وليس طولها فقط —
+    // استبدال إعلان بآخر بنفس العدد يجب أن يُعيد بناء الـ carousel أيضاً)
+    final adsSignature = ads.map((a) => a.id).join(',');
+    if (adsSignature != _lastAdsSignature) {
+      // ✅ تعديل مباشر آمن هنا — نحن في بداية build() قبل إنشاء أي widget
+      // يعتمد على _currentIndex، تماماً كما يحدث في نفس نمط home_screen.dart
+      _lastAdsSignature = adsSignature;
+      _currentIndex = 0;
+    }
+
     // ✅ Fix #189: ارتفاع تفاعلي بدلاً من قيمة ثابتة
     final screenWidth = MediaQuery.of(context).size.width;
     final carouselHeight = (screenWidth * 9 / 16).clamp(160.0, 220.0);
@@ -38,6 +55,10 @@ class _AdCarouselState extends State<AdCarousel> {
     return Column(
       children: [
         CarouselSlider(
+          // ✅ إصلاح الكراش: مفتاح فريد لمحتوى القائمة — يُجبر Flutter على
+          // إنشاء State/PageController جديد بالكامل بدلاً من محاولة إعادة
+          // استخدام الحالة القديمة مع قائمة مختلفة الحجم أو المحتوى
+          key: ValueKey('ad_carousel_$adsSignature'),
           options: CarouselOptions(
             height: carouselHeight,
             autoPlay: true,
@@ -48,6 +69,7 @@ class _AdCarouselState extends State<AdCarousel> {
             autoPlayAnimationDuration: const Duration(milliseconds: 800),
             viewportFraction: 0.9,
             onPageChanged: (index, reason) {
+              if (!mounted) return;
               setState(() {
                 _currentIndex = index;
               });

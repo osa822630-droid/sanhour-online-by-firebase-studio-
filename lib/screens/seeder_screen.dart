@@ -1,8 +1,10 @@
 // lib/screens/seeder_screen.dart
 // ✅ واجهة رفع البيانات التجريبية — تعرض تقدم كل مرحلة بشكل مرئي واضح
 // تُستخدَم فقط في kDebugMode — غير مرئية في الإنتاج
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../services/database_seeder.dart';
+import '../utils/constants.dart';
 
 class SeederScreen extends StatefulWidget {
   const SeederScreen({super.key});
@@ -45,7 +47,8 @@ class _SeederScreenState extends State<SeederScreen> {
   ];
 
   Future<void> _startSeed() async {
-    // if (!kDebugMode) return;
+    // ✅ إصلاح مشكلة #5
+    if (!BuildFlags.mockModeEnabled) return;
     setState(() {
       _isRunning = true;
       _isDone = false;
@@ -82,11 +85,12 @@ class _SeederScreenState extends State<SeederScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // if (!kDebugMode) {
-    //   return const Scaffold(
-    //     body: Center(child: Text('غير متاح في بيئة الإنتاج')),
-    //   );
-    // }
+    // ✅ إصلاح مشكلة #5
+    if (!BuildFlags.mockModeEnabled) {
+      return const Scaffold(
+        body: Center(child: Text('غير متاح في بيئة الإنتاج')),
+      );
+    }
 
     final overall = _current?.overallPercent ?? 0;
 

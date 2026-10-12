@@ -185,6 +185,9 @@ class _EditShopScreenState extends State<EditShopScreen> {
         const SnackBar(content: Text('تم تحديث بيانات المتجر ✅'),
             backgroundColor: Colors.green),
       );
+      // ✅ إصلاح: تأخير بسيط قبل الإغلاق حتى تظهر رسالة النجاح فعلياً
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;

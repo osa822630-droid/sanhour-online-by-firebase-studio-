@@ -225,7 +225,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
     DateTime? date = codeData['createdAt'] != null
         ? (codeData['createdAt'] as Timestamp).toDate()
         : null;
-    String dateStr = DateFormat('yyyy-MM-dd').format(date!);
+    String dateStr = date != null ? DateFormat('yyyy-MM-dd').format(date) : 'لا يوجد تاريخ';
     String valueStr = _selectedTypeIndex == 1 ? '• 50 ج.م' : '';
 
     return Container(

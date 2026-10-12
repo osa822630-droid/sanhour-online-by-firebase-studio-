@@ -23,6 +23,7 @@ import '../widgets/category_list.dart';
 // ✅ Pro #214: Shimmer loading
 import '../widgets/shimmer_loader.dart';
 // ✅ Pro #221: DateHelper للتواريخ
+import '../utils/date_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -121,12 +122,23 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ✅ إصلاح الجليتش: مقارنة بتوقيع فعلي (معرّفات المحلات) بدلاً من العدد
+  // فقط — العدد وحده كان يُسبب مشكلتين: (1) إعادة ترتيب متكررة ومزعجة أثناء
+  // التحديث كل ما وصلت بيانات جزئية بنفس عدد المحلات القديم تقريباً، و(2)
+  // عدم اكتشاف تغيّر المحلات الفعلية لو ظل العدد نفسه صدفة (محل عُلِّق
+  // واستُبدل بآخر). الآن يُعاد الترتيب فقط عند تغيّر المحلات فعلياً.
+  String? _lastShuffleSignature;
+
   void _buildShuffleList(ShopsProvider provider) {
-    if (_shuffledShops.isNotEmpty &&
-        _shuffledShops.length == provider.shops.length) {
+    if (provider.shops.isEmpty) {
+      _shuffledShops = [];
+      _lastShuffleSignature = null;
       return;
     }
-    if (provider.shops.isEmpty) return;
+    final signature = provider.shops.map((s) => s.id).join(',');
+    if (signature == _lastShuffleSignature) return;
+    _lastShuffleSignature = signature;
+
     final rng = Random();
     final interested = provider.shops
         .where((s) => _userInterests.contains(s.category))
@@ -141,10 +153,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _refreshData() async {
     final provider = context.read<ShopsProvider>();
-    setState(() => _shuffledShops = []);
+    // ✅ إصلاح الجليتش: لم نعد نمسح _shuffledShops هنا — كان هذا يُسبب
+    // اختفاء/إعادة ترتيب قسم "اخترنا لك" بشكل مزعج أثناء التحديث.
+    // _buildShuffleList الجديدة تكتشف التغيّر الفعلي تلقائياً بمجرد وصول
+    // بيانات جديدة حقيقية، ومؤشر RefreshIndicator نفسه يكفي كتغذية راجعة
+    // بصرية لحالة "جارٍ التحديث".
     await CacheService().clearAllCache();
     await Future.wait([
-      provider.fetchShops(refresh: true),
+      // ✅ إصلاح: تمرير الفئة الحالية — كان التحديث يمسح فلتر الفئة
+      // المختارة بصمت في كل مرة (لأن عدم تمرير category يُعيد ضبطه لـ null)
+      provider.fetchShops(category: provider.selectedCategory, refresh: true),
       provider.fetchProducts(refresh: true),
       provider.fetchOffers(refresh: true),
       provider.fetchCategories(refresh: true),
@@ -405,13 +423,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 20),
                           ],
 
-                          // ✅ Pro #214: Shimmer أثناء التحميل الأولي
+                          // ✅ إصلاح الكراش: كان هنا SliverToBoxAdapter
+                          // متداخل داخل Column عادي — تعارض نوع render
+                          // (RenderSliver داخل RenderBox) يُسبب كراش فوري
+                          // Flutter عند تحقق هذا الشرط. الحل: عنصر عادي فقط
+                          // (بدون غلاف Sliver) لأننا بالفعل داخل Column
                           if (provider.isLoading && provider.shops.isEmpty)
-                            SliverToBoxAdapter(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                child: ShimmerList(count: 4),
-                              ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: ShimmerList(count: 4),
                             ),
 
                           // حالة فارغة

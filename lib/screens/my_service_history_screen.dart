@@ -115,12 +115,10 @@ class _MyServiceHistoryScreenState
         _loadingRequests = false;
       });
     } catch (e) {
-      if (mounted) {
-        setState(() {
+      if (mounted) setState(() {
         _loadingRequests = false;
         _reqError = 'تعذّر تحميل الطلبات. اضغط للمحاولة.';
       });
-      }
     }
   }
 
@@ -164,12 +162,10 @@ class _MyServiceHistoryScreenState
         _loadingBids = false;
       });
     } catch (e) {
-      if (mounted) {
-        setState(() {
+      if (mounted) setState(() {
         _loadingBids = false;
         _bidError = 'تعذّر تحميل العروض. اضغط للمحاولة.';
       });
-      }
     }
   }
 

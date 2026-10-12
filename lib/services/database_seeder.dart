@@ -1,4 +1,4 @@
- // lib/services/database_seeder.dart
+// lib/services/database_seeder.dart
 // ✅ إصلاح شامل للـ seeder — ثلاثة محاور رئيسية:
 //
 // 1. PHASED STAGES: يُنفَّذ الـ seed على 10 مراحل متسلسلة (categories →
@@ -32,6 +32,7 @@
 import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/constants.dart';
 
 // ── نموذج تقدم المرحلة ────────────────────────────────────────────────────
 class SeederProgress {
@@ -81,9 +82,10 @@ class DatabaseSeeder {
   static Future<void> seedAll({
     ProgressCallback? onProgress,
   }) async {
-    // ✅ تتجاوز الـ seeder تلقائياً في Production
-    if (!kDebugMode) {
-      developer.log('DatabaseSeeder: skipped (not debug mode)',
+    // ✅ إصلاح مشكلة #5: تتجاوز الـ seeder تلقائياً إلا في وضع الاختبار
+    // (Debug عادي أو --dart-define=ENABLE_MOCK_MODE=true صراحةً)
+    if (!BuildFlags.mockModeEnabled) {
+      developer.log('DatabaseSeeder: skipped (mock mode disabled)',
           name: 'DatabaseSeeder');
       return;
     }
@@ -106,16 +108,16 @@ class DatabaseSeeder {
     }
 
     // المراحل بالترتيب — كل مرحلة مستقلة
-    await _phase1Settings(report);
-    await _phase2Categories(report);
-    await _phase3Users(report);
-    await _phase4Shops(report);
-    await _phase5Products(report);
-    await _phase6Offers(report);
-    await _phase7Services(report);
-    await _phase8Reviews(report);
-    await _phase9Ads(report);
-    await _phase10CommunityContent(report);
+    await _phase1_settings(report);
+    await _phase2_categories(report);
+    await _phase3_users(report);
+    await _phase4_shops(report);
+    await _phase5_products(report);
+    await _phase6_offers(report);
+    await _phase7_services(report);
+    await _phase8_reviews(report);
+    await _phase9_ads(report);
+    await _phase10_communityContent(report);
 
     // اكتمال كامل
     onProgress?.call(const SeederProgress(
@@ -133,7 +135,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 1 — إعدادات التطبيق (settings + locations)
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase1Settings(
+  static Future<void> _phase1_settings(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 1;
     const name = 'الإعدادات والمناطق';
@@ -182,62 +184,108 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 2 — الفئات والفئات الفرعية
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase2Categories(
+  static Future<void> _phase2_categories(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 2;
     const name = 'الفئات';
     report(phase, name, 0);
 
+    // ✅ إصلاح جوهري: الحقول الآن تطابق CategoryModel.fromMap تماماً —
+    // iconName (وليس iconEmoji) + colorValue (رقم Hex) + subCategories
+    // (بحرف S كبير، وليس subcategories) — الاختلاف في حالة الأحرف كان
+    // يمنع تحميل الفئات الفرعية في التطبيق نهائياً رغم كتابتها في القاعدة.
+    // ✅ إضافة subSubCategories فعلية — المستوى الثالث اللازم لنظام الـ
+    // chips الهرمي الجديد في categories_screen.dart
     final categories = [
       {
         'name': 'مأكولات ومشروبات',
-        'iconEmoji': '🍽️',
-        'subcategories': ['مطاعم', 'حلويات', 'عصائر ومشروبات', 'بقالة', 'فرن ومخبز'],
+        'iconName': 'restaurant',
+        'colorValue': 0xFFE53935,
+        'subCategories': ['مطاعم', 'حلويات', 'عصائر ومشروبات', 'بقالة', 'فرن ومخبز'],
+        'subSubCategories': {
+          'مطاعم': ['مطاعم شرقية', 'مطاعم مشويات', 'مطاعم بحري', 'وجبات سريعة'],
+          'حلويات': ['حلويات شرقية', 'كيك وتورت', 'حلويات غربية'],
+          'عصائر ومشروبات': ['عصائر طازجة', 'مشروبات ساخنة', 'سموزي وميلك شيك'],
+        },
       },
       {
         'name': 'ملابس وأزياء',
-        'iconEmoji': '👗',
-        'subcategories': ['ملابس رجالي', 'ملابس حريمي', 'ملابس أطفال', 'أحذية وحقائب', 'ملابس رياضية'],
+        'iconName': 'checkroom',
+        'colorValue': 0xFFAB47BC,
+        'subCategories': ['ملابس رجالي', 'ملابس حريمي', 'ملابس أطفال', 'أحذية وحقائب', 'ملابس رياضية'],
+        'subSubCategories': {
+          'ملابس حريمي': ['فساتين', 'عبايات', 'ملابس محجبات', 'ملابس سواريه'],
+          'ملابس رجالي': ['قمصان', 'بدل رسمية', 'ملابس كاجوال'],
+          'أحذية وحقائب': ['أحذية رجالي', 'أحذية حريمي', 'حقائب يد', 'شنط سفر'],
+        },
       },
       {
         'name': 'أجهزة إلكترونية',
-        'iconEmoji': '📱',
-        'subcategories': ['موبايلات', 'أجهزة كمبيوتر', 'أجهزة منزلية', 'إكسسوارات', 'صيانة إلكترونيات'],
+        'iconName': 'phone_android',
+        'colorValue': 0xFF1E88E5,
+        'subCategories': ['موبايلات', 'أجهزة كمبيوتر', 'أجهزة منزلية', 'إكسسوارات', 'صيانة إلكترونيات'],
+        'subSubCategories': {
+          'موبايلات': ['آيفون', 'سامسونج', 'شاومي', 'إكسسوارات موبايل'],
+          'أجهزة كمبيوتر': ['لابتوب', 'أجهزة مكتبية', 'طابعات وسكانر'],
+        },
       },
       {
         'name': 'صحة وجمال',
-        'iconEmoji': '💊',
-        'subcategories': ['صيدليات', 'عيادات أسنان', 'عيادات عامة', 'مستحضرات تجميل', 'صالونات'],
+        'iconName': 'health_and_safety',
+        'colorValue': 0xFF43A047,
+        'subCategories': ['صيدليات', 'عيادات أسنان', 'عيادات عامة', 'مستحضرات تجميل', 'صالونات'],
+        'subSubCategories': {
+          'صيدليات': ['أدوية', 'فيتامينات ومكملات', 'مستلزمات أطفال'],
+          'صالونات': ['صالونات حريمي', 'صالونات رجالي', 'سبا ومساج'],
+        },
       },
       {
         'name': 'خدمات منزلية',
-        'iconEmoji': '🔧',
-        'subcategories': ['كهرباء وسباكة', 'نجارة وديكور', 'تكييف وتبريد', 'نظافة', 'صيانة عامة'],
+        'iconName': 'handyman',
+        'colorValue': 0xFFFB8C00,
+        'subCategories': ['كهرباء وسباكة', 'نجارة وديكور', 'تكييف وتبريد', 'نظافة', 'صيانة عامة'],
+        'subSubCategories': {
+          'كهرباء وسباكة': ['فني كهرباء', 'فني سباكة', 'صيانة عدادات'],
+          'تكييف وتبريد': ['تركيب تكييف', 'صيانة تكييف', 'ثلاجات وفريزر'],
+        },
       },
       {
         'name': 'تعليم وتدريب',
-        'iconEmoji': '📚',
-        'subcategories': ['مراكز تعليمية', 'دروس خصوصية', 'لغات أجنبية', 'تدريب مهني', 'روضة وحضانة'],
+        'iconName': 'school',
+        'colorValue': 0xFF3949AB,
+        'subCategories': ['مراكز تعليمية', 'دروس خصوصية', 'لغات أجنبية', 'تدريب مهني', 'روضة وحضانة'],
+        'subSubCategories': {
+          'دروس خصوصية': ['رياضيات', 'لغة عربية', 'علوم', 'دروس ابتدائي'],
+          'لغات أجنبية': ['إنجليزي', 'فرنساوي', 'ألماني'],
+        },
       },
       {
         'name': 'مواصلات وسيارات',
-        'iconEmoji': '🚗',
-        'subcategories': ['ميكانيكا سيارات', 'غيار وقطع', 'كراج', 'أوناش', 'نقل أثاث'],
+        'iconName': 'directions_car',
+        'colorValue': 0xFF6D4C41,
+        'subCategories': ['ميكانيكا سيارات', 'غيار وقطع', 'كراج', 'أوناش', 'نقل أثاث'],
+        'subSubCategories': <String, List<String>>{},
       },
       {
         'name': 'خدمات مهنية',
-        'iconEmoji': '💼',
-        'subcategories': ['محاسبة وقانون', 'تصميم وطباعة', 'تصوير', 'ترجمة', 'استشارات'],
+        'iconName': 'gavel',
+        'colorValue': 0xFF546E7A,
+        'subCategories': ['محاسبة وقانون', 'تصميم وطباعة', 'تصوير', 'ترجمة', 'استشارات'],
+        'subSubCategories': <String, List<String>>{},
       },
       {
         'name': 'ذهب ومجوهرات',
-        'iconEmoji': '💍',
-        'subcategories': ['ذهب وفضة', 'ساعات', 'إكسسوارات فاخرة'],
+        'iconName': 'diamond',
+        'colorValue': 0xFFFFB300,
+        'subCategories': ['ذهب وفضة', 'ساعات', 'إكسسوارات فاخرة'],
+        'subSubCategories': <String, List<String>>{},
       },
       {
         'name': 'عقارات',
-        'iconEmoji': '🏠',
-        'subcategories': ['شقق للإيجار', 'شقق للبيع', 'محلات تجارية', 'أراضي', 'مكاتب عقارية'],
+        'iconName': 'home_work',
+        'colorValue': 0xFF00897B,
+        'subCategories': ['شقق للإيجار', 'شقق للبيع', 'محلات تجارية', 'أراضي', 'مكاتب عقارية'],
+        'subSubCategories': <String, List<String>>{},
       },
     ];
 
@@ -255,7 +303,7 @@ class DatabaseSeeder {
         onBatchDone: (done, total) =>
             report(phase, name, (done * 100 ~/ total), detail: 'تم $done/$total فئة'),
       );
-      report(phase, name, 100, detail: 'تم: ${categories.length} فئة');
+      report(phase, name, 100, detail: 'تم: ${categories.length} فئة (مع فئات دقيقة)');
     } catch (e, s) {
       developer.log('Phase $phase error: $e', name: 'DatabaseSeeder', error: e, stackTrace: s);
       report(phase, name, 100, detail: '⚠️ خطأ: $e');
@@ -265,7 +313,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 3 — المستخدمون
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase3Users(
+  static Future<void> _phase3_users(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 3;
     const name = 'المستخدمون';
@@ -379,7 +427,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 4 — المحلات
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase4Shops(
+  static Future<void> _phase4_shops(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 4;
     const name = 'المحلات';
@@ -512,7 +560,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 5 — المنتجات
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase5Products(
+  static Future<void> _phase5_products(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 5;
     const name = 'المنتجات';
@@ -646,7 +694,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 6 — العروض
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase6Offers(
+  static Future<void> _phase6_offers(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 6;
     const name = 'العروض';
@@ -712,15 +760,16 @@ class DatabaseSeeder {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // المرحلة 7 — الخدمات
+  // المرحلة 7 — الخدمات والتقييمات
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase7Services(
+  static Future<void> _phase7_services(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 7;
-    const name = 'الخدمات';
+    const name = 'الخدمات والتقييمات';
     report(phase, name, 0);
 
     try {
+      // ── خدمات ────────────────────────────────────────────────────────────
       final services = [
         {
           'shopId': 'shop_bakery', 'ownerId': 'mock_merchant',
@@ -757,26 +806,12 @@ class DatabaseSeeder {
         items: services,
         buildData: (item) => item,
         onBatchDone: (done, total) =>
-            report(phase, name, (done * 100 ~/ total), detail: 'خدمات: $done/$total'),
+            report(phase, name, (done * 50 ~/ total), detail: 'خدمات: $done/$total'),
       );
 
-      report(phase, name, 100, detail: 'تم: ${services.length} خدمات');
-    } catch (e, s) {
-      developer.log('Phase $phase error: $e', name: 'DatabaseSeeder', error: e, stackTrace: s);
-      report(phase, name, 100, detail: '⚠️ خطأ: $e');
-    }
-  }
+      await _delay();
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // المرحلة 8 — التقييمات
-  // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase8Reviews(
-      void Function(int, String, int, {String? detail}) report) async {
-    const phase = 8;
-    const name = 'التقييمات';
-    report(phase, name, 0);
-
-    try {
+      // ── تقييمات ───────────────────────────────────────────────────────────
       final reviews = [
         {
           'userId': 'mock_user', 'targetId': 'shop_bakery', 'targetType': 'shop',
@@ -810,10 +845,11 @@ class DatabaseSeeder {
         items: reviews,
         buildData: (item) => item,
         onBatchDone: (done, total) =>
-            report(phase, name, (done * 100 ~/ total), detail: 'تقييمات: $done/$total'),
+            report(phase, name, 50 + (done * 50 ~/ total),
+                detail: 'تقييمات: $done/$total'),
       );
 
-      report(phase, name, 100, detail: 'تم: ${reviews.length} تقييمات');
+      report(phase, name, 100, detail: 'تم: ${services.length} خدمات + ${reviews.length} تقييمات');
     } catch (e, s) {
       developer.log('Phase $phase error: $e', name: 'DatabaseSeeder', error: e, stackTrace: s);
       report(phase, name, 100, detail: '⚠️ خطأ: $e');
@@ -821,11 +857,11 @@ class DatabaseSeeder {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // المرحلة 9 — الإعلانات التجارية
+  // المرحلة 8 — الإعلانات التجارية
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase9Ads(
+  static Future<void> _phase8_ads(
       void Function(int, String, int, {String? detail}) report) async {
-    const phase = 9;
+    const phase = 8;
     const name = 'الإعلانات التجارية';
     report(phase, name, 0);
 
@@ -877,11 +913,11 @@ class DatabaseSeeder {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // المرحلة 10 — إعلانات الوظائف وطلبات الخدمات وقوائم الديلر
+  // المرحلة 9 — إعلانات الوظائف وطلبات الخدمات وقوائم الديلر
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase10CommunityContent(
+  static Future<void> _phase9_communityContent(
       void Function(int, String, int, {String? detail}) report) async {
-    const phase = 10;
+    const phase = 9;
     const name = 'وظائف وطلبات وديلر';
     report(phase, name, 0);
 
@@ -1071,6 +1107,173 @@ class DatabaseSeeder {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+  // المرحلة 10 — القوائم والإشعارات وكودات التفعيل وسجل التدقيق
+  // ─────────────────────────────────────────────────────────────────────────
+  static Future<void> _phase10_communityContent(
+      void Function(int, String, int, {String? detail}) report) async {
+    const phase = 10;
+    const name = 'القوائم والإشعارات والأكواد';
+    report(phase, name, 0);
+
+    final now = DateTime.now();
+
+    try {
+      // ── Wishlists ──────────────────────────────────────────────────────────
+      await _db.collection('wishlists').doc('wishlist_sara_001').set({
+        'name': 'قائمة الموضة',
+        'ownerId': 'mock_user',
+        'isPublic': false,
+        'collaborators': [],
+        'items': [
+          {
+            'id': 'shop_fashion',
+            'itemId': 'shop_fashion',
+            'type': 'shop',
+            'name': 'بوتيك الأناقة',
+            'imageUrl': 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=400',
+            'price': 0.0,
+            'addedAt': Timestamp.fromDate(now.subtract(const Duration(days: 3))),
+          },
+        ],
+        'createdAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      report(phase, name, 20, detail: 'تم: قوائم المفضلة');
+      await _delay();
+
+      // ── Notifications (in-app) ─────────────────────────────────────────────
+      final notifications = [
+        {
+          'userId': 'mock_user',
+          'title': '🎉 مرحباً بك في سنهور أونلاين',
+          'body': 'اكتشف أفضل المحلات والعروض في سنهور القبلية',
+          'type': 'welcome',
+          'isRead': false,
+          'data': {'route': 'home', 'channel': 'general'},
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        {
+          'userId': 'mock_user',
+          'title': '🏷️ عرض جديد: خصم 25% فستان سواريه',
+          'body': 'بوتيك الأناقة أضاف عرضاً جديداً — استغله قبل ما ينتهي!',
+          'type': 'new_offer',
+          'isRead': false,
+          'data': {'route': 'shop_detail', 'targetId': 'shop_fashion', 'channel': 'offers'},
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        {
+          'userId': 'mock_merchant',
+          'title': '📊 إحصائيات محلك هذا الأسبوع',
+          'body': 'فرن سنهور الذهبي — 340 مشاهدة هذا الأسبوع. استمر!',
+          'type': 'merchant_stats',
+          'isRead': true,
+          'data': {'route': 'merchant', 'channel': 'merchant_stats'},
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+      ];
+
+      await _batchWrite(
+        collection: 'user_notifications',
+        items: notifications,
+        buildData: (item) => item,
+        onBatchDone: (done, total) =>
+            report(phase, name, 20 + (done * 20 ~/ total), detail: 'إشعارات: $done/$total'),
+      );
+
+      await _delay();
+
+      // ── Activation Codes (صالحة للاستخدام في الاختبار) ───────────────────
+      final codes = [
+        {
+          'code': 'SHOP-TEST-0001',
+          'isUsed': false,
+          'usedBy': null,
+          'usedAt': null,
+          'shopId': null,
+          'expiresAt': Timestamp.fromDate(now.add(const Duration(days: 30))),
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        {
+          'code': 'SHOP-TEST-0002',
+          'isUsed': false,
+          'usedBy': null,
+          'usedAt': null,
+          'shopId': null,
+          'expiresAt': Timestamp.fromDate(now.add(const Duration(days: 30))),
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        {
+          'code': 'SHOP-TEST-USED',
+          'isUsed': true,
+          'usedBy': 'mock_merchant',
+          'usedAt': Timestamp.fromDate(now.subtract(const Duration(days: 20))),
+          'shopId': 'shop_bakery',
+          'expiresAt': Timestamp.fromDate(now.add(const Duration(days: 10))),
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+      ];
+
+      await _batchWrite(
+        collection: 'activation_codes',
+        items: codes,
+        getDocId: (item) => (item['code'] as String),
+        buildData: (item) => item,
+        onBatchDone: (done, total) =>
+            report(phase, name, 40 + (done * 20 ~/ total), detail: 'أكواد: $done/$total'),
+      );
+
+      await _delay();
+
+      // ── Referrals ──────────────────────────────────────────────────────────
+      await _db.collection('referrals').add({
+        'referrerId': 'mock_merchant',
+        'referredId': 'user_003',
+        'bonusDays': 7,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      report(phase, name, 70, detail: 'تم: الإحالات');
+      await _delay();
+
+      // ── Admin Audit Log ────────────────────────────────────────────────────
+      await _db.collection('admin_audit_log').add({
+        'action': 'SEED_DATABASE',
+        'adminUid': 'mock_admin',
+        'adminId': 'mock_admin',
+        'targetId': 'all',
+        'targetType': 'database',
+        'targetName': 'DatabaseSeeder',
+        'metadata': {
+          'seededAt': now.toIso8601String(),
+          'phases': 10,
+          'environment': 'debug',
+        },
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      report(phase, name, 90, detail: 'تم: سجل التدقيق');
+      await _delay();
+
+      // ── Complaints (لاختبار شاشة الشكاوى) ────────────────────────────────
+      await _db.collection('complaints').add({
+        'userId': 'mock_user',
+        'type': 'suggestion',
+        'title': 'اقتراح: إضافة فئة مزارع ودواجن',
+        'body': 'أقترح إضافة فئة "مزارع ودواجن" لأن في سنهور ناس كتير بتبيع منتجات الفلاحة',
+        'status': 'pending',
+        'adminReply': null,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      report(phase, name, 100, detail:
+          'تم: قوائم + إشعارات + أكواد + إحالات + شكاوى + سجل تدقيق');
+    } catch (e, s) {
+      developer.log('Phase $phase error: $e', name: 'DatabaseSeeder', error: e, stackTrace: s);
+      report(phase, name, 100, detail: '⚠️ خطأ: $e');
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   // أدوات مساعدة
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -1121,6 +1324,4 @@ class DatabaseSeeder {
     }
     return keywords.toList();
   }
-
-  static Future<void> cleanDatabase() async {}
 }

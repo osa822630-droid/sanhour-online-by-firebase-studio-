@@ -89,6 +89,9 @@ class _PostServiceRequestScreenState
         backgroundColor: Colors.green,
         duration: Duration(seconds: 3),
       ));
+      // ✅ إصلاح: تأخير بسيط قبل الإغلاق حتى تظهر رسالة النجاح فعلياً
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
@@ -161,7 +164,7 @@ class _PostServiceRequestScreenState
             _label('نوع الخدمة المطلوبة *'),
             const SizedBox(height: 8),
             DropdownButtonFormField<ServiceRequestCategory>(
-              initialValue: _category,
+              value: _category,
               decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.handyman_outlined)),
@@ -267,7 +270,7 @@ class _PostServiceRequestScreenState
                     color: _urgent ? Colors.red : Colors.grey),
                 value: _urgent,
                 onChanged: (v) => setState(() => _urgent = v),
-                activeThumbColor: Colors.red,
+                activeColor: Colors.red,
               ),
             ),
 

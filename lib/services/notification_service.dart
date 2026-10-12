@@ -6,7 +6,6 @@
 //   - إشعارات المفضلة (محل جديد / تغيير سعر / تحديث قائمة)
 //   - تذكيرات تجديد الاشتراك
 import 'dart:async';
-import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -47,7 +46,8 @@ class NotificationService {
     );
 
     await _notifications.initialize(
-      const InitializationSettings(android: androidSettings, iOS: iosSettings),
+      InitializationSettings(
+          android: androidSettings, iOS: iosSettings),
       onDidReceiveNotificationResponse: (response) =>
           _handleNotificationTap(response.payload),
     );
@@ -87,7 +87,7 @@ class NotificationService {
   }
 
   Future<void> _createNotificationChannels() async {
-    final androidPlugin = _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = AndroidFlutterLocalNotificationsPlugin();
     final channels = [
       const AndroidNotificationChannel(
           'merchant_stats', 'إحصائيات التاجر',
@@ -127,10 +127,8 @@ class NotificationService {
           importance: Importance.high),
     ];
 
-    if (androidPlugin != null) {
-      for (final ch in channels) {
-        await androidPlugin.createNotificationChannel(ch);
-      }
+    for (final ch in channels) {
+      await androidPlugin.createNotificationChannel(ch);
     }
   }
 
@@ -410,7 +408,7 @@ class NotificationService {
     final title = adText.isNotEmpty ? adText : 'إعلان جديد!';
     await _showNotification(
       id: adId.hashCode,
-      title: '📢 ${title.length > 40 ? '${title.substring(0, 40)}...' : title}',
+      title: '📢 ${title.length > 40 ? title.substring(0, 40) + '...' : title}',
       body: 'اضغط لرؤية التفاصيل',
       channelId: 'new_ads',
       channelName: 'إعلانات جديدة',
@@ -420,7 +418,7 @@ class NotificationService {
     // أيضاً نكتب للـ notification_queue لإرسال FCM للغائبين عبر Cloud Function
     await _writeToNotificationQueue(
       title: '📢 إعلان جديد في سنهور أونلاين',
-      body: title.length > 60 ? '${title.substring(0, 60)}...' : title,
+      body: title.length > 60 ? title.substring(0, 60) + '...' : title,
       topic: 'all',
       route: 'ad_details:$adId',
       channel: 'new_ads',
@@ -607,7 +605,7 @@ class NotificationService {
     final title = adText.isNotEmpty ? adText : 'إعلان جديد!';
     await _writeToNotificationQueue(
       title: '📢 إعلان جديد في سنهور أونلاين',
-      body: title.length > 80 ? '${title.substring(0, 80)}...' : title,
+      body: title.length > 80 ? title.substring(0, 80) + '...' : title,
       topic: 'all',
       route: 'ad_details:$adId',
       channel: 'new_ads',
@@ -687,7 +685,10 @@ class NotificationService {
     required String channelName,
     String? payload,
   }) async {
-    await _notifications.show(id, title, body, 
+    await _notifications.show(
+      id,
+      title,
+      body,
       NotificationDetails(
         android: AndroidNotificationDetails(
           channelId,
@@ -716,18 +717,18 @@ class NotificationService {
     String? payload,
   }) async {
     await _notifications.zonedSchedule(
-        id,
-        title,
-        body,
-        scheduledDate,
-        NotificationDetails(
-          android: AndroidNotificationDetails(channelId, channelName,
-              importance: Importance.high, priority: Priority.high),
-          iOS: const DarwinNotificationDetails(),
-        ),
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        payload: payload,
-        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime);
+      id,
+      title,
+      body,
+      scheduledDate,
+      NotificationDetails(
+        android: AndroidNotificationDetails(channelId, channelName,
+            importance: Importance.high, priority: Priority.high),
+        iOS: const DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: payload,
+    );
   }
 
   Future<void> _scheduleRecurringNotification({
@@ -754,7 +755,6 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       matchDateTimeComponents: matchComponents,
       payload: payload,
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 

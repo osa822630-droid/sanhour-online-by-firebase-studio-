@@ -266,7 +266,7 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
   String _iconName = 'category';
   Color _selectedColor = Colors.blue;
   List<String> _subCategories = [];
-  final Map<String, List<String>> _subSubCategories = {};
+  Map<String, List<String>> _subSubCategories = {};
   bool _isSaving = false;
 
   final List<Color> _colors = [

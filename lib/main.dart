@@ -7,14 +7,11 @@
 // ✅ QA Fix #22: إضافة onGenerateRoute لمسارات الإشعارات الديناميكية.
 // ✅ QA Fix #25: FavoritesProvider.updateUser() لتجنب إعادة الإنشاء.
 // ✅ QA Fix #33: kDebugMode لاختيار AppCheck provider تلقائياً.
-
-// ignore_for_file: deprecated_member_use
-
 import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -35,6 +32,7 @@ import 'screens/sanhour_dealer_screen.dart';
 import 'screens/interests_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/subscription_screen.dart';
+import 'screens/all_ads_screen.dart';
 import 'screens/ads_hub_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/my_complaints_screen.dart';
@@ -80,8 +78,12 @@ void main() async {
 
   // ✅ QA Fix #33: debug provider في debug mode — playIntegrity/appAttest للـ production فقط
   await FirebaseAppCheck.instance.activate(
-    androidProvider: AndroidProvider.debug,
-    appleProvider: AppleProvider.debug,
+    androidProvider: kDebugMode
+        ? AndroidProvider.debug
+        : AndroidProvider.playIntegrity,
+    appleProvider: kDebugMode
+        ? AppleProvider.debug
+        : AppleProvider.appAttest,
   );
 
   // ── Firestore settings ────────────────────────────────────
@@ -257,12 +259,76 @@ class _MyAppState extends State<MyApp> {
             supportedLocales: const [Locale('ar', 'EG')],
             locale: const Locale('ar', 'EG'),
             themeMode: themeProvider.themeMode,
+
+            // ✅ Pro #220: استخدام AppTheme المركزي بدلاً من ThemeData inline
             theme: AppTheme.light.copyWith(
-              textTheme: GoogleFonts.tajawalTextTheme(AppTheme.light.textTheme),
+              fontFamily: 'Tajawal',
+              inputDecorationTheme: InputDecorationTheme(
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey[300]!, width: 1)),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                        color: Color(0xFF5E35B1), width: 1.5)),
+                prefixIconColor: const Color(0xFF5E35B1),
+                labelStyle: const TextStyle(color: Color(0xFF5E35B1)),
+              ),
+              chipTheme: ChipThemeData(
+                selectedColor: const Color(0xFF5E35B1),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+              ),
+              progressIndicatorTheme:
+                  const ProgressIndicatorThemeData(color: Color(0xFF5E35B1)),
+              dividerTheme:
+                  DividerThemeData(color: Colors.grey[200], thickness: 1),
+              snackBarTheme: SnackBarThemeData(
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
             ),
+
             darkTheme: AppTheme.dark.copyWith(
-              textTheme: GoogleFonts.tajawalTextTheme(AppTheme.dark.textTheme),
+              fontFamily: 'Tajawal',
+              inputDecorationTheme: InputDecorationTheme(
+                filled: true,
+                fillColor: const Color(0xFF252535),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(
+                        color: Color(0xFF7C4DFF), width: 1.5)),
+                prefixIconColor: const Color(0xFF7C4DFF),
+                labelStyle: const TextStyle(color: Color(0xFF7C4DFF)),
+              ),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+              )),
+              chipTheme: ChipThemeData(
+                selectedColor: const Color(0xFF7C4DFF),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+              ),
+              progressIndicatorTheme:
+                  const ProgressIndicatorThemeData(color: Color(0xFF7C4DFF)),
+              snackBarTheme: SnackBarThemeData(
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
             ),
+
             home: Consumer<AuthProvider>(
               builder: (context, auth, _) {
                 switch (auth.status) {
@@ -289,6 +355,9 @@ class _MyAppState extends State<MyApp> {
               '/onboarding':           (_) => const OnboardingScreen(),
               '/merchant_stats':       (_) => const MerchantDashboard(),
               '/subscription':         (_) => const SubscriptionScreen(),
+              '/all_ads':              (_) => const AdsHubScreen(),
+              // ✅ Fix #86: /ads_hub حُذف من routes الثابتة — onGenerateRoute يتولاه
+              //             لضمان وصول arguments (initialTab) للشاشة
               '/notifications':        (_) => const NotificationsScreen(),
               '/my_complaints':        (_) => const MyComplaintsScreen(),
               '/my_service_history':   (_) => const MyServiceHistoryScreen(),

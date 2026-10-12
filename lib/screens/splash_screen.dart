@@ -160,69 +160,28 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // ✅ خلفية احتياطية بنفس مزاج ألوان صورة شاشة البداية — تظهر فقط
-          // خلف تصميم الـ fallback في حال تعذّر تحميل الصورة، أو في أي هامش
-          // نادر ناتج عن اختلاف نسبة الشاشة عن نسبة الصورة
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                  colors: [Color(0xFF0D0614), Color(0xFF2A0845)]),
-            ),
-          ),
-
-          // ✅ صورة شاشة البداية — asset محلي مُضمَّن بالكامل داخل التطبيق
-          // (assets/images/splash_background.png) — لا تعتمد على الإنترنت
-          // إطلاقاً، تعمل من أول لحظة تشغيل حتى بدون اتصال.
-          Image.asset(
-            'assets/images/splash_background.png',
-            fit: BoxFit.cover,
-            // ✅ Fallback: تصميم بسيط (أيقونة + اسم التطبيق) لو الصورة غير
-            // موجودة — يحدث هذا فقط إذا نُسي تسجيل مسارها في pubspec.yaml
-            errorBuilder: (context, error, stackTrace) =>
-                Center(child: _buildFallbackLogo()),
-          ),
-
-          // ✅ مؤشر تحميل بسيط في الهامش المظلم أسفل الصورة (تحت الموبايل)
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 48,
-            child: Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                strokeWidth: 2,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// تصميم fallback بسيط (أيقونة + اسم التطبيق) — يظهر فقط إذا تعذّر تحميل
-  /// صورة شاشة البداية من الـ assets (غالباً بسبب نسيان تسجيل المسار في
-  /// pubspec.yaml أو حذف الملف بالخطأ من مجلد assets/images/).
-  Widget _buildFallbackLogo() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15), shape: BoxShape.circle),
-          child: const Icon(Icons.storefront, size: 70, color: Colors.white),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [Color(0xFF4527A0), Color(0xFF7B1FA2)]),
         ),
-        const SizedBox(height: 24),
-        const Text('سنهور أونلاين',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
-        const SizedBox(height: 8),
-        const Text('سنهور كلها في جيبك',
-            style: TextStyle(fontSize: 14, color: Colors.white70, letterSpacing: 2)),
-      ],
+        child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), shape: BoxShape.circle),
+            child: const Icon(Icons.storefront, size: 70, color: Colors.white),
+          ),
+          const SizedBox(height: 24),
+          const Text('سنهور أونلاين',
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+          const SizedBox(height: 8),
+          const Text('سنهور كلها في جيبك',
+              style: TextStyle(fontSize: 14, color: Colors.white70, letterSpacing: 2)),
+          const SizedBox(height: 40),
+          const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white), strokeWidth: 2),
+        ])),
+      ),
     );
   }
 }

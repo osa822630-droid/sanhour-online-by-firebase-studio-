@@ -101,6 +101,9 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
         content: Text('تم نشر إعلان الوظيفة بنجاح ✅'),
         backgroundColor: Colors.green,
       ));
+      // ✅ إصلاح: تأخير بسيط قبل الإغلاق حتى تظهر رسالة النجاح فعلياً
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
@@ -149,7 +152,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
             _label('نوع الوظيفة *'),
             const SizedBox(height: 8),
             DropdownButtonFormField<JobCategory>(
-              initialValue: _category,
+              value: _category,
               decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.work_outline)),
@@ -228,7 +231,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
             _label('نوع الدوام'),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              initialValue: _workType,
+              value: _workType,
               decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.schedule_outlined)),

@@ -9,6 +9,7 @@ import 'package:sanhour_online/models/product.dart';
 import 'package:sanhour_online/models/offer.dart';
 import 'package:sanhour_online/providers/favorites_provider.dart';
 import 'package:sanhour_online/providers/auth_provider.dart';
+import 'package:sanhour_online/providers/shop_detail_provider.dart';
 import 'package:sanhour_online/services/api_service.dart';
 import 'package:sanhour_online/widgets/cached_image.dart';
 import 'detail_screen.dart';
@@ -84,12 +85,10 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
       }
     } catch (e) {
       // ✅ Fix #96: عرض رسالة الخطأ للمستخدم
-      if (mounted) {
-        setState(() {
+      if (mounted) setState(() {
         _isLoading = false;
         _errorMsg = 'تعذّر تحميل بيانات المحل. تحقق من اتصالك.';
       });
-      }
     }
   }
 
