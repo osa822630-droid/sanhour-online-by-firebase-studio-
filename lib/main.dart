@@ -246,6 +246,10 @@ class _MyAppState extends State<MyApp> {
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
+          // ✅ Item #1: AppTheme.light/dark هما getters بتبني ThemeData جديد كل مرة،
+          // فنثبّت نسخة واحدة لكل ثيم ونبني عليها بدل استدعائهم أكتر من مرة.
+          final lightBase = AppTheme.light;
+          final darkBase = AppTheme.dark;
           return MaterialApp(
             navigatorKey: NotificationService.navigatorKey,
             navigatorObservers: [AnalyticsService.observer],
@@ -261,8 +265,12 @@ class _MyAppState extends State<MyApp> {
             themeMode: themeProvider.themeMode,
 
             // ✅ Pro #220: استخدام AppTheme المركزي بدلاً من ThemeData inline
-            theme: AppTheme.light.copyWith(
-              fontFamily: 'Tajawal',
+            theme: lightBase.copyWith(
+              // ThemeData.copyWith لا يملك معامل fontFamily (موجود في constructor فقط)،
+              // فنطبّق الخط على الـ TextThemes مباشرة وده نفس تأثير ThemeData(fontFamily:).
+              textTheme: lightBase.textTheme.apply(fontFamily: 'Tajawal'),
+              primaryTextTheme:
+                  lightBase.primaryTextTheme.apply(fontFamily: 'Tajawal'),
               inputDecorationTheme: InputDecorationTheme(
                 filled: true,
                 fillColor: Colors.grey[100],
@@ -295,8 +303,10 @@ class _MyAppState extends State<MyApp> {
               ),
             ),
 
-            darkTheme: AppTheme.dark.copyWith(
-              fontFamily: 'Tajawal',
+            darkTheme: darkBase.copyWith(
+              textTheme: darkBase.textTheme.apply(fontFamily: 'Tajawal'),
+              primaryTextTheme:
+                  darkBase.primaryTextTheme.apply(fontFamily: 'Tajawal'),
               inputDecorationTheme: InputDecorationTheme(
                 filled: true,
                 fillColor: const Color(0xFF252535),
@@ -310,11 +320,6 @@ class _MyAppState extends State<MyApp> {
                 prefixIconColor: const Color(0xFF7C4DFF),
                 labelStyle: const TextStyle(color: Color(0xFF7C4DFF)),
               ),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                elevation: 0,
-              )),
               chipTheme: ChipThemeData(
                 selectedColor: const Color(0xFF7C4DFF),
                 shape: RoundedRectangleBorder(
