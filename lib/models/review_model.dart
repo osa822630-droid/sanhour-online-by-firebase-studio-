@@ -48,7 +48,9 @@ class Review {
       targetId: (data['targetId'] as String?) ?? '',
       targetType: (data['targetType'] as String?) ?? '',
       // ✅ Fix #149: safe num cast لمنع InvalidCastException
-      rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
+      // ✅ Item #5: rating معرّف int (نجوم 1–5) فالقراءة لازم تطلّع int كمان.
+      // .toInt() بيتعامل مع المخزّن كـ int أو double (مثلًا 5.0 من الـ seeder).
+      rating: (data['rating'] as num?)?.toInt() ?? 0,
       comment: (data['comment'] as String?) ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       reply: data['reply'] as String?,
