@@ -1,4 +1,5 @@
 // lib/screens/splash_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -46,20 +47,24 @@ class _SplashScreenState extends State<SplashScreen> {
     // ✅ 1. أول تشغيل → الأونبوردينج
     if (!onboardingDone) {
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const OnboardingScreen()));
+      _replaceSelf(MaterialPageRoute(builder: (_) => const OnboardingScreen()));
       return;
     }
 
     // ✅ 1.5 التحقق من التحديث الإجباري
-    if (mounted) await ForceUpdateChecker.check(context);
+    // ✅ Item #2: الـ Splash بقت صاحبة التنقل الوحيدة، فمهلة 5 ثواني عشان اتصال
+    // بطيء ميعلّقش التطبيق. لو المهلة خلصت بنكمل عادي، والـ Dialog مش هيظهر لو
+    // الـ Splash اتشالت (ForceUpdateChecker بيفحص context.mounted قبل العرض).
+    if (mounted) {
+      await ForceUpdateChecker.check(context)
+          .timeout(const Duration(seconds: 5), onTimeout: () {});
+    }
     if (!mounted) return;
 
     // ✅ 2. بعد الأونبوردينج → الاهتمامات (مرة واحدة فقط)
     if (!interestsDone) {
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const InterestsScreen()));
+      _replaceSelf(MaterialPageRoute(builder: (_) => const InterestsScreen()));
       return;
     }
 
@@ -69,18 +74,82 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
+    // ✅ Item #2: ننتظر استقرار حالة المصادقة بدل ما نقراها لحظة وصول التسلسل لهنا.
+    // (على الشبكات البطيئة كانت لسه "authenticating" فالمستخدم المسجّل كان بيتبعت
+    // للـ login بالغلط.)
+    await _waitForAuthResolved(auth);
+    if (!mounted) return;
+
     // ✅ Fix #93: التعامل مع حالة الخطأ (timeout/uninitialized) بشكل واضح
     if (auth.status == AuthStatus.uninitialized) {
       // انتهت المهلة قبل تحديد حالة المصادقة — إرسال للـ login
-      Navigator.of(context).pushReplacementNamed('/login');
+      _replaceSelfNamed('/login');
       return;
     }
 
     if (auth.isLoggedIn || auth.isGuest) {
-      Navigator.of(context).pushReplacementNamed('/home');
+      _replaceSelfNamed('/home');
     } else {
-      Navigator.of(context).pushReplacementNamed('/login');
+      _replaceSelfNamed('/login');
     }
+  }
+
+  /// ✅ Item #2: بينتظر لحد ما حالة المصادقة تستقر (مش uninitialized ولا authenticating).
+  ///
+  /// قبل كده كان الـ Consumer في main.dart هو اللي بيبدّل الشاشة أول ما الحالة
+  /// تتغير وبيقطع تسلسل الـ Splash. دلوقتي الـ Splash هي صاحبة قرار التنقل
+  /// الوحيدة، فلازم تستنى الحالة بنفسها. AuthProvider عنده timeout 10 ثواني على
+  /// جلب المستخدم، فالمهلة هنا (20 ثانية) حماية إضافية بس.
+  Future<void> _waitForAuthResolved(AuthProvider auth) async {
+    bool isPending() =>
+        auth.status == AuthStatus.uninitialized ||
+        auth.status == AuthStatus.authenticating;
+
+    if (!isPending()) return;
+
+    final resolved = Completer<void>();
+    void listener() {
+      if (!isPending() && !resolved.isCompleted) resolved.complete();
+    }
+
+    auth.addListener(listener);
+    try {
+      await resolved.future.timeout(const Duration(seconds: 20), onTimeout: () {});
+    } finally {
+      auth.removeListener(listener);
+    }
+  }
+
+  /// ✅ Item #2: بيستبدل شاشة الـ Splash نفسها بـ [newRoute].
+  ///
+  /// ⚠️ Navigator.pushReplacement بتستبدل "أعلى route" في الـ Navigator مش الـ Splash
+  /// بالضرورة. لو اتفتح فوق الـ Splash أي حاجة (Dialog التحديث الإجباري، شاشة من
+  /// إعلان البداية، deep link أو إشعار) كانت pushReplacement هتشيلها هي وتسيب
+  /// الـ Splash. عشان كده: لو الـ Splash هي الـ route الحالية بنستخدم
+  /// pushReplacement (مع الأنيميشن)، ولو لأ بنستبدلها من تحت بـ Navigator.replace
+  /// وبنسيب اللي فوقها زي ما هو.
+  void _replaceSelf(Route<dynamic> newRoute) {
+    final navigator = Navigator.of(context);
+    final self = ModalRoute.of(context);
+    if (self == null || self.isCurrent) {
+      navigator.pushReplacement(newRoute);
+    } else {
+      navigator.replace(oldRoute: self, newRoute: newRoute);
+    }
+  }
+
+  /// نفس [_replaceSelf] لمسار مسمّى (/home أو /login). الـ Route بيتبني من جدول
+  /// الـ routes في main.dart نفسه (onGenerateRoute) عشان مفيش تكرار للجدول هنا.
+  void _replaceSelfNamed(String routeName) {
+    final navigator = Navigator.of(context);
+    final route = navigator.widget.onGenerateRoute
+        ?.call(RouteSettings(name: routeName));
+    if (route == null) {
+      // احتياط: لو الـ Navigator مالوش onGenerateRoute نرجع للسلوك القديم.
+      navigator.pushReplacementNamed(routeName);
+      return;
+    }
+    _replaceSelf(route);
   }
 
   Future<void> _showAdDialog(AdModel ad) async {

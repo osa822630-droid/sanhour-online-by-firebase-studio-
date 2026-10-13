@@ -334,20 +334,13 @@ class _MyAppState extends State<MyApp> {
               ),
             ),
 
-            home: Consumer<AuthProvider>(
-              builder: (context, auth, _) {
-                switch (auth.status) {
-                  case AuthStatus.uninitialized:
-                  case AuthStatus.authenticating:
-                    return const SplashScreen();
-                  case AuthStatus.authenticated:
-                  case AuthStatus.guest:
-                    return const MainScreen();
-                  case AuthStatus.unauthenticated:
-                    return const LoginScreen();
-                }
-              },
-            ),
+            // ✅ Item #2: الـ SplashScreen هي صاحبة قرار التنقل الأولي الوحيدة.
+            // قبل كده كان هنا Consumer<AuthProvider> بيبدّل الشاشة أول ما حالة
+            // المصادقة تتغير (غالبًا قبل ما الـ Splash تخلّص ثانيتين) فكان بيقطع
+            // فحوصاتها: الأونبوردينج / التحديث الإجباري / الاهتمامات / إعلان البداية.
+            // الـ Splash هي اللي بتستنى المصادقة وتروح /home أو /login. تسجيل الدخول
+            // والخروج بيستخدموا تنقّل صريح (pushReplacementNamed / pushNamedAndRemoveUntil).
+            home: const SplashScreen(),
 
             routes: {
               '/home':                 (_) => const MainScreen(),
