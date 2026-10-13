@@ -114,9 +114,9 @@ class DatabaseSeeder {
     await _phase4_shops(report);
     await _phase5_products(report);
     await _phase6_offers(report);
-    await _phase7_services(report);
-    await _phase8_reviews(report);
-    await _phase9_ads(report);
+    await _phase7_services(report); // الخدمات + التقييمات (reviews بتتزرع هنا)
+    await _phase8_ads(report);
+    await _phase9_communityContent(report);
     await _phase10_communityContent(report);
 
     // اكتمال كامل
