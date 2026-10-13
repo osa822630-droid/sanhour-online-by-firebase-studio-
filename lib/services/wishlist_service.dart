@@ -76,7 +76,12 @@ class WishlistService {
     final data = doc.data()!;
     final items = List<Map<String, dynamic>>.from(
         (data['items'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)));
-    items.removeWhere((i) => i['itemId'] == item.itemId && i['itemType'] == item.itemType);
+    // ✅ Item #8: المفتاح المخزّن اسمه 'type' (WishlistItem.toMap) مش 'itemType'،
+    // و WishlistItem ملهاش حقل itemType أصلًا. الـ fallbacks هنا (itemId ← id،
+    // type ← 'product') هي نفس اللي WishlistItem.fromMap بيستخدمها للعناصر القديمة.
+    items.removeWhere((i) =>
+        (i['itemId'] ?? i['id']) == item.itemId &&
+        (i['type'] ?? 'product') == item.type);
     await docRef.update({'items': items});
   }
 
