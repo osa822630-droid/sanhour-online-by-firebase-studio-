@@ -65,6 +65,16 @@ class SeederProgress {
 
 typedef ProgressCallback = void Function(SeederProgress progress);
 
+/// ✅ Item #4: استثناء رسالته جاهزة للعرض في الواجهة. toString() بيرجّع الرسالة
+/// بس (من غير بادئة "Exception:" ومن غير تفاصيل Firebase الخام).
+class SeederException implements Exception {
+  final String message;
+  const SeederException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 // ── الـ seeder الرئيسي ────────────────────────────────────────────────────
 class DatabaseSeeder {
   DatabaseSeeder._();
@@ -130,6 +140,94 @@ class DatabaseSeeder {
     ));
 
     developer.log('DatabaseSeeder: completed', name: 'DatabaseSeeder');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // تنظيف المحتوى (✅ Item #4)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// حجم الصفحة عند المسح (حد Firestore للـ batch الواحد = 500 عملية).
+  static const int _deletePageSize = 100;
+
+  /// المجموعات اللي بيمسحها [cleanDatabase]. المفتاح = اسم المجموعة، والقيمة =
+  /// الـ subcollections اللي لازم تتمسح قبل المستند الأب (Firestore مبيمسحهاش
+  /// تلقائيًا، ولو اتسابت هتفضل يتيمة).
+  ///
+  /// ⚠️ محتوى التطبيق فقط. مقصود إنها مش بتشمل: users، settings، activation_codes،
+  /// user_notifications، wishlists، complaints، referrals، admin_audit_log.
+  static const Map<String, List<String>> _cleanableCollections = {
+    'shops': ['daily_stats'],
+    'products': [],
+    'categories': [],
+    'offers': [],
+    'ads': [],
+    'reviews': [],
+    'services': [],
+    'job_ads': [],
+    'dealer_listings': [],
+    'service_requests': ['service_bids'],
+  };
+
+  /// ✅ Item #4: يمسح محتوى التطبيق نهائيًا (محلات، منتجات، فئات، عروض، إعلانات،
+  /// تقييمات، خدمات، وظائف، قوائم الديلر، طلبات الخدمة) ويسيب الحسابات والإعدادات
+  /// وأكواد التفعيل، زي ما بتوعد رسالة التأكيد في تاب إعدادات الأدمن.
+  ///
+  /// عملية مدمّرة ونهائية → محمية بنفس شرط الـ seeder (BuildFlags.mockModeEnabled).
+  /// بترمي [SeederException] برسالة جاهزة للعرض عند الفشل.
+  static Future<void> cleanDatabase() async {
+    if (!BuildFlags.mockModeEnabled) {
+      developer.log(
+          'DatabaseSeeder.cleanDatabase: blocked (mock mode disabled)',
+          name: 'DatabaseSeeder');
+      throw const SeederException('غير متاح في بيئة الإنتاج');
+    }
+
+    developer.log('DatabaseSeeder: cleaning content collections',
+        name: 'DatabaseSeeder');
+
+    for (final entry in _cleanableCollections.entries) {
+      try {
+        await _deleteCollection(_db.collection(entry.key),
+            subcollections: entry.value);
+      } on FirebaseException catch (e) {
+        developer.log('DatabaseSeeder: failed to clean ${entry.key}',
+            name: 'DatabaseSeeder', error: e);
+        throw SeederException('تعذّر حذف "${entry.key}" (${e.code})');
+      } catch (e) {
+        developer.log('DatabaseSeeder: failed to clean ${entry.key}',
+            name: 'DatabaseSeeder', error: e);
+        throw SeederException('تعذّر حذف "${entry.key}"');
+      }
+    }
+
+    developer.log('DatabaseSeeder: clean completed', name: 'DatabaseSeeder');
+  }
+
+  /// يمسح كل مستندات [col] على صفحات، ومعاها الـ [subcollections] تحت كل مستند.
+  static Future<void> _deleteCollection(
+    CollectionReference<Map<String, dynamic>> col, {
+    List<String> subcollections = const [],
+  }) async {
+    while (true) {
+      final snap = await col.limit(_deletePageSize).get();
+      if (snap.docs.isEmpty) return;
+
+      for (final doc in snap.docs) {
+        for (final sub in subcollections) {
+          await _deleteCollection(doc.reference.collection(sub));
+        }
+      }
+
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+
+      // أقل من حجم الصفحة = كل المستندات اتمسحت.
+      if (snap.docs.length < _deletePageSize) return;
+      await _delay();
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
