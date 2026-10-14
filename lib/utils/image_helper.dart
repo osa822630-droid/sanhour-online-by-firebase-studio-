@@ -289,8 +289,9 @@ class ImageHelper {
                     context,
                     icon: Icons.camera_alt,
                     label: 'الكاميرا',
-                    result: MediaPickChoice(
-                        source: ImageSource.camera, isVideo: false),
+                    // ✅ Item #9: النافذة معرّفة showModalBottomSheet<ImageSource>
+                    // فلازم الزرار يرجّع ImageSource (مش MediaPickChoice).
+                    result: ImageSource.camera,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -299,8 +300,7 @@ class ImageHelper {
                     context,
                     icon: Icons.photo_library,
                     label: 'المعرض',
-                    result: MediaPickChoice(
-                        source: ImageSource.gallery, isVideo: false),
+                    result: ImageSource.gallery,
                   ),
                 ),
               ]),
