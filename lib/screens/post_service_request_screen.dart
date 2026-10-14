@@ -36,10 +36,21 @@ class _PostServiceRequestScreenState
   }
 
   Future<void> _submit() async {
+    // ✅ Item #11: الضيف (وغير المسجّل) ملوش user، فـ user! كانت بتكراش وكانت
+    // جاية بعد _isSaving = true وبره الـ try فالـ spinner كان بيفضل شغال.
+    // الفحص هنا أولًا: قبل الـ validation وقبل تشغيل الـ loading.
+    final user = context.read<AuthProvider>().user;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('يجب تسجيل الدخول لطلب خدمة'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
 
-    final user = context.read<AuthProvider>().user!;
     final db = FirebaseFirestore.instance;
 
     try {

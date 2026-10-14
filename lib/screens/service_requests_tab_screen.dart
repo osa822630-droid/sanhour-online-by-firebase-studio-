@@ -120,11 +120,22 @@ class _ServiceRequestsTabScreenState
           const SizedBox(height: 8),
           FloatingActionButton.extended(
             heroTag: 'request',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const PostServiceRequestScreen()),
-            ),
+            onPressed: () {
+              // ✅ Item #11: نفس حراسة نشر الوظيفة — user == null بيغطي الضيف
+              // وغير المسجّل، وبنوقفه قبل ما يفتح فورم مش هيقدر يبعته.
+              if (auth.user == null) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('يجب تسجيل الدخول لطلب خدمة'),
+                  backgroundColor: Colors.red,
+                ));
+                return;
+              }
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const PostServiceRequestScreen()),
+              );
+            },
             icon: const Icon(Icons.add),
             label: const Text('طلب خدمة'),
             backgroundColor: const Color(0xFF5E35B1),

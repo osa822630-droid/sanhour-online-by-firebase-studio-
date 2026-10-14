@@ -134,10 +134,21 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
       backgroundColor:
           isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const PostJobAdScreen()),
-        ),
+        onPressed: () {
+          // ✅ Item #11: النشر محتاج مستخدم مسجّل. بدل ما الضيف يملا الفورم ويتفاجئ
+          // عند الإرسال، بنوقفه هنا (user == null بيغطي الضيف وغير المسجّل).
+          if (auth.user == null) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('يجب تسجيل الدخول لنشر إعلان وظيفة'),
+              backgroundColor: Colors.red,
+            ));
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PostJobAdScreen()),
+          );
+        },
         icon: const Icon(Icons.add),
         label: const Text('نشر وظيفة'),
         backgroundColor: const Color(0xFF5E35B1),

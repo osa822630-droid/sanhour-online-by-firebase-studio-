@@ -42,10 +42,21 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
   }
 
   Future<void> _submit() async {
+    // ✅ Item #11: الضيف (وغير المسجّل) ملوش user، فـ user! كانت بتكراش وكانت
+    // جاية بعد _isSaving = true وبره الـ try فالـ spinner كان بيفضل شغال.
+    // الفحص هنا أولًا: قبل الـ validation وقبل تشغيل الـ loading.
+    final user = context.read<AuthProvider>().user;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('يجب تسجيل الدخول لنشر إعلان وظيفة'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
 
-    final user = context.read<AuthProvider>().user!;
     try {
       final ref = FirebaseFirestore.instance.collection('job_ads').doc();
       final job = JobAdModel(
