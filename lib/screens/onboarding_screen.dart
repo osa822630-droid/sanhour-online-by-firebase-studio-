@@ -92,7 +92,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       return;
     }
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('seen_onboarding', true);
+    // ✅ Item #10: لازم نفس المفتاح اللي SplashScreen بتقراه ('onboarding_done'،
+    // زي 'interests_done')، وإلا الأونبوردينج بيتكرر في كل فتحة.
+    await prefs.setBool('onboarding_done', true);
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
