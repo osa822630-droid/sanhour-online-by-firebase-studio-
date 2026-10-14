@@ -91,46 +91,22 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     final user = context.read<AuthProvider>().user;
     if (user == null || widget.shopId == null) return;
 
-    final codeController = TextEditingController();
-    final confirmed = await showDialog<bool>(
+    // ✅ Item #12: الـ dialog نفسه (_RenewCodeDialog) بيرجّع الكود المُدخل كنتيجة،
+    // فمفيش قراءة من controller بعد dispose. والـ controller بقى مملوك للـ State
+    // بتاع الـ dialog ويتعمله dispose لما الـ dialog يتشال فعلًا (بعد أنيميشن
+    // الإغلاق) — الـ whenComplete القديم كان بيعمله dispose والـ TextField لسه
+    // مرسوم، وده بيطلّع "TextEditingController was used after being disposed".
+    final enteredCodeRaw = await showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('تجديد الاشتراك', textAlign: TextAlign.right),
-        content: Column(mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('خطة: ${_plans[_selectedPlan]!['label']}',
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: codeController,
-              textAlign: TextAlign.right,
-              decoration: const InputDecoration(
-                labelText: 'كود التفعيل',
-                hintText: 'أدخل الكود الذي حصلت عليه من الإدارة',
-                prefixIcon: Icon(Icons.vpn_key_outlined),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء')),
-          ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('تجديد الاشتراك')),
-        ],
+      builder: (_) => _RenewCodeDialog(
+        planLabel: _plans[_selectedPlan]!['label'] as String,
       ),
-    ).whenComplete(() => codeController.dispose());
+    );
 
-    if (confirmed != true || !mounted) return;
-
-    // إعادة قراءة الـ code بعد إغلاق الـ dialog (controller قد يكون disposed)
-    // لذا نمرر القيمة قبل dispose
-    // الحل: نستخدم local variable
-    final enteredCode = codeController.text.trim();
+    // null = المستخدم ضغط "إلغاء"
+    if (enteredCodeRaw == null || !mounted) return;
+    final enteredCode = enteredCodeRaw.trim();
 
     if (enteredCode.isEmpty) {
       if (!mounted) return;
@@ -451,5 +427,61 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   String _planLabel(String plan) {
     return _plans[plan]?['label'] as String? ?? plan;
+  }
+}
+
+/// ✅ Item #12: dialog إدخال كود التجديد.
+///
+/// بيرجّع الكود المُدخل (String) عند "تجديد الاشتراك"، أو null عند "إلغاء".
+/// الـ [TextEditingController] مملوك للـ State هنا، فبيتعمله dispose في الوقت
+/// الصح (لما الـ dialog يتشال بعد أنيميشن الإغلاق) بدل dispose يدوي من بره.
+class _RenewCodeDialog extends StatefulWidget {
+  final String planLabel;
+  const _RenewCodeDialog({required this.planLabel});
+
+  @override
+  State<_RenewCodeDialog> createState() => _RenewCodeDialogState();
+}
+
+class _RenewCodeDialogState extends State<_RenewCodeDialog> {
+  final TextEditingController _codeController = TextEditingController();
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('تجديد الاشتراك', textAlign: TextAlign.right),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('خطة: ${widget.planLabel}',
+              style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _codeController,
+            textAlign: TextAlign.right,
+            decoration: const InputDecoration(
+              labelText: 'كود التفعيل',
+              hintText: 'أدخل الكود الذي حصلت عليه من الإدارة',
+              prefixIcon: Icon(Icons.vpn_key_outlined),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء')),
+        ElevatedButton(
+            onPressed: () => Navigator.pop(context, _codeController.text),
+            child: const Text('تجديد الاشتراك')),
+      ],
+    );
   }
 }
