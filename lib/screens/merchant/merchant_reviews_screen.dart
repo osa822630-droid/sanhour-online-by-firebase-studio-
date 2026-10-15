@@ -112,87 +112,6 @@ class _MerchantReviewsScreenState extends State<MerchantReviewsScreen> {
     }
   }
 
-  Future<List<Review>> _fetchReviews() async => _reviews; // backward compat
-
-
-    final productsSnapshot = await FirebaseFirestore.instance
-        .collection('products')
-        .where('shopId', isEqualTo: widget.shopId)
-        .get();
-    final productIds = productsSnapshot.docs.map((doc) => doc.id).toList();
-
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> allReviewDocs = [];
-
-    // Fetch reviews for the shop itself
-    final shopReviewsQuery = FirebaseFirestore.instance
-        .collection('reviews')
-        .where('targetId', isEqualTo: widget.shopId)
-        .where('targetType', isEqualTo: 'shop');
-    final shopReviewsSnapshot = await shopReviewsQuery.get();
-    allReviewDocs.addAll(shopReviewsSnapshot.docs);
-
-    // ✅ Fix #153: whereIn يقبل 30 عنصراً كحد أقصى — نقسم على chunks
-    if (productIds.isNotEmpty) {
-      for (int i = 0; i < productIds.length; i += 30) {
-        final chunk = productIds.sublist(
-            i, (i + 30).clamp(0, productIds.length));
-        final productReviewsSnapshot = await FirebaseFirestore.instance
-            .collection('reviews')
-            .where('targetId', whereIn: chunk)
-            .where('targetType', isEqualTo: 'product')
-            .get();
-        allReviewDocs.addAll(productReviewsSnapshot.docs);
-      }
-    }
-
-    if (allReviewDocs.isEmpty) return [];
-
-    // Sort all reviews by date
-    allReviewDocs.sort((a, b) {
-      final aDate = (a.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(1970);
-      final bDate = (b.data()['createdAt'] as Timestamp?)?.toDate() ?? DateTime(1970);
-      return bDate.compareTo(aDate);
-    });
-
-    final userIds = allReviewDocs.map((doc) => doc['userId'] as String).toSet().toList();
-    if (userIds.isEmpty) return [];
-
-    // ✅ Fix #153: whereIn تقبل 30 كحد أقصى
-    final allUserDocs = <QueryDocumentSnapshot>[];
-    for (int i = 0; i < userIds.length; i += 30) {
-      final chunk = userIds.sublist(i, (i + 30).clamp(0, userIds.length));
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .where(FieldPath.documentId, whereIn: chunk)
-          .get();
-      allUserDocs.addAll(snap.docs);
-    }
-    final usersMap = {for (var doc in allUserDocs) doc.id: doc.data() as Map<String, dynamic>};
-
-    final productsMap = {for (var doc in productsSnapshot.docs) doc.id: doc.data()};
-
-    return Future.wait(allReviewDocs.map((doc) async {
-      final review = Review.fromFirestore(doc);
-      final userData = usersMap[review.userId];
-      String? targetName, targetImage;
-
-      if (review.targetType == 'product') {
-        final productData = productsMap[review.targetId];
-        if (productData != null) {
-            targetName = productData['name'];
-            targetImage = (productData['images'] as List?)?.first;
-        }
-      }
-
-      return review.copyWith(
-        userName: userData?['name'],
-        userImage: userData?['profileImageUrl'],
-        targetName: targetName,
-        targetImage: targetImage,
-      );
-    }).toList());
-  }
-
   void _showReplyDialog(Review review) {
     final replyController = TextEditingController(text: review.reply);
 
@@ -231,11 +150,9 @@ class _MerchantReviewsScreenState extends State<MerchantReviewsScreen> {
       'reply': reply.isEmpty ? FieldValue.delete() : reply,
       'repliedAt': reply.isEmpty ? FieldValue.delete() : FieldValue.serverTimestamp(),
     });
-    if (mounted) {
-        setState(() {
-            _reviewsFuture = _fetchReviews();
-        });
-    }
+    // ✅ بعد تحويل الشاشة لـ Pagination مفيش _reviewsFuture ولا _fetchReviews؛
+    // بنعيد تحميل أول صفحة عبر مسار الـ refresh الموجود (بيصفّر الحالة ويعيد الجلب).
+    if (mounted) await _loadReviews(refresh: true);
   }
 
   List<Review> _getFilteredReviews(List<Review> reviews) {
