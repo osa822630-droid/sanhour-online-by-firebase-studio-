@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
+import '../../services/media_upload_service.dart';
 import '../../models/shop.dart';
 import '../../widgets/cached_image.dart';
 
