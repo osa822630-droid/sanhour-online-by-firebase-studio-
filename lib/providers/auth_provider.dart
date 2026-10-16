@@ -93,6 +93,7 @@ class AuthProvider with ChangeNotifier {
       // ✅ إعادة تأسيس جلسة Firebase Auth المجهولة عند استعادة جلسة الدخول
       // التجريبي من SharedPreferences مباشرةً (بعد إعادة تشغيل التطبيق)
       await _ensureAnonymousSession();
+      await _bindMockSession(userId);
       await _fetchUserData(userId);
     } else {
       _status = AuthStatus.unauthenticated;
@@ -115,6 +116,42 @@ class AuthProvider with ChangeNotifier {
       // ✅ فشل هذه الخطوة لا يجب أن يوقف تسجيل الدخول التجريبي — القراءة
       // وتصفح التطبيق يبقيان يعملان، وقد تفشل فقط بعض عمليات الكتابة لاحقاً
       debugPrint('Anonymous auth session error (non-fatal): $e');
+    }
+  }
+
+  /// ✅ Fix #13: يربط جلسة Firebase المجهولة بمعرّف مستخدم التطبيق
+  /// (mock_admin / mock_merchant / ...) عبر وثيقة `auth_sessions/{uid}`.
+  ///
+  /// السبب: قواعد Firestore تقارن حقول الملكية (ownerId / userId / ...) وأدوار
+  /// المستخدم بـ `request.auth.uid`، وهو في الجلسة المجهولة معرّف عشوائي لا
+  /// يساوي معرّف المستخدم التجريبي، فكانت كل كتابة مقيَّدة بالملكية تُرفَض.
+  /// دالة `appUid()` في firestore.rules تقرأ هذه الوثيقة وتحلّ الهوية منها.
+  ///
+  /// تتجاهل الجلسات الحقيقية (غير المجهولة) لأن معرّفها يطابق معرّف التطبيق
+  /// أصلاً. فشلها غير قاتل: يبقى التصفح والقراءة يعملان وتفشل فقط الكتابات
+  /// المقيَّدة بالهوية.
+  Future<void> _bindMockSession(String appUserId) async {
+    try {
+      final session = _auth.currentUser;
+      if (session == null || !session.isAnonymous) return;
+      await _firestore.collection('auth_sessions').doc(session.uid).set({
+        'appUserId': appUserId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Mock session binding error (non-fatal): $e');
+    }
+  }
+
+  /// يحذف وثيقة ربط الجلسة المجهولة الحالية — يُستدعى قبل signOut()
+  /// (بعده لا تبقى جلسة تملك صلاحية الحذف فتتراكم وثائق يتيمة).
+  Future<void> _unbindMockSession() async {
+    try {
+      final session = _auth.currentUser;
+      if (session == null || !session.isAnonymous) return;
+      await _firestore.collection('auth_sessions').doc(session.uid).delete();
+    } catch (e) {
+      debugPrint('Mock session unbinding error (non-fatal): $e');
     }
   }
 
@@ -229,6 +266,10 @@ class AuthProvider with ChangeNotifier {
       }
 
       final normalizedPhone = _normalizePhone(phone);
+      // ✅ Fix #13: الجلسة المجهولة تُنشأ قبل أي قراءة أو كتابة — قاعدة قراءة
+      // users تتطلب isAuth()، وبدونها يفشل البحث بالهاتف في أول دخول (وبعد
+      // الخروج أيضاً لأن signOut() يُسقط الجلسة).
+      await _ensureAnonymousSession();
       final snap = await _firestore
           .collection('users')
           .where('phone', isEqualTo: normalizedPhone)
@@ -247,9 +288,9 @@ class AuthProvider with ChangeNotifier {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('is_guest', false);
         await prefs.setString('user_id', _user!.id);
-        // ✅ إنشاء جلسة Firebase Auth مجهولة — ضرورية لتلبية isAuth() في
-        // Firestore Security Rules عند أي عملية كتابة لاحقة
-        await _ensureAnonymousSession();
+        // ✅ Fix #13: ربط الجلسة المجهولة (أُنشئت أعلاه لتلبية isAuth()) بمعرّف
+        // المستخدم ليتعرّف عليه appUid() في Firestore Security Rules
+        await _bindMockSession(_user!.id);
         _status = AuthStatus.authenticated;
         _onLoginSuccess();
         notifyListeners();
@@ -282,10 +323,13 @@ class AuthProvider with ChangeNotifier {
       final data = Map<String, dynamic>.from(snap.docs.first.data());
       data['id'] = snap.docs.first.id;
       _user = AppUser.fromMap(data);
+      await _bindMockSession(_user!.id);
     } else {
       // ✅ Fix #198: guard ضد RangeError
       final suffix = phone.length >= 4 ? phone.substring(phone.length - 4) : phone;
       final mockId = '${userType}_mock_$suffix';
+      // ✅ Fix #13: الربط قبل كتابة وثيقة المستخدم حتى تُنسب الكتابة لهويّته
+      await _bindMockSession(mockId);
       final mockUser = AppUser(
         id: mockId,
         name: userType == 'admin' ? 'المدير' : (userType == 'merchant' ? 'التاجر' : 'مستخدم'),
@@ -408,6 +452,9 @@ class AuthProvider with ChangeNotifier {
     try {
       NotificationService().cleanup();
       await NotificationService.unsubscribeFromAllTopics();
+      // ✅ Fix #13: حذف وثيقة الربط قبل signOut() — بعده لا تبقى جلسة تملك
+      // صلاحية حذفها فتتراكم وثائق يتيمة في auth_sessions
+      await _unbindMockSession();
       await _auth.signOut();
     } catch (_) {}
 

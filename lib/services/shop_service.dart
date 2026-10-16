@@ -120,7 +120,13 @@ class ShopService {
     if (ownerId == null || ownerId.isEmpty) {
       throw Exception('يجب تسجيل الدخول أولاً');
     }
-    if (firebaseUser != null && ownerId != firebaseUser.uid) {
+    // ✅ Fix #13: مقارنة uid بـ ownerId للجلسات الحقيقية فقط. الجلسة المجهولة
+    // (Mock Login) uid لها عشوائي ولا يساوي معرّف مستخدم التطبيق المكتوب في
+    // ownerId، فكان التاجر التجريبي يُرفض هنا دائماً قبل الوصول للقواعد. في
+    // هذه الحالة تفرض Firestore Rules الملكية عبر appUid().
+    if (firebaseUser != null &&
+        !firebaseUser.isAnonymous &&
+        ownerId != firebaseUser.uid) {
       throw Exception('غير مصرح لك بإنشاء هذا المحل');
     }
 

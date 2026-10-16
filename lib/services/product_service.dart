@@ -70,8 +70,12 @@ class ProductService {
     final firebaseUser = _auth.currentUser;
     final ownerId = productData['ownerId'] as String? ?? firebaseUser?.uid ?? 'mock_user';
 
-    // التحقق من الـ ownership فقط إذا كان Firebase Auth نشطاً
-    if (firebaseUser != null) {
+    // ✅ Fix #13: التحقق من الـ ownership عبر uid فقط في الجلسات الحقيقية.
+    // الجلسة المجهولة (Mock Login) uid لها عشوائي ولا يساوي ownerId (معرّف
+    // مستخدم التطبيق)، فكان التاجر التجريبي يُرفَض هنا دائماً. في الجلسة
+    // المجهولة تفرض Firestore Rules الملكية عبر appUid() (الجلسة مربوطة
+    // بهوية المستخدم في auth_sessions).
+    if (firebaseUser != null && !firebaseUser.isAnonymous) {
       final shopDoc = await _firestore
           .collection('shops')
           .doc(productData['shopId'])
@@ -202,7 +206,9 @@ class ProductService {
     final firebaseUser = _auth.currentUser;
     final ownerId = offerData['ownerId'] as String? ?? firebaseUser?.uid ?? 'mock_user';
 
-    if (firebaseUser != null) {
+    // ✅ Fix #13: نفس منطق addProduct — فحص uid للجلسات الحقيقية فقط
+    // (الجلسة المجهولة تعتمد على Firestore Rules + appUid()).
+    if (firebaseUser != null && !firebaseUser.isAnonymous) {
       final shopDoc = await _firestore
           .collection('shops')
           .doc(offerData['shopId'])
@@ -384,7 +390,10 @@ class ProductService {
 
     final shopDoc =
         await _firestore.collection('shops').doc(shopId).get();
-    if (!shopDoc.exists || shopDoc.data()!['ownerId'] != user.uid) {
+    // ✅ Fix #13: مقارنة uid بـ ownerId للجلسات الحقيقية فقط؛ الجلسة المجهولة
+    // (Mock Login) تعتمد على Firestore Rules + appUid() لفرض الملكية.
+    if (!shopDoc.exists ||
+        (!user.isAnonymous && shopDoc.data()!['ownerId'] != user.uid)) {
       throw Exception('غير مصرح لك باستيراد منتجات لهذا المتجر');
     }
 

@@ -4,9 +4,30 @@ service cloud.firestore {
 
     // ── Helper Functions ────────────────────────────────────────────────────
     function isAuth() { return request.auth != null; }
-    function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
+
+    // ✅ Fix #13: هوية التطبيق مقابل هوية Firebase Auth.
+    // الدخول التجريبي (Mock Login) يستخدم جلسة Firebase مجهولة (anonymous)
+    // فقط لتلبية isAuth()، وهويّتها (request.auth.uid) عشوائية ولا تطابق
+    // معرّف مستخدم التطبيق (mock_admin / mock_merchant / mock_user ...).
+    // لذلك معرّف التطبيق (appUid) يُحسب هكذا:
+    //   • جلسة حقيقية (Phone Auth وغيرها): appUid == request.auth.uid.
+    //   • جلسة مجهولة (mock): appUid يُقرأ من وثيقة الربط
+    //     auth_sessions/{request.auth.uid} التي يكتبها AuthProvider عند الدخول.
+    // كل شروط الملكية والأدوار تمرّ عبر appUid() وليس request.auth.uid مباشرةً.
+    // ⚠️ وثيقة الربط يكتبها العميل نفسه (الدخول التجريبي بلا تحقق خادمي أصلاً)،
+    // فهذا مقبول فقط ما دام الـ mock في مرحلة الاختبار. قبل الإطلاق الرسمي مع
+    // Phone Auth: احذف فرع الجلسات المجهولة من appUid() وبلوك auth_sessions.
+    function isAnonymousSession() {
+      return request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+    function appUid() {
+      return isAnonymousSession()
+        ? get(/databases/$(database)/documents/auth_sessions/$(request.auth.uid)).data.appUserId
+        : request.auth.uid;
+    }
+    function isOwner(uid) { return isAuth() && appUid() == uid; }
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return get(/databases/$(database)/documents/users/$(appUid())).data;
     }
     function isAdmin() {
       return isAuth() && getUserData().userType in ['admin', 'super_admin'];
@@ -20,7 +41,7 @@ service cloud.firestore {
     function isShopOwner(shopId) {
       return isAuth() &&
         exists(/databases/$(database)/documents/shops/$(shopId)) &&
-        get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == request.auth.uid;
+        get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == appUid();
     }
     function notDeleted() { return resource.data.isDeleted != true; }
     function notSuspended() { return resource.data.isSuspended != true; }
@@ -43,12 +64,27 @@ service cloud.firestore {
       }
     }
 
+    // ── Auth Sessions (ربط الجلسة المجهولة بهوية الـ mock) ─────────────────────
+    // ✅ Fix #13: وثيقة واحدة لكل جلسة Firebase مجهولة، معرّفها = request.auth.uid
+    // وفيها appUserId (معرّف مستخدم التطبيق). تُقرأ من دالة appUid() أعلاه.
+    // الجلسة تكتب/تقرأ/تحذف وثيقتها هي فقط، ولا أحد غيرها يقدر.
+    match /auth_sessions/{sessionId} {
+      allow read, delete: if isAuth() && request.auth.uid == sessionId;
+      allow create, update: if isAuth()
+        && isAnonymousSession()
+        && request.auth.uid == sessionId
+        && request.resource.data.keys().hasOnly(['appUserId', 'updatedAt'])
+        && request.resource.data.appUserId is string
+        && request.resource.data.appUserId.size() > 0
+        && request.resource.data.appUserId.size() <= 128;
+    }
+
     // ── Shops ───────────────────────────────────────────────────────────────
     match /shops/{shopId} {
       allow read: if resource.data.isSuspended != true || isModerator();
       allow create: if isMerchant()
         // ✅ Fix #135: إضافة حقل id صريح مطابق لـ document id
-        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == appUid()
         && request.resource.data.id == shopId;
       allow update: if isShopOwner(shopId)
         // ✅ Fix #135: منع تغيير ownerId أو isSuspended من قِبَل التاجر
@@ -87,27 +123,27 @@ service cloud.firestore {
     match /services/{serviceId} {
       allow read: if resource.data.isVisible == true && resource.data.isShopHidden != true
         || isModerator()
-        || (isAuth() && resource.data.ownerId == request.auth.uid);
+        || (isAuth() && resource.data.ownerId == appUid());
       allow create: if isAuth()
-        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == appUid()
         && request.resource.data.id == serviceId;
-      allow update: if isAuth() && resource.data.ownerId == request.auth.uid
+      allow update: if isAuth() && resource.data.ownerId == appUid()
         || isModerator();
-      allow delete: if isAuth() && resource.data.ownerId == request.auth.uid || isModerator();
+      allow delete: if isAuth() && resource.data.ownerId == appUid() || isModerator();
     }
 
     // ── Reviews ──────────────────────────────────────────────────────────────
     match /reviews/{reviewId} {
       allow read: if true;
       allow create: if isAuth()
-        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userId == appUid()
         // ✅ Fix #135: منع نشر تقييم لعنصر لا يوجد
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5;
-      allow update: if isAuth() && resource.data.userId == request.auth.uid
+      allow update: if isAuth() && resource.data.userId == appUid()
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'targetId'])
         || isModerator();
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid || isModerator();
+      allow delete: if isAuth() && resource.data.userId == appUid() || isModerator();
     }
 
     // ── Categories ───────────────────────────────────────────────────────────
@@ -137,9 +173,9 @@ service cloud.firestore {
     match /job_ads/{adId} {
       allow read: if true;
       allow create: if isAuth()
-        && request.resource.data.posterId == request.auth.uid
+        && request.resource.data.posterId == appUid()
         && request.resource.data.id == adId;
-      allow update, delete: if isAuth() && resource.data.posterId == request.auth.uid
+      allow update, delete: if isAuth() && resource.data.posterId == appUid()
         || isModerator();
     }
 
@@ -147,26 +183,26 @@ service cloud.firestore {
     match /service_requests/{reqId} {
       allow read: if true;
       allow create: if isAuth()
-        && request.resource.data.posterId == request.auth.uid
+        && request.resource.data.posterId == appUid()
         && request.resource.data.id == reqId;
-      allow update: if isAuth() && resource.data.posterId == request.auth.uid
+      allow update: if isAuth() && resource.data.posterId == appUid()
         || isModerator();
-      allow delete: if isAuth() && resource.data.posterId == request.auth.uid
+      allow delete: if isAuth() && resource.data.posterId == appUid()
         || isModerator();
 
       match /bids/{bidId} {
         allow read: if isAuth();
-        allow create: if isAuth() && request.resource.data.bidderId == request.auth.uid;
-        allow update, delete: if isAuth() && resource.data.bidderId == request.auth.uid
+        allow create: if isAuth() && request.resource.data.bidderId == appUid();
+        allow update, delete: if isAuth() && resource.data.bidderId == appUid()
           || isModerator();
       }
     }
 
     // ── Notifications ─────────────────────────────────────────────────────────
     match /notifications/{notifId} {
-      allow read, update: if isAuth() && resource.data.userId == request.auth.uid;
+      allow read, update: if isAuth() && resource.data.userId == appUid();
       allow create: if isModerator();
-      allow delete: if isAuth() && resource.data.userId == request.auth.uid || isModerator();
+      allow delete: if isAuth() && resource.data.userId == appUid() || isModerator();
     }
 
     // ── Notification Queue ────────────────────────────────────────────────────
@@ -178,22 +214,22 @@ service cloud.firestore {
     // ── Wishlists ─────────────────────────────────────────────────────────────
     match /wishlists/{listId} {
       allow read: if isAuth() && (
-        resource.data.ownerId == request.auth.uid
-        || request.auth.uid in resource.data.collaborators
+        resource.data.ownerId == appUid()
+        || appUid() in resource.data.collaborators
         || resource.data.isPublic == true
       );
-      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.ownerId == appUid();
       allow update: if isAuth() && (
-        resource.data.ownerId == request.auth.uid
-        || request.auth.uid in resource.data.collaborators
+        resource.data.ownerId == appUid()
+        || appUid() in resource.data.collaborators
       );
-      allow delete: if isAuth() && resource.data.ownerId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.ownerId == appUid();
     }
 
     // ── Complaints ────────────────────────────────────────────────────────────
     match /complaints/{complaintId} {
-      allow read: if isAuth() && resource.data.userId == request.auth.uid || isModerator();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuth() && resource.data.userId == appUid() || isModerator();
+      allow create: if isAuth() && request.resource.data.userId == appUid();
       allow update: if isModerator();
       allow delete: if isModerator();
     }
@@ -237,16 +273,16 @@ service cloud.firestore {
     // ── Service Providers ────────────────────────────────────────────────────
     match /service_providers/{providerId} {
       allow read: if true;
-      allow write: if isAuth() && request.auth.uid == providerId || isModerator();
+      allow write: if isAuth() && appUid() == providerId || isModerator();
     }
 
     // ── Referrals ─────────────────────────────────────────────────────────────
     match /referrals/{referralId} {
       allow read: if isAuth() && (
-        resource.data.referrerId == request.auth.uid
-        || resource.data.referredId == request.auth.uid
+        resource.data.referrerId == appUid()
+        || resource.data.referredId == appUid()
       ) || isModerator();
-      allow create: if isAuth() && request.resource.data.referredId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.referredId == appUid();
       allow update: if isModerator();
       allow delete: if false;
     }
