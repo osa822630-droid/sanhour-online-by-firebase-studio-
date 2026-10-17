@@ -548,10 +548,11 @@ class _ServiceRequestsTabScreenState
                     createdAt: DateTime.now(),
                   );
 
-                  final docRef = await _db
-                      .collection('service_bids')
-                      .add(bid.toMap());
-                  await _db.collection('service_bids').doc(docRef.id).update({'id': docRef.id});
+                  // ✅ Fix #15: معرّف العرض يُولَّد مسبقاً ويُكتب مع المستند في
+                  // كتابة واحدة (كان add بـ id فارغ ثم update للـ id: كتابتان،
+                  // والقواعد تشترط id == معرّف المستند ولا تسمح بالتعديل الثاني)
+                  final bidRef = _db.collection('service_bids').doc();
+                  await bidRef.set({...bid.toMap(), 'id': bidRef.id});
 
                   // تحديث عدد العروض
                   await _db.collection('service_requests').doc(req.id).update({

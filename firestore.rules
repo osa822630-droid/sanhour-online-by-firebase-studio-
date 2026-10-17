@@ -43,6 +43,10 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/shops/$(shopId)) &&
         get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == appUid();
     }
+    // ✅ Fix #15: بيانات طلب خدمة — لتحديد صاحب الطلب/حالته في قواعد service_bids
+    function serviceRequestData(requestId) {
+      return get(/databases/$(database)/documents/service_requests/$(requestId)).data;
+    }
     function notDeleted() { return resource.data.isDeleted != true; }
     function notSuspended() { return resource.data.isSuspended != true; }
 
@@ -182,20 +186,55 @@ service cloud.firestore {
     // ── Service Requests ──────────────────────────────────────────────────────
     match /service_requests/{reqId} {
       allow read: if true;
+      // ✅ Fix #15: صاحب الطلب هو clientId (الموديل/الشاشة/الـ Seeder يكتبون
+      // clientId؛ القواعد كانت تفحص posterId غير الموجود فيُرفض كل إنشاء/تعديل)
       allow create: if isAuth()
-        && request.resource.data.posterId == appUid()
+        && request.resource.data.clientId == appUid()
         && request.resource.data.id == reqId;
-      allow update: if isAuth() && resource.data.posterId == appUid()
+      allow update: if (isAuth() && resource.data.clientId == appUid())
+        || isModerator()
+        // مقدّم عرض جديد يزيد العدّاد بمقدار 1 فقط (شاشة تقديم العرض تفعل ذلك)
+        || (isAuth()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bidsCount'])
+          && request.resource.data.bidsCount == resource.data.bidsCount + 1);
+      allow delete: if (isAuth() && resource.data.clientId == appUid())
         || isModerator();
-      allow delete: if isAuth() && resource.data.posterId == appUid()
-        || isModerator();
+    }
 
-      match /bids/{bidId} {
-        allow read: if isAuth();
-        allow create: if isAuth() && request.resource.data.bidderId == appUid();
-        allow update, delete: if isAuth() && resource.data.bidderId == appUid()
-          || isModerator();
-      }
+    // ── Service Bids (عروض الأسعار على طلبات الخدمة) ─────────────────────────
+    // ✅ Fix #15: شكل واحد في الأربعة (الشاشات / الـ Seeder / القواعد / الموديل):
+    // collection أعلى مستوى `service_bids` بحقلي requestId (الطلب) وproviderId
+    // (مقدّم العرض) — كما تكتب وتقرأ الشاشات وكما يعرّفه ServiceBidModel.
+    // كانت القواعد تحرس service_requests/{id}/bids بحقل bidderId (مسار وحقل لا
+    // يكتب فيهما أحد) والـ Seeder يكتب تحت service_requests/{id}/service_bids.
+    // صاحب الطلب = service_requests/{requestId}.clientId.
+    match /service_bids/{bidId} {
+      // يقرأ العرض: مقدّمه أو صاحب الطلب أو المشرف (العرض فيه هاتف المزوّد)
+      allow read: if isAuth() && (
+        resource.data.providerId == appUid()
+        || serviceRequestData(resource.data.requestId).clientId == appUid()
+        || isModerator()
+      );
+      // المزوّد يقدّم عرضاً معلّقاً بسعر موجب على طلب مفتوح ليس طلبه هو
+      allow create: if isModerator()
+        || (isAuth()
+          && request.resource.data.keys().hasOnly(['id', 'requestId', 'providerId', 'providerName', 'providerPhone', 'offeredPrice', 'note', 'status', 'createdAt'])
+          && request.resource.data.id == bidId
+          && request.resource.data.providerId == appUid()
+          && request.resource.data.status == 'pending'
+          && request.resource.data.offeredPrice is number
+          && request.resource.data.offeredPrice > 0
+          && request.resource.data.createdAt == request.time
+          && exists(/databases/$(database)/documents/service_requests/$(request.resource.data.requestId))
+          && serviceRequestData(request.resource.data.requestId).status == 'open'
+          && serviceRequestData(request.resource.data.requestId).clientId != appUid());
+      // صاحب الطلب يقبل أو يرفض (حقل status فقط)
+      allow update: if isAuth()
+        && serviceRequestData(resource.data.requestId).clientId == appUid()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['accepted', 'rejected'];
+      // المزوّد يسحب عرضه
+      allow delete: if (isAuth() && resource.data.providerId == appUid()) || isModerator();
     }
 
     // ── Notifications ─────────────────────────────────────────────────────────

@@ -165,6 +165,9 @@ class DatabaseSeeder {
     'services': [],
     'job_ads': [],
     'dealer_listings': [],
+    // ✅ Fix #15: العروض الآن collection أعلى مستوى. تنظيف subcollection
+    // service_requests/{id}/service_bids يبقى لمسح بيانات قديمة زُرعت قبل التوحيد.
+    'service_bids': [],
     'service_requests': ['service_bids'],
   };
 
@@ -1105,7 +1108,7 @@ class DatabaseSeeder {
           'category': 'خدمات منزلية',
           'location': 'سنهور القبلية',
           'status': 'open',
-          'bidsCount': 2,
+          'bidsCount': 1,
           'createdAt': FieldValue.serverTimestamp(),
         },
         {
@@ -1128,9 +1131,13 @@ class DatabaseSeeder {
         final ref = _db.collection('service_requests').doc(docId);
         await ref.set(req, SetOptions(merge: true));
 
-        // ✅ service_bids كـ sub-collection داخل service_requests
+        // ✅ Fix #15: service_bids collection أعلى مستوى (كما تكتب الشاشات وتحرس
+        // القواعد وكما يقرأ ServiceBidModel) — لا subcollection تحت الطلب.
+        // معرّف ثابت وحقل id مطابق له حتى لا يتكرر العرض عند إعادة الزرع.
         if (docId == 'req_001') {
-          await ref.collection('service_bids').add({
+          const bidId = 'bid_req_001_user_003';
+          await _db.collection('service_bids').doc(bidId).set({
+            'id': bidId,
             'requestId': 'req_001',
             'providerId': 'user_003',
             'providerName': 'فاطمة محمود',
