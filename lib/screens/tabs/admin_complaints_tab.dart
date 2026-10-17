@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 
 class AdminComplaintsTab extends StatefulWidget {
@@ -389,6 +391,8 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
     final complaintId = item['id'] as String;
     final userId = item['userId'] as String? ?? '';
     final title = item['title'] as String? ?? 'شكوى';
+    // ✅ Fix #14: هوية المرسل (الأدمن) تُقرأ قبل أي await
+    final senderId = context.read<AuthProvider>().user?.id ?? '';
 
     try {
       // ✅ كتابة 'reply' (متوافق مع my_complaints_screen) + 'adminReply' للـ backward compat
@@ -411,6 +415,7 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
               : replyText,
           'type': 'complaint_reply',
           'targetUserId': userId,
+          'fromUserId': senderId,
           'data': {
             'route': 'user_complaints',
             'channel': 'user_support',

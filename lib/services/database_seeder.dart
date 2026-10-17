@@ -17,7 +17,7 @@
 // 3. FULL COVERAGE: يُغطي الآن كل مجموعات Firestore المستخدمة في التطبيق:
 //    categories, users, shops, products, offers, services, reviews, ads,
 //    job_ads, service_requests, service_bids, dealer_listings,
-//    wishlists, user_notifications, notification_queue,
+//    wishlists, notifications, notification_queue,
 //    settings (general + locations), referrals, admin_audit_log
 //
 // 4. ANTI-FREEZE: batches ≤ 25 عنصراً + تأخير 150ms بين كل batch
@@ -154,7 +154,7 @@ class DatabaseSeeder {
   /// تلقائيًا، ولو اتسابت هتفضل يتيمة).
   ///
   /// ⚠️ محتوى التطبيق فقط. مقصود إنها مش بتشمل: users، settings، activation_codes،
-  /// user_notifications، wishlists، complaints، referrals، admin_audit_log.
+  /// notifications، wishlists، complaints، referrals، admin_audit_log.
   static const Map<String, List<String>> _cleanableCollections = {
     'shops': ['daily_stats'],
     'products': [],
@@ -1242,7 +1242,8 @@ class DatabaseSeeder {
       // ── Notifications (in-app) ─────────────────────────────────────────────
       final notifications = [
         {
-          'userId': 'mock_user',
+          'targetUserId': 'mock_user',
+          'fromUserId': 'system',
           'title': '🎉 مرحباً بك في سنهور أونلاين',
           'body': 'اكتشف أفضل المحلات والعروض في سنهور القبلية',
           'type': 'welcome',
@@ -1251,7 +1252,8 @@ class DatabaseSeeder {
           'createdAt': FieldValue.serverTimestamp(),
         },
         {
-          'userId': 'mock_user',
+          'targetUserId': 'mock_user',
+          'fromUserId': 'system',
           'title': '🏷️ عرض جديد: خصم 25% فستان سواريه',
           'body': 'بوتيك الأناقة أضاف عرضاً جديداً — استغله قبل ما ينتهي!',
           'type': 'new_offer',
@@ -1260,7 +1262,8 @@ class DatabaseSeeder {
           'createdAt': FieldValue.serverTimestamp(),
         },
         {
-          'userId': 'mock_merchant',
+          'targetUserId': 'mock_merchant',
+          'fromUserId': 'system',
           'title': '📊 إحصائيات محلك هذا الأسبوع',
           'body': 'فرن سنهور الذهبي — 340 مشاهدة هذا الأسبوع. استمر!',
           'type': 'merchant_stats',
@@ -1270,9 +1273,13 @@ class DatabaseSeeder {
         },
       ];
 
+      // ✅ Fix #14: الصندوق الداخلي الموحّد هو notifications (وليس
+      // user_notifications الذي لا يقرؤه أحد). معرّف ثابت لكل إشعار حتى لا
+      // تتكرر الإشعارات عند إعادة تشغيل الزرع.
       await _batchWrite(
-        collection: 'user_notifications',
+        collection: 'notifications',
         items: notifications,
+        getDocId: (item) => 'seed_${item['type']}_${item['targetUserId']}',
         buildData: (item) => item,
         onBatchDone: (done, total) =>
             report(phase, name, 20 + (done * 20 ~/ total), detail: 'إشعارات: $done/$total'),

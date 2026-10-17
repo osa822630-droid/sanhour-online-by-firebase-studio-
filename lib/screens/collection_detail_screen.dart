@@ -294,6 +294,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
             '$senderName يدعوك للانضمام لقائمة "${col.name}"',
         'type': 'collection_invite',
         'targetUserId': targetUserId,
+        'fromUserId': auth.user?.id ?? '',
         'data': {
           'collectionId': col.id,
           'collectionName': col.name,

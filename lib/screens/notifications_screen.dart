@@ -36,10 +36,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void _listen() {
     final auth = context.read<AuthProvider>();
     final userId = auth.user?.id;
-    final userType = auth.user?.userType ?? 'customer';
+
+    // ✅ Fix #14: الاستعلام موجَّه للمستخدم من الخادم (targetUserId) بدل قراءة
+    // آخر 60 إشعاراً لكل المستخدمين ثم الفلترة محلياً — القواعد ترفض أي
+    // استعلام غير مقيَّد بصاحب الإشعار (فكانت الشاشة تظهر فارغة)، وكان يهدر
+    // قراءات على مستندات ليست لهذا المستخدم. البث العام (all/merchants/
+    // customers) أصبح Push فقط عبر notification_queue ولا يمر بهذا الصندوق.
+    // (تُستدعى من initState قبل أول build، فلا حاجة لـ setState هنا.)
+    if (userId == null || userId.isEmpty) {
+      _isLoading = false;
+      return;
+    }
 
     _sub = _db
         .collection('notifications')
+        .where('targetUserId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .limit(60)
         .snapshots()
@@ -52,20 +63,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           return data;
         }).toList();
 
-        final filtered = all.where((n) {
-          final target = n['targetUserId'] as String?;
-          final topic = n['targetTopic'] as String?;
-          if (target != null && target.isNotEmpty) return target == userId;
-          if (topic == 'all') return true;
-          if (topic == 'merchants' && userType == 'merchant') return true;
-          if (topic == 'customers' &&
-              (userType == 'customer' || userType == 'user')) return true;
-          if (topic == null) return true;
-          return false;
-        }).toList();
-
         setState(() {
-          _notifications = filtered;
+          _notifications = all;
           _isLoading = false;
         });
       },
@@ -145,6 +144,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               'انضم لقائمة "${data['collectionName'] ?? ''}"',
           'type': 'invite_accepted',
           'targetUserId': inviterId,
+          'fromUserId': userId,
           'isRead': false,
           'data': {'route': 'collection:$collectionId'},
           'createdAt': FieldValue.serverTimestamp(),

@@ -199,10 +199,39 @@ service cloud.firestore {
     }
 
     // ── Notifications ─────────────────────────────────────────────────────────
+    // ✅ Fix #14: نظام الإشعارات = صندوقان بدور واضح لكل منهما (والصندوق الثالث
+    // user_notifications أُلغي — كان الـ Seeder فقط يكتبه ولا أحد يقرأه):
+    //   • notifications      → الصندوق الداخلي (يظهر في شاشة الإشعارات). كل مستند
+    //                          موجَّه لمستخدم واحد عبر targetUserId — نفس الحقل
+    //                          الذي تكتبه الشاشات وتفلتر به الواجهة (القواعد كانت
+    //                          تفحص userId فلا تطابق أي مستند فعلي).
+    //   • notification_queue → طابور FCM فقط (دفع خارجي عبر Cloud Function)،
+    //                          التطبيق لا يقرؤه أبداً.
+    // البث العام (all / merchants / customers) = Push فقط عبر notification_queue.
     match /notifications/{notifId} {
-      allow read, update: if isAuth() && resource.data.userId == appUid();
-      allow create: if isModerator();
-      allow delete: if isAuth() && resource.data.userId == appUid() || isModerator();
+      allow read: if (isAuth() && resource.data.targetUserId == appUid()) || isModerator();
+      // أي مستخدم مسجّل يقدر يُشعر مستخدماً آخر (مشتري ← تاجر، تاجر ← عميل،
+      // دعوة قائمة...) بشرط: المرسل هو هو (fromUserId == appUid())، والشكل محدد،
+      // وisRead=false وcreatedAt=request.time (لا تزوير ولا تواريخ مزيفة).
+      allow create: if isModerator()
+        || (isAuth()
+          && request.resource.data.keys().hasOnly(['title', 'body', 'type', 'targetUserId', 'fromUserId', 'data', 'isRead', 'createdAt'])
+          && request.resource.data.keys().hasAll(['title', 'body', 'type', 'targetUserId', 'fromUserId', 'isRead', 'createdAt'])
+          && request.resource.data.fromUserId == appUid()
+          && request.resource.data.targetUserId is string
+          && request.resource.data.targetUserId.size() > 0
+          && request.resource.data.title is string
+          && request.resource.data.title.size() <= 200
+          && request.resource.data.body is string
+          && request.resource.data.body.size() <= 1000
+          && request.resource.data.type is string
+          && request.resource.data.isRead == false
+          && request.resource.data.createdAt == request.time);
+      // المستلم يغيّر حالة القراءة/الدعوة فقط
+      allow update: if isAuth()
+        && resource.data.targetUserId == appUid()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'inviteStatus']);
+      allow delete: if (isAuth() && resource.data.targetUserId == appUid()) || isModerator();
     }
 
     // ── Notification Queue ────────────────────────────────────────────────────

@@ -564,6 +564,7 @@ class _ServiceRequestsTabScreenState
                     'body': '${user.name} قدّم عرضاً بـ ${price.toStringAsFixed(0)} جنيه',
                     'type': 'new_bid',
                     'targetUserId': req.clientId,
+                    'fromUserId': user.id,
                     'data': {
                       'route': 'service_request:${req.id}',
                       'channel': 'user_favorites',
@@ -852,6 +853,9 @@ class _BidsListScreen extends StatelessWidget {
     // 3. رفض باقي العروض تلقائياً
     // 4. إشعار لمزوّد الخدمة بالقبول
 
+    // ✅ Fix #14: هوية المرسل تُقرأ قبل أي await (بدل استخدام context بعده)
+    final senderId = context.read<AuthProvider>().user?.id ?? '';
+
     final batch = db.batch();
 
     // قبول هذا العرض
@@ -888,6 +892,7 @@ class _BidsListScreen extends StatelessWidget {
           'صاحب الطلب وافق على عرضك. تحقق من معلومات التواصل.',
       'type': 'bid_accepted',
       'targetUserId': bid.providerId,
+      'fromUserId': senderId,
       'data': {
         'route': 'service_request:${bid.requestId}',
         'channel': 'user_favorites',
