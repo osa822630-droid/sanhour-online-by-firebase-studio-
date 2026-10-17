@@ -1298,6 +1298,7 @@ class DatabaseSeeder {
       final codes = [
         {
           'code': 'SHOP-TEST-0001',
+          'type': 'shop_activation',
           'isUsed': false,
           'usedBy': null,
           'usedAt': null,
@@ -1307,6 +1308,7 @@ class DatabaseSeeder {
         },
         {
           'code': 'SHOP-TEST-0002',
+          'type': 'shop_activation',
           'isUsed': false,
           'usedBy': null,
           'usedAt': null,
@@ -1316,11 +1318,34 @@ class DatabaseSeeder {
         },
         {
           'code': 'SHOP-TEST-USED',
+          'type': 'shop_activation',
           'isUsed': true,
           'usedBy': 'mock_merchant',
           'usedAt': Timestamp.fromDate(now.subtract(const Duration(days: 20))),
           'shopId': 'shop_bakery',
           'expiresAt': Timestamp.fromDate(now.add(const Duration(days: 10))),
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        // ✅ Fix #16: أكواد إعلان تجريبية (type: ad_activation) لاختبار تفعيل
+        // الإعلانات من شاشة التسويق عند التاجر
+        {
+          'code': 'AD-TEST-0001',
+          'type': 'ad_activation',
+          'isUsed': false,
+          'usedBy': null,
+          'usedAt': null,
+          'shopId': null,
+          'expiresAt': Timestamp.fromDate(now.add(const Duration(days: 30))),
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        {
+          'code': 'AD-TEST-0002',
+          'type': 'ad_activation',
+          'isUsed': false,
+          'usedBy': null,
+          'usedAt': null,
+          'shopId': null,
+          'expiresAt': Timestamp.fromDate(now.add(const Duration(days: 30))),
           'createdAt': FieldValue.serverTimestamp(),
         },
       ];

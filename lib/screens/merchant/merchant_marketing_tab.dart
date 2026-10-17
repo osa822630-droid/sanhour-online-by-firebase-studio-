@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import '../../services/ad_service.dart';
 import '../../services/api_service.dart';
 import '../../services/media_upload_service.dart';
 import '../../models/shop.dart';
@@ -517,9 +518,12 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
       // ✅ تحسين: رسالة خطأ مُحدَّدة من MediaUploadException بدلاً من رسالة
       // عامة دائماً — يعرف المستخدم السبب الحقيقي (حجم الصورة، الاتصال، ...)
       if (mounted) {
+        // ✅ Fix #16: رسالة الكود (غير صحيح / مستخدم / منتهٍ) تظهر للتاجر
         final msg = e is MediaUploadException
             ? e.userMessage
-            : 'حدث خطأ، يُرجى المحاولة مرة أخرى';
+            : e is AdCodeException
+                ? e.userMessage
+                : 'حدث خطأ، يُرجى المحاولة مرة أخرى';
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
       }
@@ -532,17 +536,15 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
     }
   }
 
+  /// ✅ Fix #16: كود الإعلان من نظام activation_codes الموحّد (type:
+  /// ad_activation) وليس من ad_codes (collection بلا قواعد ولا يكتب فيه أحد).
+  /// الحرق ذرّي داخل transaction، ويُسجَّل المحل والتاجر كمستخدمَين للكود.
   Future<void> _validateAndBurnCode(String code) async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('ad_codes')
-        .where('code', isEqualTo: code)
-        .where('isUsed', isEqualTo: false)
-        .get();
-
-    if (snapshot.docs.isEmpty) {
-      throw Exception('الكود غير صحيح أو مستخدم');
-    }
-    await snapshot.docs.first.reference.update({'isUsed': true});
+    await AdService.redeemAdCode(
+      code: code,
+      userId: widget.currentShop.ownerId,
+      shopId: widget.currentShop.id,
+    );
   }
 }
 

@@ -33,24 +33,22 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
   Future<void> _loadCodes() async {
     setState(() => _isLoading = true);
     try {
-      // 1. جلب أكواد المحلات
-      final shopSnapshot = await FirebaseFirestore.instance
+      // ✅ Fix #16: كل أنواع الأكواد في collection واحد (activation_codes)
+      // وحقل type يفصل بينها — استعلام واحد بدل قراءة مجموعتين (ad_codes لم
+      // تعد موجودة). الأكواد القديمة بلا type تُعامَل كأكواد محلات.
+      final snapshot = await FirebaseFirestore.instance
           .collection('activation_codes')
           .orderBy('createdAt', descending: true)
           .get();
-
-      // 2. جلب أكواد الإعلانات
-      final adSnapshot = await FirebaseFirestore.instance
-          .collection('ad_codes')
-          .orderBy('createdAt', descending: true)
-          .get();
+      final allCodes =
+          snapshot.docs.map((d) => {...d.data(), 'id': d.id}).toList();
 
       if (mounted) {
         setState(() {
           _shopCodes =
-              shopSnapshot.docs.map((d) => {...d.data(), 'id': d.id}).toList();
+              allCodes.where((c) => c['type'] != 'ad_activation').toList();
           _adCodes =
-              adSnapshot.docs.map((d) => {...d.data(), 'id': d.id}).toList();
+              allCodes.where((c) => c['type'] == 'ad_activation').toList();
           _isLoading = false;
         });
       }
@@ -325,11 +323,9 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                   else
                     IconButton(
                       icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      onPressed: () => _deleteCode(
-                          codeData['id'],
-                          _selectedTypeIndex == 0
-                              ? 'activation_codes'
-                              : 'ad_codes'),
+                      // ✅ Fix #16: الأنواع كلها في activation_codes
+                      onPressed: () =>
+                          _deleteCode(codeData['id'], 'activation_codes'),
                     ),
                 ],
               ),

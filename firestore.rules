@@ -160,7 +160,18 @@ service cloud.firestore {
     match /activation_codes/{codeId} {
       allow read: if isModerator()
         || (isAuth() && resource.data.isUsed == false);
-      allow create, update, delete: if isModerator();
+      allow create, delete: if isModerator();
+      // ✅ Fix #16: كل أنواع الأكواد (shop_activation / shop_renewal /
+      // ad_activation / dealer_listing_fee) في هذا الـ collection، والاستهلاك
+      // يتم من حساب التاجر نفسه لا من المشرف: يحرق المستخدم كوداً غير مستخدم
+      // لنفسه فقط (isUsed false→true، usedBy == هويته) ويلمس حقول الحرق وحدها.
+      // أي تعديل آخر (تغيير الكود/نوعه/صلاحيته) للمشرف فقط.
+      allow update: if isModerator()
+        || (isAuth()
+          && resource.data.isUsed == false
+          && request.resource.data.isUsed == true
+          && request.resource.data.usedBy == appUid()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedBy', 'usedAt', 'shopId']));
     }
 
     // ── Ads (إعلانات تجارية) ──────────────────────────────────────────────────

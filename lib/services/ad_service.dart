@@ -5,9 +5,21 @@
 //    تحقق من الحجم، رسائل خطأ عربية، تتبع تقدم حقيقي.
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'dart:math' show Random;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/ad_model.dart';
+import 'audit_log_service.dart';
 import 'media_upload_service.dart';
+
+/// ✅ Fix #16: خطأ استهلاك كود الإعلان — رسالته عربية جاهزة للعرض للمستخدم
+/// (بدلاً من رسالة عامة تُخفي سبب الرفض: كود غير صحيح / مستخدم / منتهي).
+class AdCodeException implements Exception {
+  final String userMessage;
+  const AdCodeException(this.userMessage);
+
+  @override
+  String toString() => 'AdCodeException: $userMessage';
+}
 
 class AdService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -164,8 +176,82 @@ class AdService {
     });
   }
 
-  static Future<String> generateAdCode() async {
-    return 'AD_CODE_${DateTime.now().millisecondsSinceEpoch}';
+  /// ✅ Fix #16: يولّد كود إعلان حقيقياً في نظام activation_codes الموحّد.
+  ///
+  /// كانت الدالة ترجّع نصاً (`AD_CODE_<millis>`) دون كتابة أي وثيقة، فكان الكود
+  /// المعروض للأدمن غير موجود فعلياً ولا يمكن لأي تاجر استهلاكه. الآن تُكتب
+  /// وثيقة بـ `type: 'ad_activation'` (الحقل الإجباري في كل استعلام تحقق) وصلاحية
+  /// 30 يوماً، ويُسجَّل التوليد في audit log أسوةً بكود المحل، ثم يُرجَع النص.
+  static Future<String> generateAdCode({String adminId = 'admin'}) async {
+    final code = 'AD-${_secureString(4)}-${_secureString(4)}';
+
+    await _firestore.collection('activation_codes').add({
+      'code': code,
+      'type': 'ad_activation',
+      'isUsed': false,
+      'generatedBy': adminId,
+      'createdAt': FieldValue.serverTimestamp(),
+      'expiresAt':
+          Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
+    });
+
+    await AuditLogService.logActivationCodeGenerated(code,
+        generatedBy: adminId);
+    return code;
+  }
+
+  /// ✅ Fix #16: يستهلك كود إعلان من `activation_codes` (type: ad_activation).
+  ///
+  /// الاستعلام (equality فقط بلا index مركّب) يحدد الوثيقة، ثم تعيد transaction
+  /// قراءتها بـ `tx.get` وتحرقها — فلا يقدر طلبان متزامنان حرق نفس الكود.
+  /// يرمي [AdCodeException] برسالة عربية عند كود غير صحيح/مستخدم/منتهي.
+  static Future<void> redeemAdCode({
+    required String code,
+    required String userId,
+    required String shopId,
+  }) async {
+    const invalid = AdCodeException('كود الإعلان غير صحيح أو مستخدم مسبقاً.');
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) throw invalid;
+
+    final snap = await _firestore
+        .collection('activation_codes')
+        .where('code', isEqualTo: normalized)
+        .where('type', isEqualTo: 'ad_activation')
+        .where('isUsed', isEqualTo: false)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) throw invalid;
+
+    final ref = snap.docs.first.reference;
+    await _firestore.runTransaction((tx) async {
+      final fresh = await tx.get(ref);
+      final data = fresh.data();
+      if (!fresh.exists ||
+          data == null ||
+          data['isUsed'] == true ||
+          data['type'] != 'ad_activation') {
+        throw invalid;
+      }
+      final expiresAt = data['expiresAt'];
+      if (expiresAt is Timestamp &&
+          expiresAt.toDate().isBefore(DateTime.now())) {
+        throw const AdCodeException('انتهت صلاحية كود الإعلان.');
+      }
+      tx.update(ref, {
+        'isUsed': true,
+        'usedBy': userId,
+        'usedAt': FieldValue.serverTimestamp(),
+        'shopId': shopId,
+      });
+    });
+  }
+
+  static String _secureString(int length) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final rng = Random.secure();
+    return List.generate(length, (_) => chars[rng.nextInt(chars.length)])
+        .join();
   }
 
   // ── ضوابط الفيديوهات الترويجية ───────────────────────────────────────────
