@@ -243,11 +243,12 @@ class DatabaseSeeder {
     report(phase, name, 0);
 
     try {
-      // ✅ settings/general — لا يُكتَب geminiApiKey بالكود أبداً
+      // ✅ settings/general — إعدادات عامة مقروءة للعالم. لا يُكتَب geminiApiKey
+      // بالكود أبداً ولا هنا أصلاً (Fix #17): المفتاح في settings_private/gemini
+      // ويُعبَّأ يدوياً من لوحة الأدمن.
       await _db.collection('settings').doc('general').set({
         'appName': 'سنهور أونلاين',
         'appVersion': '1.0.0',
-        'geminiApiKey': '', // يُعبَّأ يدوياً من لوحة الأدمن
         'maintenanceMode': false,
         'maxShopsPerUser': 3,
         'maxProductsPerShop': 100,

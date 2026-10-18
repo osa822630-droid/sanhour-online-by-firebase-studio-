@@ -210,6 +210,34 @@ class AdminService {
     await AuditLogService.logSettingsUpdated(data);
   }
 
+  /// ✅ Fix #17: مفتاح Gemini في settings_private/gemini (حقل apiKey) بدل
+  /// settings/general المقروءة للعالم بلا تسجيل دخول. يرجع نصاً فارغاً إن لم
+  /// يُحفَظ بعد.
+  static Future<String> getGeminiApiKey() async {
+    final doc =
+        await _firestore.collection('settings_private').doc('gemini').get();
+    return (doc.data()?['apiKey'] as String?) ?? '';
+  }
+
+  /// يحفظ المفتاح في settings_private/gemini ويمسح النسخة العامة القديمة من
+  /// settings/general إن وُجدت. المفتاح نفسه لا يُسجَّل في audit log (كان يُنسخ
+  /// حرفياً داخل changes مع باقي الإعدادات) — يُسجَّل فقط أنه تغيّر.
+  static Future<void> saveGeminiApiKey(String key) async {
+    await _firestore.collection('settings_private').doc('gemini').set({
+      'apiKey': key,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    try {
+      await _firestore
+          .collection('settings')
+          .doc('general')
+          .update({'geminiApiKey': FieldValue.delete()});
+    } catch (_) {
+      // best-effort: وثيقة الإعدادات العامة قد لا تحمل النسخة القديمة
+    }
+    await AuditLogService.logSettingsUpdated({'geminiApiKey': 'updated'});
+  }
+
   // ==========================================================
   // 5. تعليق/تفعيل المحلات والمستخدمين
   // ==========================================================

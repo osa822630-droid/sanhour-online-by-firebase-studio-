@@ -198,9 +198,12 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _loadGeminiKey() async {
     try {
-      final doc = await _firestore.collection('settings').doc('general').get();
+      // ✅ Fix #17: المفتاح في settings_private/gemini (يُقرأ بعد الدخول فقط،
+      // بجلسة معروفة الهوية) وليس settings/general المقروءة للعالم بلا حساب
+      final doc =
+          await _firestore.collection('settings_private').doc('gemini').get();
       if (doc.exists) {
-        final key = doc.data()?['geminiApiKey'];
+        final key = doc.data()?['apiKey'];
         if (key != null && key.toString().isNotEmpty) {
           GeminiService().setApiKey(key.toString());
         }

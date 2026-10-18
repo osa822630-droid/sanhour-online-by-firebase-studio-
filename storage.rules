@@ -4,7 +4,45 @@ service firebase.storage {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
     function isAuth() { return request.auth != null; }
-    function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
+
+    // ✅ Fix #17: إغلاق Storage أمام الجلسة المجهولة "العارية".
+    // قبل الإصلاح كان isAuth() وحده يكفي — والجلسة المجهولة مجانية لأي أحد معه
+    // مفتاح المشروع العام — لرفع أو مسح صور أي محل أو منتج. الآن كل رفع/حذف
+    // يمرّ بهوية التطبيق ودورها، بنفس منطق appUid() في firestore.rules:
+    //   • جلسة حقيقية (Phone Auth وغيرها): الهوية = request.auth.uid.
+    //   • جلسة Mock (مجهولة): الهوية من وثيقة الربط auth_sessions/{uid}؛ وبدون
+    //     ربط تفشل كل الفحوص (الجلسة المجهولة العارية لا ترفع ولا تمسح شيئاً).
+    //   • الدور (merchant / admin ...) يُقرأ من users/{الهوية}.userType.
+    // ⚠️ وثيقة الربط يكتبها العميل نفسه (الدخول التجريبي بلا تحقق خادمي)، فهذا
+    // مقبول في مرحلة الاختبار فقط. قبل الإطلاق الرسمي مع Phone Auth: اجعل
+    // allowMockSessions() ترجع false فتُغلَق Storage كلياً أمام أي جلسة مجهولة.
+    // ملاحظة نشر: اعتماد Storage Rules على Firestore يحتاج منح دور
+    // "Firebase Rules Firestore Service Agent" (يعرضه firebase deploy مرة واحدة).
+    // كل قاعدة أدناه تستدعي firestore.get/exists مرتين على الأكثر (حدّ Storage).
+    function allowMockSessions() { return true; }
+    function isAnonymousSession() {
+      return request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+    function sessionAllowed() {
+      return isAuth() && (!isAnonymousSession() || allowMockSessions());
+    }
+    function appUid() {
+      return isAnonymousSession()
+        ? firestore.get(/databases/(default)/documents/auth_sessions/$(request.auth.uid)).data.appUserId
+        : request.auth.uid;
+    }
+    // جلسة بهوية معروفة (بدون اشتراط دور): حقيقية، أو Mock مربوطة
+    function hasIdentity() {
+      return sessionAllowed()
+        && (!isAnonymousSession()
+          || firestore.exists(/databases/(default)/documents/auth_sessions/$(request.auth.uid)));
+    }
+    function isOwner(uid) { return sessionAllowed() && appUid() == uid; }
+    // تاجر أو مشرف: لرفع/مسح وسائط المحلات والمنتجات والعروض والإعلانات
+    function isMerchantOrStaff() {
+      return sessionAllowed()
+        && firestore.get(/databases/(default)/documents/users/$(appUid())).data.userType in ['merchant', 'admin', 'super_admin', 'moderator'];
+    }
     function isImage() {
       return request.resource.contentType.matches('image/.*');
     }
@@ -26,97 +64,101 @@ service firebase.storage {
     // من الخادم وتسقط على قاعدة الرفض الشاملة في نهاية الملف، بصرف النظر
     // عن أي إصلاح تم في طبقة Dart (معالجة الأخطاء، شريط التقدم، ...).
     //
-    // ✅ كذلك: نفس فجوة Mock Auth المشروحة في firestore.rules — هوية
-    // المستخدم داخل التطبيق لا تطابق request.auth.uid الحقيقي حتى مع وجود
-    // جلسة Firebase Auth مجهولة، لذلك isOwner() استُبدلت بـ isAuth() في
-    // المسارات التي لا يُخزِّن فيها الكود فعلياً مسار فرعي بمعرّف المستخدم.
+    // ✅ Fix #17: هوية Mock Auth تُحَلّ عبر appUid() أعلاه (انظر firestore.rules)
+    // بدل الاكتفاء بـ isAuth(). المسارات المسطّحة (بلا معرّف مستخدم في المسار)
+    // تُحرَس بالدور (تاجر/مشرف، أو أي هوية معروفة)، والمسارات التي فيها معرّف
+    // المستخدم (users/{userId}، complaint_attachments/{userId}) تُحرَس بالملكية.
+    // تقييد الحذف بصاحب الملف نفسه في المسارات المسطّحة (بند 45) يحتاج حفظ
+    // معرّف المالك كـ custom metadata عند الرفع — وليس ضمن هذا البند.
     // ══════════════════════════════════════════════════════════════════════
 
     // ── صورة الملف الشخصي — يطابق account_edit_screen.dart: 'users/$userId' ──
     match /users/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && maxAvatarSize();
-      allow delete: if isAuth();
+      allow write: if isOwner(userId) && isImage() && maxAvatarSize();
+      allow delete: if isOwner(userId);
     }
 
     // ── شعار المحل — مسطّح، يطابق shop_service.dart: 'shop_logos' ───────────
     match /shop_logos/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && maxImageSize();
-      allow delete: if isAuth();
+      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
+      allow delete: if isMerchantOrStaff();
     }
 
     // ── غلاف المحل — مسطّح، يطابق shop_service.dart: 'shop_covers' ──────────
     match /shop_covers/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && maxImageSize();
-      allow delete: if isAuth();
+      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
+      allow delete: if isMerchantOrStaff();
     }
 
     // ── صور معرض وسائط المحل — يطابق shop_service.dart: 'shop_media' ────────
     match /shop_media/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && maxImageSize();
-      allow delete: if isAuth();
+      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
+      allow delete: if isMerchantOrStaff();
     }
 
     // ✅ إضافة مفقودة بالكامل: فيديوهات معرض وسائط المحل — يطابق
     // shop_service.dart: 'shop_media_videos' — لم يكن لها أي قاعدة أصلاً
     match /shop_media_videos/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isVideo() && maxVideoSize();
-      allow delete: if isAuth();
+      allow write: if isMerchantOrStaff() && isVideo() && maxVideoSize();
+      allow delete: if isMerchantOrStaff();
     }
 
     // ── صور المنتجات — الاسم مُصحَّح لصيغة الجمع 'products_images' ──────────
     match /products_images/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && maxImageSize();
-      allow delete: if isAuth();
+      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
+      allow delete: if isMerchantOrStaff();
     }
 
     // ── صور العروض — الاسم مُصحَّح لصيغة الجمع 'offers_images' ──────────────
     match /offers_images/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && maxImageSize();
-      allow delete: if isAuth();
+      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
+      allow delete: if isMerchantOrStaff();
     }
 
     // ── صور الإعلانات التجارية — يطابق ad_service.dart: 'ad_images' ─────────
     match /ad_images/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && maxImageSize();
-      allow delete: if isAuth();
+      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
+      allow delete: if isMerchantOrStaff();
     }
 
     // ✅ إضافة مفقودة بالكامل: فيديوهات الإعلانات — يطابق ad_service.dart:
     // 'ads/$shopId/pending' — المسار الوحيد المتداخل فعلياً بمعرّف المحل
     match /ads/{shopId}/pending/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isVideo() && maxVideoSize();
-      allow delete: if isAuth();
+      allow write: if isMerchantOrStaff() && isVideo() && maxVideoSize();
+      allow delete: if isMerchantOrStaff();
     }
 
     // ── صور التقييمات — الاسم مُصحَّح لصيغة الجمع 'reviews_images' ──────────
     match /reviews_images/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && maxImageSize();
-      allow delete: if isAuth();
+      allow write: if hasIdentity() && isImage() && maxImageSize();
+      allow delete: if hasIdentity();
     }
 
     // ── صور إعلانات سنهور ديلر — الاسم مُصحَّح 'dealer_listings' ────────────
     // (وليس dealer_images كما كان سابقاً — يطابق sanhour_dealer_screen.dart)
     match /dealer_listings/{allPaths=**} {
       allow read: if true;
-      allow write: if isAuth() && isImage() && maxImageSize();
-      allow delete: if isAuth();
+      allow write: if hasIdentity() && isImage() && maxImageSize();
+      allow delete: if hasIdentity();
     }
 
     // ── مرفقات الشكاوى ────────────────────────────────────────────────────
+    // ✅ Fix #17: الرفع والحذف داخل مجلد صاحب الشكوى فقط (كان أي جلسة تكتب في
+    // مجلد أي مستخدم). شرط القراءة `|| true` يبقى كما هو — يعالجه بند 45.
     match /complaint_attachments/{userId}/{allPaths=**} {
       allow read: if isAuth() && (request.auth.uid == userId || true);
-      allow write: if isAuth() && isImage() && maxImageSize();
-      allow delete: if isAuth();
+      allow write: if isOwner(userId) && isImage() && maxImageSize();
+      allow delete: if isOwner(userId);
     }
 
     // ── Fallback: رفض كل شيء آخر ─────────────────────────────────────────────

@@ -26,6 +26,13 @@ service cloud.firestore {
         : request.auth.uid;
     }
     function isOwner(uid) { return isAuth() && appUid() == uid; }
+    // ✅ Fix #17: جلسة بهوية معروفة (بدون اشتراط دور) = جلسة حقيقية، أو جلسة
+    // Mock مجهولة لها وثيقة ربط في auth_sessions. الجلسة المجهولة "العارية" لا.
+    function hasSessionIdentity() {
+      return isAuth()
+        && (!isAnonymousSession()
+          || exists(/databases/$(database)/documents/auth_sessions/$(request.auth.uid)));
+    }
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(appUid())).data;
     }
@@ -339,6 +346,18 @@ service cloud.firestore {
     // ── Settings ──────────────────────────────────────────────────────────────
     match /settings/{docId} {
       allow read: if true;
+      allow write: if isModerator();
+    }
+
+    // ✅ Fix #17: settings مقروءة للعالم بالكامل (الزائر قبل أي تسجيل دخول)، وكان
+    // مفتاح Gemini داخل settings/general فيقرؤه أي أحد بلا حساب أصلاً. الأسرار
+    // الآن في settings_private/{docId} (مفتاح Gemini: settings_private/gemini
+    // بحقل apiKey): تُقرأ من جلسة بهوية معروفة فقط (حقيقية أو Mock مربوطة)
+    // ويكتبها المشرف. ⚠️ التطبيق يستدعي Gemini مباشرةً من الجهاز فالمفتاح يصل
+    // لكل مستخدم مسجّل — الحماية الكاملة تحتاج وسيط Cloud Function + تقييد
+    // المفتاح من Google Cloud Console (انظر ملاحظات changes-1.md).
+    match /settings_private/{docId} {
+      allow read: if hasSessionIdentity();
       allow write: if isModerator();
     }
 

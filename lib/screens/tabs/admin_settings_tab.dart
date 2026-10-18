@@ -63,12 +63,22 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
   Future<void> _loadSettings() async {
     try {
       final data = await ApiService.getAppSettings();
+      // ✅ Fix #17: المفتاح من settings_private. ولو بقيت نسخة قديمة في
+      // settings/general (لم تُنقل بعد) تُعرَض هنا ليحفظها الأدمن فتُنقل
+      // وتُمسح من الوثيقة العامة.
+      var geminiKey = '';
+      try {
+        geminiKey = await ApiService.getGeminiApiKey();
+      } catch (e) {
+        debugPrint('loadGeminiKey error: $e');
+      }
+      if (geminiKey.isEmpty) geminiKey = data['geminiApiKey'] ?? '';
       if (mounted) {
         setState(() {
           _phoneController.text = data['supportPhone'] ?? '';
           _whatsappController.text = data['whatsapp'] ?? '';
           _bannerController.text = data['globalBanner'] ?? '';
-          _geminiKeyCtrl.text = data['geminiApiKey'] ?? '';
+          _geminiKeyCtrl.text = geminiKey;
           _aboutUsCtrl.text = data['aboutUs'] ?? '';
           _termsCtrl.text = data['termsAndConditions'] ?? '';
           _privacyCtrl.text = data['privacyPolicy'] ?? '';
@@ -89,11 +99,13 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
         'supportPhone': _phoneController.text.trim(),
         'whatsapp': _whatsappController.text.trim(),
         'globalBanner': _bannerController.text.trim(),
-        'geminiApiKey': _geminiKeyCtrl.text.trim(),
         'aboutUs': _aboutUsCtrl.text.trim(),
         'termsAndConditions': _termsCtrl.text.trim(),
         'privacyPolicy': _privacyCtrl.text.trim(),
       });
+      // ✅ Fix #17: مفتاح Gemini في settings_private/gemini — لا يُكتب في
+      // settings/general المقروءة للعالم ولا يُنسخ في audit log مع الإعدادات
+      await ApiService.saveGeminiApiKey(_geminiKeyCtrl.text.trim());
       if (!mounted) return;
       _showSnackBar('تم حفظ الإعدادات بنجاح ✅', Colors.green);
     } catch (e) {

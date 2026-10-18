@@ -350,6 +350,12 @@ class ApiService {
   static Future<void> updateAppSettings(Map<String, dynamic> data) =>
       AdminService.updateAppSettings(data);
 
+  // ✅ Fix #17: مفتاح Gemini في settings_private (خارج الإعدادات العامة)
+  static Future<String> getGeminiApiKey() => AdminService.getGeminiApiKey();
+
+  static Future<void> saveGeminiApiKey(String key) =>
+      AdminService.saveGeminiApiKey(key);
+
   static Future<void> toggleShopSuspension(String shopId, bool currentStatus) => 
       AdminService.toggleShopSuspension(shopId, currentStatus);
 
