@@ -60,9 +60,16 @@ service cloud.firestore {
     // ── Users ────────────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read: if isAuth();
+      // ✅ Fix #18: أولوية المعاملات — && أقوى من ||، فالصيغة القديمة كانت تُقرأ
+      //   (isOwner && بلا userType) || (userType in [customer, merchant])
+      // والفرع الثاني بلا أي فحص هوية (ولا حتى isAuth): أي طلب — بل وبلا جلسة
+      // Firebase أصلاً — كان يقدر ينشئ users/{أي معرّف} بـ userType: merchant.
+      // الآن الملكية شرط في الحالتين بالأقواس: صاحب الحساب وحده ينشئ مستنده
+      // (appUid() == userId)، وبلا حقل userType أو بنوع customer/merchant فقط.
+      // admin / moderator لا تُنشأ من العميل أبداً (users/mock_admin من الـ console).
       allow create: if isOwner(userId)
-        && !request.resource.data.keys().hasAny(['userType'])
-        || request.resource.data.userType in ['customer', 'merchant'];
+        && (!request.resource.data.keys().hasAny(['userType'])
+          || request.resource.data.userType in ['customer', 'merchant']);
       allow update: if isOwner(userId)
         // ✅ Fix #135: منع self-escalation إلى admin/moderator
         && !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['userType']))
