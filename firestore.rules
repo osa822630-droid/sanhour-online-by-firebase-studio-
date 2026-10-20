@@ -57,6 +57,30 @@ service cloud.firestore {
     function notDeleted() { return resource.data.isDeleted != true; }
     function notSuspended() { return resource.data.isSuspended != true; }
 
+    // ✅ Fix #20: عدّادات إحصائيات المحل اليومية (shops/{id}/daily_stats/{يوم}).
+    // StatsService يكتب لكل زائر بـ set(merge: true) و FieldValue.increment(1)،
+    // وفي كل كتابة عدّاد واحد فقط: views (ومعه date) أو phoneClicks أو whatsappClicks
+    // أو facebookClicks / instagramClicks / tiktokClicks / telegramClicks.
+    // request.resource.data هي القيمة النهائية بعد تطبيق الـ increment، فنقارنها
+    // بالقيمة الحالية + 1: لا يقدر أحد يكتب رقماً اعتباطياً، ولا يمسّ عدّاداً غير
+    // اللي يزيده، ولا يمسّ حقلاً خارج القائمة.
+    //   • statCreated(f): مستند اليوم لم يكن موجوداً → عدّاد واحد = 1 (+ date اختياري).
+    //   • statBumped(f): المستند موجود → العدّاد f زاد 1 بالضبط، و date يُضاف فقط
+    //     لو كان غايباً (مستند اتنشأ أول مرة بعدّاد ضغطات قبل أول زيارة).
+    function statCreated(f) {
+      return request.resource.data.keys().hasOnly([f, 'date'])
+        && f in request.resource.data
+        && request.resource.data[f] == 1
+        && (!('date' in request.resource.data) || request.resource.data.date is timestamp);
+    }
+    function statBumped(f) {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return (changed.hasOnly([f])
+          || (changed.hasOnly([f, 'date']) && !('date' in resource.data)))
+        && request.resource.data[f] == (f in resource.data ? resource.data[f] : 0) + 1
+        && (!('date' in request.resource.data) || request.resource.data.date is timestamp);
+    }
+
     // ── Users ────────────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read: if isAuth();
@@ -109,6 +133,41 @@ service cloud.firestore {
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId', 'isSuspended', 'isFeatured'])
         || isModerator();
       allow delete: if isAdmin();
+
+      // ✅ Fix #20: shops/{shopId}/daily_stats — إحصائيات يومية. قواعد الوثيقة الأم
+      // لا تنسحب على الـ subcollections، وكانت من غير match فكل كتابة/قراءة
+      // permission-denied. أي جلسة (زائر مسجّل) تزيد عدّاداً واحداً بمقدار 1
+      // (شوف statCreated/statBumped)؛ القراءة لصاحب المحل والمشرف فقط (لوحة
+      // التاجر)؛ الحذف للمشرف (تنظيف الـ Seeder والإدارة).
+      match /daily_stats/{dateKey} {
+        allow read: if isShopOwner(shopId) || isModerator();
+        allow create: if isAuth()
+          && (statCreated('views') || statCreated('phoneClicks')
+            || statCreated('whatsappClicks') || statCreated('facebookClicks')
+            || statCreated('instagramClicks') || statCreated('tiktokClicks')
+            || statCreated('telegramClicks'));
+        allow update: if isAuth()
+          && (statBumped('views') || statBumped('phoneClicks')
+            || statBumped('whatsappClicks') || statBumped('facebookClicks')
+            || statBumped('instagramClicks') || statBumped('tiktokClicks')
+            || statBumped('telegramClicks'));
+        allow delete: if isModerator();
+      }
+
+      // ✅ Fix #20: shops/{shopId}/subscription_history — سجل التجديدات. يكتبه
+      // SubscriptionService.renew() بعد نجاح الـ transaction (خارجه، "غير حرج")
+      // بإسم صاحب المحل (renewedBy == هويّته) وتاريخ الخادم؛ بعد كده للقراءة فقط
+      // (append-only زي admin_audit_log): صاحب المحل والمشرف يقروا، ولا تعديل
+      // ولا حذف.
+      match /subscription_history/{entryId} {
+        allow read: if isShopOwner(shopId) || isModerator();
+        allow create: if isShopOwner(shopId)
+          && request.resource.data.keys().hasOnly(
+              ['plan', 'price', 'startDate', 'endDate', 'renewedBy', 'activationCode', 'createdAt'])
+          && request.resource.data.renewedBy == appUid()
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
+      }
     }
 
     // ── Products ─────────────────────────────────────────────────────────────
@@ -394,6 +453,81 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.referredId == appUid();
       allow update: if isModerator();
       allow delete: if false;
+    }
+
+    // ── Share Analytics (نقرات روابط المشاركة) ─────────────────────────────────
+    // ✅ Fix #20: DeepLinkService.recordShareClick يضيف حدثاً لكل نقرة
+    // ({type, targetId, clickedAt, platform}). كانت الـ collection من غير match
+    // فكل كتابة permission-denied (والدالة بتبلع الخطأ فالتحليلات بتضيع بصمت).
+    // أي جلسة تسجّل حدثاً بالشكل ده بس؛ القراءة والتعديل والحذف للمشرف.
+    match /share_analytics/{eventId} {
+      allow create: if isAuth()
+        && request.resource.data.keys().hasOnly(['type', 'targetId', 'clickedAt', 'platform'])
+        && request.resource.data.type is string
+        && request.resource.data.type.size() <= 32
+        && request.resource.data.targetId is string
+        && request.resource.data.targetId.size() > 0
+        && request.resource.data.targetId.size() <= 128
+        && request.resource.data.platform is string
+        && request.resource.data.platform.size() <= 32
+        && request.resource.data.clickedAt == request.time;
+      allow read, update, delete: if isModerator();
+    }
+
+    // ── Job Subscriptions (اشتراك إشعارات الوظائف) ─────────────────────────────
+    // ✅ Fix #20: مستند لكل مستخدم (id = معرّفه في التطبيق): {categories[], updatedAt}
+    // يكتبه job_ads_tab_screen عند تفعيل/إلغاء إشعارات فئة وظائف. صاحبه فقط.
+    match /job_subscriptions/{userId} {
+      allow read, delete: if isOwner(userId) || isModerator();
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['categories', 'updatedAt'])
+        && request.resource.data.categories is list
+        && request.resource.data.categories.size() <= 20
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    // ── Provider Topic Subscriptions (اشتراك مزوّد الخدمة في مواضيع FCM) ─────────
+    // ✅ Fix #20: مستند لكل مزوّد خدمة (id = معرّفه): {userId, categories[],
+    // fcmTopics[], updatedAt} يكتبه تسجيل مزوّد الخدمة. صاحبه فقط.
+    match /provider_topic_subscriptions/{userId} {
+      allow read, delete: if isOwner(userId) || isModerator();
+      allow create, update: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['userId', 'categories', 'fcmTopics', 'updatedAt'])
+        && request.resource.data.userId == userId
+        && request.resource.data.categories is list
+        && request.resource.data.fcmTopics is list
+        && request.resource.data.categories.size() <= 50
+        && request.resource.data.fcmTopics.size() <= 50
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    // ── Collection Invites (دعوات القوائم المشتركة) ─────────────────────────────
+    // ✅ Fix #20: collection_detail_screen يضيف دعوة (الداعي)، و notifications_screen
+    // يقبلها/يرفضها (المدعو: تغيير status فقط). كانت من غير match فكل دعوة كانت
+    // بتفشل من أول خطوة (permission-denied) وما يوصلش إشعار ولا FCM.
+    //   • قراءة: المدعو أو الداعي أو المشرف.
+    //   • إنشاء: inviterId == هويّتك، status == 'pending'، وتاريخ الخادم.
+    //   • تعديل: المدعو فقط، status فقط إلى accepted/rejected.
+    //   • حذف: أي طرف في الدعوة أو المشرف.
+    match /collection_invites/{inviteId} {
+      allow read: if (isAuth()
+          && (resource.data.inviteeId == appUid() || resource.data.inviterId == appUid()))
+        || isModerator();
+      allow create: if isAuth()
+        && request.resource.data.keys().hasOnly(
+            ['collectionId', 'collectionName', 'inviterId', 'inviterName', 'inviteeId', 'status', 'createdAt'])
+        && request.resource.data.inviterId == appUid()
+        && request.resource.data.inviteeId is string
+        && request.resource.data.inviteeId.size() > 0
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time;
+      allow update: if isAuth()
+        && resource.data.inviteeId == appUid()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['accepted', 'rejected'];
+      allow delete: if (isAuth()
+          && (resource.data.inviterId == appUid() || resource.data.inviteeId == appUid()))
+        || isModerator();
     }
   }
 }
