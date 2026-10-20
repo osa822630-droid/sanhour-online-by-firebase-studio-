@@ -24,7 +24,26 @@ class ReviewService {
     final reviewRef = _firestore.collection('reviews').doc();
 
     await _firestore.runTransaction((transaction) async {
-      // ✅ Fix #27: فحص ذري داخل الـ transaction
+      // ✅ Fix #21: فحص "تقييم واحد لكل مستخدم" كان بيتعمل بـ query عادي جوه الـ
+      // transaction *قبل* أي transaction.get، فمكنش جزء من قراءاتها — وكمان قراءة
+      // وثيقة الهدف كانت بتحصل بعده: تقييمين متزامنين من نفس المستخدم (ضغطتين
+      // سريعتين أو جهازين) كان الاتنين يعدّوا الفحص ويتكتبوا.
+      // الـ SDK ما بيدعمش query جوه transaction ولا وثيقة بمعرّف عشوائي نقدر نعمل
+      // لها tx.get، فنستخدم وثيقة الهدف (المحل/المنتج) كنقطة تسلسل: كل تقييم جديد
+      // بيكتب فيها (rating / reviewCount)، فأي تقييمين متزامنين على نفس الهدف
+      // بيتعارضوا عليها؛ اللي يخسر بيتعاد تلقائياً ويلاقي تقييم الأول بالفعل.
+      // الشرط الوحيد: القراءة (1) تسبق الفحص (2) — لو الفحص سبقها، ممكن الطلب
+      // التاني يقرأ الهدف بعد ما الأول يخلص ومنكتشفش تعارض.
+      // (حالة هامشية: لو وثيقة الهدف نفسها مش موجودة مفيش كتابة عليها يعني مفيش
+      // تسلسل — تقييم لعنصر محذوف، مش مسار طبيعي في التطبيق.)
+      //
+      // 1) القراءة: وثيقة الهدف أولاً
+      final collection = review.targetType == 'shop' ? 'shops' : 'products';
+      final targetRef =
+          _firestore.collection(collection).doc(review.targetId);
+      final targetDoc = await transaction.get(targetRef);
+
+      // 2) الفحص: التقييم المكرر (بعد قراءة الهدف مش قبلها)
       final existingSnap = await _firestore
           .collection('reviews')
           .where('userId', isEqualTo: review.userId)
@@ -35,6 +54,7 @@ class ReviewService {
         throw Exception('لقد قيّمت هذا العنصر مسبقاً.');
       }
 
+      // 3) الكتابات (بعد كل القراءات)
       // ✅ Fix #150: كتابة id صريح في الوثيقة
       final reviewMap = {
         ...review.toMap(),
@@ -43,11 +63,6 @@ class ReviewService {
         'createdAt': FieldValue.serverTimestamp(),
       };
       transaction.set(reviewRef, reviewMap);
-
-      final collection = review.targetType == 'shop' ? 'shops' : 'products';
-      final targetRef =
-          _firestore.collection(collection).doc(review.targetId);
-      final targetDoc = await transaction.get(targetRef);
 
       if (targetDoc.exists) {
         final data = targetDoc.data()!;

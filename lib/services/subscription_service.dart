@@ -35,16 +35,42 @@ class SubscriptionService {
     }
   }
 
-  // ── 2. التحقق من كود التفعيل (non-binding pre-check) ──────────
-  static Future<bool> isCodeValid(String code) async {
-    try {
+  // ✅ Fix #21: أنواع الأكواد المقبولة لتجديد الاشتراك. القاعدة الثابتة: `type`
+  // إجباري في كل استعلام تحقق من `activation_codes`. shop_renewal هو نوع التجديد،
+  // و shop_activation هو اللي بيولّده تاب الأدمن فعلياً دلوقتي (مفيش مولّد
+  // لـ shop_renewal) — فالاتنين مقبولين عشان التجديد الشغّال يفضل شغّال. أي نوع
+  // تاني (ad_activation / dealer_listing_fee) مرفوض: كود إعلان ما يجدّدش محل.
+  static const List<String> _renewalCodeTypes = [
+    'shop_renewal',
+    'shop_activation',
+  ];
+
+  /// ✅ Fix #21: يحدد وثيقة كود تجديد غير مستخدم، أو null لو الكود غلط/مستخدم/نوعه
+  /// مرفوض. استعلام equality لكل نوع مقبول (من غير index مركّب).
+  ///
+  /// الـ SDK ما بيدعمش query جوه transaction، فالنتيجة دي "تحديد للوثيقة" بس وغير
+  /// ملزمة: الفصل الذري بيتم في [renew] بإعادة قراءة الوثيقة بـ tx.get.
+  static Future<DocumentReference<Map<String, dynamic>>?> _findUnusedCode(
+    String code,
+  ) async {
+    for (final type in _renewalCodeTypes) {
       final snap = await _db
           .collection('activation_codes')
           .where('code', isEqualTo: code)
+          .where('type', isEqualTo: type)
           .where('isUsed', isEqualTo: false)
           .limit(1)
           .get();
-      return snap.docs.isNotEmpty;
+      if (snap.docs.isNotEmpty) return snap.docs.first.reference;
+    }
+    return null;
+  }
+
+  // ── 2. التحقق من كود التفعيل (non-binding pre-check) ──────────
+  static Future<bool> isCodeValid(String code) async {
+    try {
+      final codeRef = await _findUnusedCode(code);
+      return codeRef != null;
     } catch (_) {
       return false;
     }
@@ -76,22 +102,32 @@ class SubscriptionService {
       }
       final newEnd = currentEnd.add(Duration(days: planDays));
 
+      // ✅ Fix #21: كان الاستعلام عن الكود جوه الـ transaction من غير tx.get، فمكنش
+      // جزء من قراءاتها: تجديدين متزامنين بنفس الكود يلاقوه الاتنين "غير مستخدم"
+      // ويحرقوه (كتابتين "عمياء" مبتتعارضش) فيتجدد الاشتراك مرتين بكود واحد. الـ SDK
+      // ما بيدعمش query جوه transaction، فالنمط الصح (زي AdService.redeemAdCode):
+      // نحدد الوثيقة بالاستعلام هنا (بنوع مقبول للتجديد)، وجوه الـ transaction
+      // نعيد قراءتها بـ tx.get ونتحقق تاني ثم نحرق — فأي حرق متزامن بيجبر الـ SDK
+      // يعيد المحاولة ويلاقي الكود اتحرق بالفعل.
+      final codeRef = await _findUnusedCode(activationCode.trim());
+      if (codeRef == null) {
+        throw Exception('كود التفعيل غير صحيح أو مستخدم مسبقاً');
+      }
+
       // ── Transaction ذرية ─────────────────────────────────────────
       await _db.runTransaction((tx) async {
-        // 1. التحقق من الكود ذرياً
-        final codeSnap = await _db
-            .collection('activation_codes')
-            .where('code', isEqualTo: activationCode.trim())
-            .where('isUsed', isEqualTo: false)
-            .limit(1)
-            .get();
-
-        if (codeSnap.docs.isEmpty) {
+        // 1. إعادة قراءة الكود بـ tx.get والتحقق ذرياً (لسه غير مستخدم + نوعه مقبول)
+        final freshCode = await tx.get(codeRef);
+        final freshData = freshCode.data();
+        if (!freshCode.exists ||
+            freshData == null ||
+            freshData['isUsed'] == true ||
+            !_renewalCodeTypes.contains(freshData['type'])) {
           throw Exception('كود التفعيل غير صحيح أو مستخدم مسبقاً');
         }
 
         // 2. حرق الكود
-        tx.update(codeSnap.docs.first.reference, {
+        tx.update(codeRef, {
           'isUsed': true,
           'usedBy': userId,
           'usedAt': FieldValue.serverTimestamp(),

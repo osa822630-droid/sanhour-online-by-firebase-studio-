@@ -91,14 +91,33 @@ class ShopService {
   //    (لا يُستدعى منفصلاً بعد الآن — الـ TOCTOU مُعالَج)
   // =========================================================
 
-  /// للاستخدام الخارجي كـ pre-check فقط (غير ذري — الـ atomic check في createShop)
-  static Future<void> validateActivationCode(String code) async {
+  /// ✅ Fix #21: نوع كود تفعيل المحل. القاعدة الثابتة: `type` إجباري في كل استعلام
+  /// تحقق من `activation_codes` — فكود إعلان (ad_activation) أو رسوم ديلر
+  /// (dealer_listing_fee) أو تجديد (shop_renewal) ما ينفعش يفعّل محل جديد.
+  static const String _shopActivationType = 'shop_activation';
+
+  /// ✅ Fix #21: يحدد وثيقة كود تفعيل محل غير مستخدم، أو null لو الكود غلط/مستخدم/
+  /// نوعه مختلف. استعلام equality فقط (من غير index مركّب).
+  ///
+  /// الـ SDK ما بيدعمش query جوه transaction، فالنتيجة دي "تحديد للوثيقة" بس وغير
+  /// ملزمة: الفصل الذري بيتم في [createShop] بإعادة قراءة الوثيقة بـ tx.get.
+  static Future<DocumentReference<Map<String, dynamic>>?>
+      _findUnusedActivationCode(String code) async {
     final snap = await _firestore
         .collection('activation_codes')
         .where('code', isEqualTo: code)
+        .where('type', isEqualTo: _shopActivationType)
         .where('isUsed', isEqualTo: false)
+        .limit(1)
         .get();
-    if (snap.docs.isEmpty) {
+    if (snap.docs.isEmpty) return null;
+    return snap.docs.first.reference;
+  }
+
+  /// للاستخدام الخارجي كـ pre-check فقط (غير ذري — الـ atomic check في createShop)
+  static Future<void> validateActivationCode(String code) async {
+    final codeRef = await _findUnusedActivationCode(code);
+    if (codeRef == null) {
       throw Exception('كود التفعيل غير صحيح أو مستخدم مسبقاً.');
     }
   }
@@ -163,22 +182,36 @@ class ShopService {
     // ✅ Fix #20: قراءة الكود وحرقه وإنشاء المحل في transaction ذرية
     final docRef = _firestore.collection('shops').doc();
 
-    await _firestore.runTransaction((tx) async {
-      // التحقق من الكود ذرياً
-      if (activationCode != null && activationCode.isNotEmpty) {
-        final codeSnap = await _firestore
-            .collection('activation_codes')
-            .where('code', isEqualTo: activationCode)
-            .where('isUsed', isEqualTo: false)
-            .limit(1)
-            .get();
+    // ✅ Fix #21: كان الاستعلام عن الكود جوه الـ transaction من غير tx.get، فمكنش
+    // جزء من قراءاتها: طلبين متزامنين بنفس الكود يلاقوه الاتنين "غير مستخدم"
+    // ويحرقوه (كتابتين "عمياء" مبتتعارضش) فيتفعّل محلين بكود واحد. الـ SDK ما بيدعمش
+    // query جوه transaction، فالنمط الصح (زي AdService.redeemAdCode): نحدد الوثيقة
+    // بالاستعلام هنا (بـ type: shop_activation كمان)، وجوه الـ transaction نعيد
+    // قراءتها بـ tx.get ونتحقق تاني ثم نحرق — فأي حرق متزامن بيجبر الـ SDK يعيد
+    // المحاولة ويلاقي الكود اتحرق بالفعل.
+    final DocumentReference<Map<String, dynamic>>? codeRef =
+        (activationCode != null && activationCode.isNotEmpty)
+            ? await _findUnusedActivationCode(activationCode)
+            : null;
+    if (activationCode != null && activationCode.isNotEmpty && codeRef == null) {
+      throw Exception('كود التفعيل غير صحيح أو مستخدم مسبقاً.');
+    }
 
-        if (codeSnap.docs.isEmpty) {
+    await _firestore.runTransaction((tx) async {
+      if (codeRef != null) {
+        // ✅ إعادة قراءة الوثيقة جوه الـ transaction: دي القراءة اللي بتخلّي الـ
+        // commit يفشل ويتعاد لو حد حرق الكود في نفس اللحظة.
+        final freshCode = await tx.get(codeRef);
+        final freshData = freshCode.data();
+        if (!freshCode.exists ||
+            freshData == null ||
+            freshData['isUsed'] == true ||
+            freshData['type'] != _shopActivationType) {
           throw Exception('كود التفعيل غير صحيح أو مستخدم مسبقاً.');
         }
 
         // ✅ حرق الكود أثناء الـ transaction
-        tx.update(codeSnap.docs.first.reference, {
+        tx.update(codeRef, {
           'isUsed': true,
           'usedBy': ownerId,
           'usedAt': FieldValue.serverTimestamp(),
