@@ -1,0 +1,70 @@
+# TEMPORARY - runs `flutter analyze` because the Claude sandbox has no Flutter SDK
+# (pub.dev and storage.googleapis.com are blocked there). It publishes the full analyzer
+# output as a check run named "flutter-analyze-report". Removed again once the phase is clean.
+name: flutter-analyze
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.44.7'
+          cache: true
+
+      - name: Versions
+        run: |
+          flutter --version
+          dart --version
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: flutter analyze
+        id: analyze
+        run: |
+          set +e
+          flutter analyze --no-pub > analyze.txt 2>&1
+          code=$?
+          echo "exit code: $code" >> analyze.txt
+          cat analyze.txt
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publish report
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          ANALYZE_CODE: ${{ steps.analyze.outputs.code }}
+        with:
+          script: |
+            const fs = require('fs');
+            let text = fs.existsSync('analyze.txt') ? fs.readFileSync('analyze.txt', 'utf8') : '(no analyze.txt - an earlier step failed)';
+            if (text.length > 60000) text = text.slice(0, 60000) + '\n... (truncated)';
+            const code = process.env.ANALYZE_CODE || 'n/a';
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'flutter-analyze-report',
+              head_sha: context.sha,
+              status: 'completed',
+              conclusion: code === '0' ? 'success' : 'neutral',
+              output: {
+                title: 'flutter analyze (exit ' + code + ')',
+                summary: 'exit code ' + code,
+                text: '```\n' + text + '\n```',
+              },
+            });
