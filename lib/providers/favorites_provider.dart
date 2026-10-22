@@ -322,10 +322,12 @@ class FavoritesProvider with ChangeNotifier {
 
   // ✅ Fix #79: التحقق من ملكية المجموعة قبل حذفها (client-side guard)
   Future<void> deleteCollection(String collectionId) async {
-    if (_user == null) return;
+    // _user حقل: الـ null check ما بيعملش promotion جوه الـ closure، فنثبّته محلياً
+    final user = _user;
+    if (user == null) return;
     // التحقق أن المجموعة ملك للمستخدم الحالي
     final existing = _collections.any(
-        (c) => c.id == collectionId && c.ownerId == _user.id);
+        (c) => c.id == collectionId && c.ownerId == user.id);
     if (!existing) {
       throw Exception('لا يمكنك حذف مجموعة لا تملكها.');
     }

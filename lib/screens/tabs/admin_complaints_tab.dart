@@ -40,7 +40,10 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
   }
 
   Future<void> _loadComplaints() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMsg = null;
+    });
     try {
       final data = await ApiService.getComplaints();
       if (mounted) {
@@ -119,15 +122,27 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
           ? const Center(child: CircularProgressIndicator())
           : _filteredComplaints.isEmpty
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.inbox_outlined,
-                          size: 80, color: Colors.grey[300]),
-                      const SizedBox(height: 16),
-                      const Text('لا توجد رسائل',
-                          style: TextStyle(color: Colors.grey, fontSize: 16)),
-                    ],
+                  // ✅ رسالة الخطأ المخزّنة (Fix #104/#106/#107) كانت بتتكتب ومبتتعرضش:
+                  // دلوقتي بتظهر بدل "لا توجد رسائل" والضغط عليها يعيد المحاولة.
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _errorMsg != null ? _loadComplaints : null,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                            _errorMsg != null
+                                ? Icons.error_outline
+                                : Icons.inbox_outlined,
+                            size: 80,
+                            color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text(_errorMsg ?? 'لا توجد رسائل',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                color: Colors.grey, fontSize: 16)),
+                      ],
+                    ),
                   ),
                 )
               : RefreshIndicator(
@@ -148,7 +163,6 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
         : (item['adminReply'] as String?); // backward compat
 
     final hasReply = replyText != null && replyText.isNotEmpty;
-    final status = item['status'] as String? ?? 'pending';
     final type = item['type'] as String? ?? 'شكوى';
     final repliedAt = item['repliedAt'];
     String repliedAtStr = '';
@@ -280,7 +294,7 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
                               fontSize: 13)),
                     ]),
                     const SizedBox(height: 6),
-                    Text(replyText!,
+                    Text(replyText,
                         style: const TextStyle(fontSize: 13, height: 1.4)),
                     if (repliedAtStr.isNotEmpty) ...[
                       const SizedBox(height: 4),

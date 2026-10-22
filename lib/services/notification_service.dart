@@ -728,6 +728,10 @@ class NotificationService {
         iOS: const DarwinNotificationDetails(),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      // pubspec مثبّت flutter_local_notifications ^17 اللي بيشترط الباراميتر ده
+      // (اتشال من الكود في نسخة lib-2 بالغلط → missing_required_argument)
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       payload: payload,
     );
   }
@@ -754,6 +758,8 @@ class NotificationService {
         iOS: const DarwinNotificationDetails(),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: matchComponents,
       payload: payload,
     );

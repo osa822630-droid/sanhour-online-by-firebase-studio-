@@ -68,7 +68,6 @@ class ProductService {
     // QA Fix #03: دعم كلٍّ من Firebase Auth والـ Mock Auth
     // ✅ mock_user كـ fallback لتجنب رفض عمليات الـ Mock Auth
     final firebaseUser = _auth.currentUser;
-    final ownerId = productData['ownerId'] as String? ?? firebaseUser?.uid ?? 'mock_user';
 
     // ✅ Fix #13: التحقق من الـ ownership عبر uid فقط في الجلسات الحقيقية.
     // الجلسة المجهولة (Mock Login) uid لها عشوائي ولا يساوي ownerId (معرّف
@@ -204,7 +203,6 @@ class ProductService {
     // QA Fix #03: دعم كلٍّ من Firebase Auth والـ Mock Auth
     // ✅ mock_user كـ fallback لتجنب رفض عمليات الـ Mock Auth
     final firebaseUser = _auth.currentUser;
-    final ownerId = offerData['ownerId'] as String? ?? firebaseUser?.uid ?? 'mock_user';
 
     // ✅ Fix #13: نفس منطق addProduct — فحص uid للجلسات الحقيقية فقط
     // (الجلسة المجهولة تعتمد على Firestore Rules + appUid()).

@@ -404,11 +404,18 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
                 icon: const Icon(Icons.preview_outlined, size: 18),
                 label: const Text('معاينة'),
                 onPressed: () {
+                  // ✅ كان `isEditing ? (...)?['imageUrl'] as String? : null`: الـ parser
+                  // بيقرأ `?[` جوه then-branch لتعبير شرطي كبداية شرط تاني
+                  // (non_bool_condition + "Expected ':'")، فاستخرجنا القيمة لمتغير
+                  // محلي من غير ternary (adDoc null في وضع الإنشاء فالنتيجة null).
+                  final existingImageUrl =
+                      (adDoc?.data() as Map<String, dynamic>?)?['imageUrl']
+                          as String?;
                   showDialog(
                     context: context,
                     builder: (_) => _AdPreviewDialog(
                       imageFile: selectedImage,
-                      imageUrl: isEditing ? (adDoc.data() as Map<String, dynamic>?)?['imageUrl'] as String? : null,
+                      imageUrl: existingImageUrl,
                       text: textController.text.trim(),
                       targetType: selectedType,
                     ),

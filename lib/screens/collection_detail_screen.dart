@@ -5,13 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import '../models/wishlist_collection_model.dart';
 import '../providers/favorites_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/cached_image.dart';
 import '../services/deep_link_service.dart';
-import '../services/notification_service.dart';
 
 class CollectionDetailScreen extends StatefulWidget {
   final WishlistCollection collection;

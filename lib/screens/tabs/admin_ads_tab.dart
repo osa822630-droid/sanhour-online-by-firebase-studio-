@@ -26,19 +26,6 @@ class _AdminAdsTabState extends State<AdminAdsTab> {
   List<AdModel> _ads = [];
   int _totalClicks = 0;
   int _activeCount = 0;
-  // ✅ Fix #163: فلتر نشط / منتهي
-  String _filterStatus = 'all'; // 'all' | 'active' | 'inactive'
-
-  List<AdModel> get _filteredAds {
-    switch (_filterStatus) {
-      case 'active':
-        return _ads.where((a) => a.isActive).toList();
-      case 'inactive':
-        return _ads.where((a) => !a.isActive).toList();
-      default:
-        return _ads;
-    }
-  }
 
   @override
   void initState() {
@@ -350,9 +337,8 @@ class AdminAdCard extends StatelessWidget {
 // ══════════════════════════════════════════════════════════════════════════════
 class _AdFormScreen extends StatefulWidget {
   final VoidCallback onSaved;
-  final AdModel? ad;
 
-  const _AdFormScreen({required this.onSaved, this.ad});
+  const _AdFormScreen({required this.onSaved});
 
   @override
   State<_AdFormScreen> createState() => _AdFormScreenState();
@@ -396,24 +382,6 @@ class _AdFormScreenState extends State<_AdFormScreen> {
     'categories': 'صفحة الفئات',
     'favorites': 'المفضلة',
   };
-
-  @override
-  void initState() {
-    super.initState();
-    final a = widget.ad;
-    if (a != null) {
-      _textCtrl.text = a.text;
-      _targetType = a.targetType ?? 'none';
-      _targetIdCtrl.text = a.targetId ?? '';
-      _existingUrls = List.from(a.imageUrls);
-      _coverImageIndex = a.coverImageIndex;
-      if (a.displayLocations.isNotEmpty) {
-        _selectedLocations
-          ..clear()
-          ..addAll(a.displayLocations);
-      }
-    }
-  }
 
   @override
   void dispose() {
@@ -491,9 +459,9 @@ class _AdFormScreenState extends State<_AdFormScreen> {
       backgroundColor:
           isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
       appBar: AppBar(
-        title: Text(
-          widget.ad == null ? 'إضافة إعلان جديد' : 'تعديل الإعلان',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        title: const Text(
+          'إضافة إعلان جديد',
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF5E35B1),
         foregroundColor: Colors.white,

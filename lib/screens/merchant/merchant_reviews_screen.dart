@@ -155,21 +155,6 @@ class _MerchantReviewsScreenState extends State<MerchantReviewsScreen> {
     if (mounted) await _loadReviews(refresh: true);
   }
 
-  List<Review> _getFilteredReviews(List<Review> reviews) {
-    switch (_filter) {
-      case 'replied':
-        return reviews.where((r) => r.reply != null && r.reply!.isNotEmpty).toList();
-      case 'not_replied':
-        return reviews.where((r) => r.reply == null || r.reply!.isEmpty).toList();
-      case 'product':
-        return reviews.where((r) => r.targetType == 'product').toList();
-      case 'shop':
-        return reviews.where((r) => r.targetType == 'shop').toList();
-      default:
-        return reviews;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredReviews;

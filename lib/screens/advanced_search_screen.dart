@@ -271,7 +271,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
             .map((d) => Product.fromMap(d.data(), d.id))
             .toList();
         _firestoreShops = futures[1].docs
-            .map((d) => Shop.fromMap(d.data() as Map<String, dynamic>, d.id))
+            .map((d) => Shop.fromMap(d.data(), d.id))
             .toList();
         // العروض تُعرض ضمن صف المنتجات (أو يمكن إضافة tab لها لاحقاً)
         _isSearching = false;

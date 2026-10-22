@@ -22,8 +22,6 @@ import '../services/analytics_service.dart';
 import '../widgets/category_list.dart';
 // ✅ Pro #214: Shimmer loading
 import '../widgets/shimmer_loader.dart';
-// ✅ Pro #221: DateHelper للتواريخ
-import '../utils/date_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

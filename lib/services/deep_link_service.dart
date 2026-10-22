@@ -233,8 +233,6 @@ $link
     String? subtitle,
     required VoidCallback onShare,
   }) async {
-    final link = buildLink(type: ShareableType.shop, id: id);
-
     await showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(

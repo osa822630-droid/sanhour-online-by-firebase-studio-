@@ -32,7 +32,6 @@ import 'screens/sanhour_dealer_screen.dart';
 import 'screens/interests_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/subscription_screen.dart';
-import 'screens/all_ads_screen.dart';
 import 'screens/ads_hub_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/my_complaints_screen.dart';
