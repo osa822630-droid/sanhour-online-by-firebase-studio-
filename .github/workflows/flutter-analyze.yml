@@ -44,6 +44,35 @@ jobs:
           echo "code=$code" >> "$GITHUB_OUTPUT"
           exit 0
 
+      - name: dart fix (dry-run + apply, diff only - nothing is committed)
+        if: always()
+        run: |
+          set +e
+          dart fix --dry-run > fix_dry.txt 2>&1
+          dart fix --apply > fix_apply.txt 2>&1
+          git diff > fix.diff
+          wc -c fix_dry.txt fix_apply.txt fix.diff
+          exit 0
+
+      - name: Publish dart fix report
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const rd = (p) => fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '(missing ' + p + ')';
+            let text = '--- dry-run ---\n' + rd('fix_dry.txt') + '\n--- diff after --apply ---\n' + rd('fix.diff');
+            if (text.length > 60000) text = text.slice(0, 60000) + '\n... (truncated)';
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'dart-fix-report',
+              head_sha: context.sha,
+              status: 'completed',
+              conclusion: 'neutral',
+              output: { title: 'dart fix preview', summary: 'diff only', text: '```\n' + text + '\n```' },
+            });
+
       - name: Publish report
         if: always()
         uses: actions/github-script@v7
