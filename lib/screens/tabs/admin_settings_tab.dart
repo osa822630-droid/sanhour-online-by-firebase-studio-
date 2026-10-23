@@ -25,7 +25,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
 
   bool _isKeyVisible = false;
   bool _isLoading = false;
-  bool _isSeeding = false;
+  final bool _isSeeding = false;
   bool _isCleaning = false;
   bool _isSendingNotif = false;
 

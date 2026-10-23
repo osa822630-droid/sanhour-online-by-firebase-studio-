@@ -173,10 +173,12 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
       ));
       return null;
     } finally {
-      if (mounted) setState(() {
-        _isUploadingPhoto = false;
-        _photoProgress = null;
-      });
+      if (mounted) {
+        setState(() {
+          _isUploadingPhoto = false;
+          _photoProgress = null;
+        });
+      }
     }
   }
 

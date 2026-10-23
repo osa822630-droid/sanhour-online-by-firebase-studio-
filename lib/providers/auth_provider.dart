@@ -312,8 +312,11 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _handleMockLogin(String phone, String password) async {
     String userType = 'customer';
-    if (phone == '01008908728') userType = 'admin';
-    else if (phone == '01234567890') userType = 'merchant';
+    if (phone == '01008908728') {
+      userType = 'admin';
+    } else if (phone == '01234567890') {
+      userType = 'merchant';
+    }
 
     final normalizedPhone = _normalizePhone(phone);
     final snap = await _firestore

@@ -423,9 +423,9 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
       // ✅ إشعار فوري للمستخدم
       if (userId.isNotEmpty) {
         await FirebaseFirestore.instance.collection('notifications').add({
-          'title': '💬 رد على "${title.length > 30 ? title.substring(0, 30) + '...' : title}"',
+          'title': '💬 رد على "${title.length > 30 ? '${title.substring(0, 30)}...' : title}"',
           'body': replyText.length > 80
-              ? replyText.substring(0, 80) + '...'
+              ? '${replyText.substring(0, 80)}...'
               : replyText,
           'type': 'complaint_reply',
           'targetUserId': userId,
@@ -445,7 +445,7 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
             .add({
           'title': '💬 رد جديد على شكواك',
           'body': replyText.length > 80
-              ? replyText.substring(0, 80) + '...'
+              ? '${replyText.substring(0, 80)}...'
               : replyText,
           'targetUserId': userId,
           'data': {

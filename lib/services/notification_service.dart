@@ -409,7 +409,7 @@ class NotificationService {
     final title = adText.isNotEmpty ? adText : 'إعلان جديد!';
     await _showNotification(
       id: adId.hashCode,
-      title: '📢 ${title.length > 40 ? title.substring(0, 40) + '...' : title}',
+      title: '📢 ${title.length > 40 ? '${title.substring(0, 40)}...' : title}',
       body: 'اضغط لرؤية التفاصيل',
       channelId: 'new_ads',
       channelName: 'إعلانات جديدة',
@@ -419,7 +419,7 @@ class NotificationService {
     // أيضاً نكتب للـ notification_queue لإرسال FCM للغائبين عبر Cloud Function
     await _writeToNotificationQueue(
       title: '📢 إعلان جديد في سنهور أونلاين',
-      body: title.length > 60 ? title.substring(0, 60) + '...' : title,
+      body: title.length > 60 ? '${title.substring(0, 60)}...' : title,
       topic: 'all',
       route: 'ad_details:$adId',
       channel: 'new_ads',
@@ -606,7 +606,7 @@ class NotificationService {
     final title = adText.isNotEmpty ? adText : 'إعلان جديد!';
     await _writeToNotificationQueue(
       title: '📢 إعلان جديد في سنهور أونلاين',
-      body: title.length > 80 ? title.substring(0, 80) + '...' : title,
+      body: title.length > 80 ? '${title.substring(0, 80)}...' : title,
       topic: 'all',
       route: 'ad_details:$adId',
       channel: 'new_ads',

@@ -117,16 +117,16 @@ class DatabaseSeeder {
     }
 
     // المراحل بالترتيب — كل مرحلة مستقلة
-    await _phase1_settings(report);
-    await _phase2_categories(report);
-    await _phase3_users(report);
-    await _phase4_shops(report);
-    await _phase5_products(report);
-    await _phase6_offers(report);
-    await _phase7_services(report); // الخدمات + التقييمات (reviews بتتزرع هنا)
-    await _phase8_ads(report);
-    await _phase9_communityContent(report);
-    await _phase10_communityContent(report);
+    await _phase1Settings(report);
+    await _phase2Categories(report);
+    await _phase3Users(report);
+    await _phase4Shops(report);
+    await _phase5Products(report);
+    await _phase6Offers(report);
+    await _phase7Services(report); // الخدمات + التقييمات (reviews بتتزرع هنا)
+    await _phase8Ads(report);
+    await _phase9CommunityContent(report);
+    await _phase10CommunityContent(report);
 
     // اكتمال كامل
     onProgress?.call(const SeederProgress(
@@ -235,7 +235,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 1 — إعدادات التطبيق (settings + locations)
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase1_settings(
+  static Future<void> _phase1Settings(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 1;
     const name = 'الإعدادات والمناطق';
@@ -285,7 +285,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 2 — الفئات والفئات الفرعية
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase2_categories(
+  static Future<void> _phase2Categories(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 2;
     const name = 'الفئات';
@@ -414,7 +414,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 3 — المستخدمون
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase3_users(
+  static Future<void> _phase3Users(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 3;
     const name = 'المستخدمون';
@@ -528,7 +528,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 4 — المحلات
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase4_shops(
+  static Future<void> _phase4Shops(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 4;
     const name = 'المحلات';
@@ -661,7 +661,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 5 — المنتجات
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase5_products(
+  static Future<void> _phase5Products(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 5;
     const name = 'المنتجات';
@@ -795,7 +795,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 6 — العروض
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase6_offers(
+  static Future<void> _phase6Offers(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 6;
     const name = 'العروض';
@@ -863,7 +863,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 7 — الخدمات والتقييمات
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase7_services(
+  static Future<void> _phase7Services(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 7;
     const name = 'الخدمات والتقييمات';
@@ -960,7 +960,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 8 — الإعلانات التجارية
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase8_ads(
+  static Future<void> _phase8Ads(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 8;
     const name = 'الإعلانات التجارية';
@@ -1016,7 +1016,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 9 — إعلانات الوظائف وطلبات الخدمات وقوائم الديلر
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase9_communityContent(
+  static Future<void> _phase9CommunityContent(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 9;
     const name = 'وظائف وطلبات وديلر';
@@ -1214,7 +1214,7 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   // المرحلة 10 — القوائم والإشعارات وكودات التفعيل وسجل التدقيق
   // ─────────────────────────────────────────────────────────────────────────
-  static Future<void> _phase10_communityContent(
+  static Future<void> _phase10CommunityContent(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 10;
     const name = 'القوائم والإشعارات والأكواد';

@@ -65,10 +65,12 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen> {
         });
       },
       onError: (e) {
-        if (mounted) setState(() {
-          _isLoading = false;
-          _errorMsg = 'تعذّر تحميل الشكاوى. اضغط للمحاولة مجدداً.';
-        });
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorMsg = 'تعذّر تحميل الشكاوى. اضغط للمحاولة مجدداً.';
+          });
+        }
       },
     );
   }

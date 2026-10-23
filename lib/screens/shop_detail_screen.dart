@@ -84,10 +84,12 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
       }
     } catch (e) {
       // ✅ Fix #96: عرض رسالة الخطأ للمستخدم
-      if (mounted) setState(() {
-        _isLoading = false;
-        _errorMsg = 'تعذّر تحميل بيانات المحل. تحقق من اتصالك.';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMsg = 'تعذّر تحميل بيانات المحل. تحقق من اتصالك.';
+        });
+      }
     }
   }
 

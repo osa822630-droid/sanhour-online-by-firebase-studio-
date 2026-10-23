@@ -35,10 +35,12 @@ class _MerchantServicesTabState extends State<MerchantServicesTab> {
       }
     } catch (e) {
       // ✅ Fix #102: تخزين رسالة الخطأ وعرضها
-      if (mounted) setState(() {
-        _isLoading = false;
-        _errorMsg = 'تعذّر تحميل الخدمات. اضغط للمحاولة مجدداً.';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMsg = 'تعذّر تحميل الخدمات. اضغط للمحاولة مجدداً.';
+        });
+      }
     }
   }
 

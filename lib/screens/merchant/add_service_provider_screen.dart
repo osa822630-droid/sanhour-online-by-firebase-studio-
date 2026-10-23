@@ -21,7 +21,7 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
   final _locationCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
 
-  Set<String> _selectedCategories = {};
+  final Set<String> _selectedCategories = {};
   bool _isSaving = false;
 
   @override

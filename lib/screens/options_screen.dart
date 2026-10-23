@@ -82,13 +82,15 @@ class _OptionsScreenState extends State<OptionsScreen> {
       }
 
       await batch.commit();
-      if (!mounted) return;
+      // dialogContext سياق مختلف عن State.context: حارس mounted بتاع الـ State لوحده
+      // مش كفاية له (use_build_context_synchronously)، فنفحص الاتنين.
+      if (!mounted || !dialogContext.mounted) return;
       Navigator.of(dialogContext).pop();
       await authProvider.logout();
       if (!mounted) return;
       if (context.mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || !dialogContext.mounted) return;
       Navigator.of(dialogContext).pop();
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('حدث خطأ، يُرجى المحاولة مرة أخرى'),
@@ -563,7 +565,8 @@ class _OptionsScreenState extends State<OptionsScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               await auth.logout();
-              if (!mounted) return;
+              // context هنا باراميتر الدالة (مش State.context) فحارسه context.mounted
+              if (!context.mounted) return;
               Navigator.pushNamedAndRemoveUntil(
                   context, '/login', (_) => false);
             },

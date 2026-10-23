@@ -29,7 +29,7 @@ class _ServiceRequestsTabScreenState
   List<ServiceRequestModel> _requests = [];
   bool _isLoading = true;
   String _searchQuery = '';
-  Set<String> _selectedCategories = {}; // multi-select
+  final Set<String> _selectedCategories = {}; // multi-select
 
   @override
   void initState() {
