@@ -314,7 +314,7 @@ class AdminAdCard extends StatelessWidget {
                 Switch(
                   value: ad.isActive,
                   onChanged: (_) => onToggle(),
-                  activeColor: Colors.green,
+                  activeThumbColor: Colors.green,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 IconButton(

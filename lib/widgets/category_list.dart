@@ -1,5 +1,6 @@
 // lib_widgets_category_list.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:provider/provider.dart';
 import '../providers/shops_provider.dart';
 import '../models/category_model.dart';
@@ -41,7 +42,7 @@ class CategoryListWidget extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
                   itemCount: categories.length,
-                  cacheExtent: 500,
+                  scrollCacheExtent: const ScrollCacheExtent.pixels(500),
                   itemBuilder: (context, index) {
                     final cat = categories[index];
                     return _buildCategoryItem(

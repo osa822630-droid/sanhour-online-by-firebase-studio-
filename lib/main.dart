@@ -77,12 +77,12 @@ void main() async {
 
   // ✅ QA Fix #33: debug provider في debug mode — playIntegrity/appAttest للـ production فقط
   await FirebaseAppCheck.instance.activate(
-    androidProvider: kDebugMode
-        ? AndroidProvider.debug
-        : AndroidProvider.playIntegrity,
-    appleProvider: kDebugMode
-        ? AppleProvider.debug
-        : AppleProvider.appAttest,
+    providerAndroid: kDebugMode
+        ? const AndroidDebugProvider()
+        : const AndroidPlayIntegrityProvider(),
+    providerApple: kDebugMode
+        ? const AppleDebugProvider()
+        : const AppleAppAttestProvider(),
   );
 
   // ── Firestore settings ────────────────────────────────────

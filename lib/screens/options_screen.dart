@@ -166,7 +166,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
               ),
               value: isDark,
               onChanged: (_) => themeProvider.toggleTheme(),
-              activeColor: Colors.deepPurple,
+              activeThumbColor: Colors.deepPurple,
             ),
             const Divider(height: 1),
             SwitchListTile(
@@ -177,7 +177,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
               secondary: const Icon(Icons.campaign, color: Colors.deepPurple),
               value: _showStartupAds,
               onChanged: _toggleAdsPreference,
-              activeColor: Colors.deepPurple,
+              activeThumbColor: Colors.deepPurple,
             ),
           ]),
 

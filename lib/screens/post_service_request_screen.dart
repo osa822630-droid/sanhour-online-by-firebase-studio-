@@ -175,7 +175,7 @@ class _PostServiceRequestScreenState
             _label('نوع الخدمة المطلوبة *'),
             const SizedBox(height: 8),
             DropdownButtonFormField<ServiceRequestCategory>(
-              value: _category,
+              initialValue: _category,
               decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.handyman_outlined)),
@@ -281,7 +281,7 @@ class _PostServiceRequestScreenState
                     color: _urgent ? Colors.red : Colors.grey),
                 value: _urgent,
                 onChanged: (v) => setState(() => _urgent = v),
-                activeColor: Colors.red,
+                activeThumbColor: Colors.red,
               ),
             ),
 

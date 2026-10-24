@@ -407,7 +407,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                     subtitle: Text('${data['price']} جنيه · ${data['category']}'),
                     trailing: Switch(
                       value: data['isActive'] ?? false,
-                      activeColor: Colors.deepPurple,
+                      activeThumbColor: Colors.deepPurple,
                       onChanged: (val) {
                         FirebaseFirestore.instance.collection('dealer_listings').doc(d.id).update({'isActive': val});
                       },

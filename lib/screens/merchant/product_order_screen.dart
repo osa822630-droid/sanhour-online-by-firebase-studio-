@@ -222,9 +222,10 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
           child: ReorderableListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: _pinnedProducts.length,
-            onReorder: (oldIndex, newIndex) {
+            // onReorderItem بيدّينا newIndex معدّل لحذف العنصر من oldIndex بالفعل
+            // (onReorder القديم كان محتاج `if (newIndex > oldIndex) newIndex--`)
+            onReorderItem: (oldIndex, newIndex) {
               setState(() {
-                if (newIndex > oldIndex) newIndex--;
                 final item = _pinnedProducts.removeAt(oldIndex);
                 _pinnedProducts.insert(newIndex, item);
               });

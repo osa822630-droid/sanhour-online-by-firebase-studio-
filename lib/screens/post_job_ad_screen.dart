@@ -163,7 +163,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
             _label('نوع الوظيفة *'),
             const SizedBox(height: 8),
             DropdownButtonFormField<JobCategory>(
-              value: _category,
+              initialValue: _category,
               decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.work_outline)),
@@ -242,7 +242,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
             _label('نوع الدوام'),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _workType,
+              initialValue: _workType,
               decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.schedule_outlined)),

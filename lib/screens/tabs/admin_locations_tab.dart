@@ -153,7 +153,7 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
               value: _showLocationFilter,
               onChanged: (v) =>
                   setState(() => _showLocationFilter = v),
-              activeColor: const Color(0xFF5E35B1),
+              activeThumbColor: const Color(0xFF5E35B1),
             ),
           ]),
 
@@ -220,9 +220,9 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
               ReorderableListView(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                onReorder: (oldIdx, newIdx) {
+                // onReorderItem بيدّينا newIdx معدّل لحذف العنصر من oldIdx بالفعل
+                onReorderItem: (oldIdx, newIdx) {
                   setState(() {
-                    if (newIdx > oldIdx) newIdx--;
                     final item = _regions.removeAt(oldIdx);
                     _regions.insert(newIdx, item);
                   });

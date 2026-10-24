@@ -351,13 +351,19 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
           ),
           const SizedBox(width: 8),
-          RadioListTile<String>.adaptive(
-            value: key,
+          // ✅ groupValue/onChanged اتنقلوا من RadioListTile لـ RadioGroup (deprecated).
+          // toggleable بيبعت null عند إلغاء التحديد: نتجاهله (كان v! بيكسر هنا).
+          RadioGroup<String>(
             groupValue: _selectedPlan,
-            activeColor: color,
-            onChanged: (v) => setState(() => _selectedPlan = v!),
-            contentPadding: EdgeInsets.zero,
-            toggleable: true,
+            onChanged: (v) {
+              if (v != null) setState(() => _selectedPlan = v);
+            },
+            child: RadioListTile<String>.adaptive(
+              value: key,
+              activeColor: color,
+              contentPadding: EdgeInsets.zero,
+              toggleable: true,
+            ),
           ),
         ]),
       ),

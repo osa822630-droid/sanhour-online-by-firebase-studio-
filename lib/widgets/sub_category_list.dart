@@ -1,5 +1,6 @@
 // lib_widgets_sub_category_list.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:provider/provider.dart';
 import 'package:sanhour_online/providers/favorites_provider.dart';
 import 'package:sanhour_online/screens/shop_detail_screen.dart';
@@ -245,7 +246,7 @@ class _SubCategoryPageState extends State<_SubCategoryPage>
                     child: ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       itemCount: items.length,
-                      cacheExtent: 500,
+                      scrollCacheExtent: const ScrollCacheExtent.pixels(500),
                       itemBuilder: (ctx, index) => _ListItem(item: items[index]),
                     ),
                   ),

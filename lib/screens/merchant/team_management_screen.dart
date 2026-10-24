@@ -110,26 +110,31 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
           const SizedBox(height: 16),
           const Text('الدور:', style: TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          // شريك
-          RadioListTile<String>.adaptive(
-            value: 'partner',
+          // ✅ groupValue/onChanged اتنقلوا من RadioListTile لـ RadioGroup (deprecated)
+          RadioGroup<String>(
             groupValue: selectedRole,
-            onChanged: (v) => setS(() => selectedRole = v!),
-            title: const Text('شريك'),
-            subtitle: const Text('صلاحيات كاملة كصاحب المحل',
-                style: TextStyle(fontSize: 12)),
-            activeColor: const Color(0xFF5E35B1),
-          ),
-          // عامل
-          RadioListTile<String>.adaptive(
-            value: 'worker',
-            groupValue: selectedRole,
-            onChanged: (v) => setS(() => selectedRole = v!),
-            title: const Text('عامل'),
-            subtitle: const Text(
-                'إضافة وتعديل المنتجات والعروض فقط\n(بدون إحصائيات أو اشتراكات)',
-                style: TextStyle(fontSize: 12)),
-            activeColor: const Color(0xFF5E35B1),
+            onChanged: (v) {
+              if (v != null) setS(() => selectedRole = v);
+            },
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // شريك
+              RadioListTile<String>.adaptive(
+                value: 'partner',
+                title: const Text('شريك'),
+                subtitle: const Text('صلاحيات كاملة كصاحب المحل',
+                    style: TextStyle(fontSize: 12)),
+                activeColor: const Color(0xFF5E35B1),
+              ),
+              // عامل
+              RadioListTile<String>.adaptive(
+                value: 'worker',
+                title: const Text('عامل'),
+                subtitle: const Text(
+                    'إضافة وتعديل المنتجات والعروض فقط\n(بدون إحصائيات أو اشتراكات)',
+                    style: TextStyle(fontSize: 12)),
+                activeColor: const Color(0xFF5E35B1),
+              ),
+            ]),
           ),
         ]),
         actions: [

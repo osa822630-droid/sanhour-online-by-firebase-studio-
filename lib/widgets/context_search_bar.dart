@@ -134,7 +134,7 @@ class _ContextSearchBarState extends State<ContextSearchBar>
             setState(() {});
             widget.onSearch(val.recognizedWords);
           },
-          localeId: 'ar_EG',
+          listenOptions: stt.SpeechListenOptions(localeId: 'ar_EG'),
         );
       }
     } else {

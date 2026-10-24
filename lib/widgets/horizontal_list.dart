@@ -1,5 +1,6 @@
 // lib/widgets/horizontal_list.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:provider/provider.dart';
 import '../providers/shops_provider.dart';
 import '../screens/detail_screen.dart';
@@ -60,7 +61,7 @@ class HorizontalList extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: items.length,
-            cacheExtent: 500,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(500),
             itemBuilder: (context, i) => _HorizontalCard(item: items[i]),
           ),
         ),
