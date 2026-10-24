@@ -1,6 +1,9 @@
-# TEMPORARY - runs `flutter analyze` because the Claude sandbox has no Flutter SDK
-# (pub.dev and storage.googleapis.com are blocked there). It publishes the full analyzer
-# output as a check run named "flutter-analyze-report". Removed again once the phase is clean.
+# Runs `flutter analyze` on every push to main (and on demand) and publishes the full output as a
+# check run named "flutter-analyze-report" (title "flutter analyze (exit 0)" = "No issues found!"),
+# plus a read-only "dart-fix-report" preview of the official automated migrations (nothing is
+# committed). Added because the Claude sandbox has no Flutter SDK (pub.dev and
+# storage.googleapis.com are blocked there): the report is read back through the GitHub API at the
+# end of every phase. The run turns red when the analyzer reports anything. Safe to delete.
 name: flutter-analyze
 
 on:
@@ -97,3 +100,9 @@ jobs:
                 text: '```\n' + text + '\n```',
               },
             });
+
+      - name: Fail the run if the analyzer reported anything
+        if: steps.analyze.outputs.code != '0'
+        run: |
+          echo "flutter analyze exit code: ${{ steps.analyze.outputs.code }}"
+          exit 1
