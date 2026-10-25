@@ -124,7 +124,10 @@ service cloud.firestore {
     // ── Shops ───────────────────────────────────────────────────────────────
     match /shops/{shopId} {
       allow read: if resource.data.isSuspended != true || isModerator();
-      allow create: if isMerchant()
+      // ✅ Fix #23: الأدمن (admin/super_admin) يقدر ينشئ محل بإسمه من لوحة الأدمن
+      // (زر «إضافة محل جديد»)؛ كان isMerchant() لوحده بيرفضه حتى لو عدّى الفورم.
+      // الشرط ownerId == appUid() لسه شغّال → الأدمن مش بينشئ محل بإسم حد تاني.
+      allow create: if (isMerchant() || isAdmin())
         // ✅ Fix #135: إضافة حقل id صريح مطابق لـ document id
         && request.resource.data.ownerId == appUid()
         && request.resource.data.id == shopId;

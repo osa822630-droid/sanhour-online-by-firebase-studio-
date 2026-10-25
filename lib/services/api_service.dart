@@ -89,11 +89,15 @@ class ApiService {
     Map<String, dynamic> shopData,
     File? logo,
     File? cover, {
+    // ✅ Fix #23: مسار الأدمن بدون كود تفعيل (الخدمة بتتحقق من الدور)
+    bool adminBypass = false,
     void Function(double fraction)? onLogoProgress,
     void Function(double fraction)? onCoverProgress,
   }) =>
       ShopService.createShop(shopData, logo, cover,
-          onLogoProgress: onLogoProgress, onCoverProgress: onCoverProgress);
+          adminBypass: adminBypass,
+          onLogoProgress: onLogoProgress,
+          onCoverProgress: onCoverProgress);
 
   static Future<void> updateShop(
     String shopId,

@@ -12,7 +12,18 @@ import '../../services/media_upload_service.dart';
 class AddShopScreen extends StatefulWidget {
   // ✅ يمكن أن يكون فارغاً (المستخدم يدخله في النموذج)
   final String activationCode;
-  const AddShopScreen({super.key, this.activationCode = ''});
+
+  // ✅ Fix #23: إنشاء محل من لوحة الأدمن بدون كود تفعيل. لوحة الأدمن كانت بتمرّر
+  // النص 'ADMIN_BYPASS' كأنه كود: بيتحط في خانة الكود وبيقع في شرط SHOP- قبل ما
+  // يوصل لأي خدمة، فالزر ما كانش بيشتغل أبدًا. دلوقتي مفتاح صريح، وبيتفعّل بس لو
+  // المستخدم الحالي أدمن (مش مشرف)، والخدمة بتتحقق من الدور مرة تانية.
+  final bool adminBypass;
+
+  const AddShopScreen({
+    super.key,
+    this.activationCode = '',
+    this.adminBypass = false,
+  });
 
   @override
   State<AddShopScreen> createState() => _AddShopScreenState();
@@ -20,6 +31,18 @@ class AddShopScreen extends StatefulWidget {
 
 class _AddShopScreenState extends State<AddShopScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  // مسار «أدمن بدون كود»: المفتاح لازم يكون مطلوب من الشاشة + الدور admin/super_admin.
+  // المشرف (moderator) أو أي مستخدم تاني بيكمّل بالكود العادي.
+  late final bool _adminBypass;
+
+  @override
+  void initState() {
+    super.initState();
+    _adminBypass = widget.adminBypass &&
+        Provider.of<AuthProvider>(context, listen: false).userRole ==
+            UserRole.admin;
+  }
 
   File? _logoFile;
   File? _coverFile;
@@ -79,17 +102,19 @@ class _AddShopScreenState extends State<AddShopScreen> {
 
     _formKey.currentState!.save();
 
-    // ✅ التحقق من كود التفعيل
-    setState(() => _isValidatingCode = true);
-    try {
-      await ApiService.validateActivationCode(_activationCode);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isValidatingCode = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('كود التفعيل غير صحيح أو مستخدم'), backgroundColor: Colors.red),
-      );
-      return;
+    // ✅ التحقق من كود التفعيل (مسار الأدمن بدون كود مبيحتاجوش — Fix #23)
+    if (!_adminBypass) {
+      setState(() => _isValidatingCode = true);
+      try {
+        await ApiService.validateActivationCode(_activationCode);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isValidatingCode = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('كود التفعيل غير صحيح أو مستخدم'), backgroundColor: Colors.red),
+        );
+        return;
+      }
     }
     if (!mounted) return;
     setState(() {
@@ -129,6 +154,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
       },
           _logoFile,
           _coverFile,
+          adminBypass: _adminBypass,
           // ✅ نظام تقدم الرفع — يُحدِّث الواجهة مباشرةً مع كل دفعة بايتات
           onLogoProgress: (f) {
             if (!mounted) return;
@@ -334,33 +360,55 @@ class _AddShopScreenState extends State<AddShopScreen> {
               const SizedBox(height: 24),
 
               // ─── كود التفعيل ──────────────────────────────────────────
-              const Text('كود التفعيل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 4),
-              const Text('احصل على الكود من الإدارة لتفعيل متجرك',
-                  style: TextStyle(color: Colors.grey, fontSize: 12)),
-              const SizedBox(height: 8),
-
-              TextFormField(
-                initialValue: widget.activationCode.isNotEmpty ? widget.activationCode : null,
-                decoration: InputDecoration(
-                  labelText: 'كود التفعيل *',
-                  hintText: 'SHOP-XXXX-XXXX',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.vpn_key, color: Colors.deepPurple),
-                  suffixIcon: _isValidatingCode
-                      ? const Padding(padding: EdgeInsets.all(12),
-                          child: SizedBox(width: 20, height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2)))
-                      : null,
+              if (_adminBypass)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade300),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.verified_user, color: Colors.green),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'إنشاء محل بصلاحية الأدمن — لا يحتاج كود تفعيل',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else ...[
+                const Text('كود التفعيل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 4),
+                const Text('احصل على الكود من الإدارة لتفعيل متجرك',
+                    style: TextStyle(color: Colors.grey, fontSize: 12)),
+                const SizedBox(height: 8),
+                TextFormField(
+                  initialValue: widget.activationCode.isNotEmpty ? widget.activationCode : null,
+                  decoration: InputDecoration(
+                    labelText: 'كود التفعيل *',
+                    hintText: 'SHOP-XXXX-XXXX',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.vpn_key, color: Colors.deepPurple),
+                    suffixIcon: _isValidatingCode
+                        ? const Padding(padding: EdgeInsets.all(12),
+                            child: SizedBox(width: 20, height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2)))
+                        : null,
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'كود التفعيل مطلوب';
+                    if (!v.trim().toUpperCase().startsWith('SHOP-')) return 'الكود يجب أن يبدأ بـ SHOP-';
+                    return null;
+                  },
+                  onSaved: (v) => _activationCode = v!.trim().toUpperCase(),
                 ),
-                textCapitalization: TextCapitalization.characters,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'كود التفعيل مطلوب';
-                  if (!v.trim().toUpperCase().startsWith('SHOP-')) return 'الكود يجب أن يبدأ بـ SHOP-';
-                  return null;
-                },
-                onSaved: (v) => _activationCode = v!.trim().toUpperCase(),
-              ),
+              ],
 
               const SizedBox(height: 32),
 

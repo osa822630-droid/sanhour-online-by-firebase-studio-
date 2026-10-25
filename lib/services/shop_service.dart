@@ -10,6 +10,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sanhour_online/services/product_service.dart';
 import '../models/category_model.dart';
 import '../models/shop.dart';
+import 'audit_log_service.dart';
 import 'media_upload_service.dart';
 
 class ShopService {
@@ -122,6 +123,16 @@ class ShopService {
     }
   }
 
+  /// ✅ Fix #23: مسار «أدمن بدون كود» لازم صاحبه يكون أدمن فعلًا. بنقرا دوره من
+  /// وثيقته (users/{uid}) بدل ما نثق في الواجهة وحدها، وبنرفض قبل رفع أي صور.
+  static Future<void> _requireAdmin(String uid) async {
+    final snap = await _firestore.collection('users').doc(uid).get();
+    final role = snap.data()?['userType'];
+    if (role != 'admin' && role != 'super_admin') {
+      throw Exception('إنشاء محل بدون كود تفعيل متاح للأدمن فقط.');
+    }
+  }
+
   // =========================================================
   // 3. ✅ Fix #20 + #45 + #160: إنشاء محل بشكل ذري مع searchKeywords
   // =========================================================
@@ -130,6 +141,9 @@ class ShopService {
     Map<String, dynamic> shopData,
     File? logo,
     File? cover, {
+    // ✅ Fix #23: إنشاء محل من لوحة الأدمن بدون كود تفعيل. لا يُقبل غير لو دور
+    // صاحب المحل admin/super_admin (بيتقرا من users/{uid} تحت).
+    bool adminBypass = false,
     // ✅ نظام تقدم الرفع — fraction 0.0–1.0 لكل من اللوجو والغلاف
     void Function(double fraction)? onLogoProgress,
     void Function(double fraction)? onCoverProgress,
@@ -147,6 +161,11 @@ class ShopService {
         !firebaseUser.isAnonymous &&
         ownerId != firebaseUser.uid) {
       throw Exception('غير مصرح لك بإنشاء هذا المحل');
+    }
+
+    // ✅ Fix #23: التحقق من دور الأدمن قبل رفع أي صور (عشان الرفض ما يسيبش ملفات يتيمة)
+    if (adminBypass) {
+      await _requireAdmin(ownerId);
     }
 
     // ✅ إصلاح الكراش: ProductService.uploadImage الآن مُغلَّف بالكامل
@@ -177,6 +196,11 @@ class ShopService {
     final cat = (shopData['category'] as String? ?? '').toLowerCase();
     shopData['searchKeywords'] = _generateShopKeywords(name, desc, cat);
 
+    // ✅ Fix #23: مسار الأدمن بدون كود — مفيش كود يتدوّر عليه ولا يتحرق، ومنخزنش
+    // حقل activationCode في وثيقة المحل.
+    if (adminBypass) {
+      shopData.remove('activationCode');
+    }
     final activationCode = shopData['activationCode'] as String?;
 
     // ✅ Fix #20: قراءة الكود وحرقه وإنشاء المحل في transaction ذرية
@@ -222,6 +246,18 @@ class ShopService {
       // ✅ Fix #45: كتابة id صريح في الوثيقة
       tx.set(docRef, {...shopData, 'id': docRef.id});
     });
+
+    // ✅ Fix #23: المحل اللي اتعمل بدون كود يتسجّل في audit log (مش بيوقف التنفيذ لو فشل)
+    if (adminBypass) {
+      await AuditLogService.log(
+        action: AuditAction.shopCreated,
+        targetId: docRef.id,
+        targetType: 'shop',
+        targetName: shopData['name'] as String?,
+        metadata: {'viaAdminBypass': true},
+        adminId: ownerId,
+      );
+    }
 
     // ✅ Fix #160: إعادة shopId
     return docRef.id;

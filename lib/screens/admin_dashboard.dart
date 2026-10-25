@@ -80,7 +80,7 @@ class _AdminDashboardState extends State<AdminDashboard>
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const AddShopScreen(activationCode: 'ADMIN_BYPASS'),
+                builder: (_) => const AddShopScreen(adminBypass: true),
               ),
             ),
             child: const Icon(Icons.add_business, color: Colors.white),
