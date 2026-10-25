@@ -166,6 +166,14 @@ class ShopService {
     // ✅ Fix #23: التحقق من دور الأدمن قبل رفع أي صور (عشان الرفض ما يسيبش ملفات يتيمة)
     if (adminBypass) {
       await _requireAdmin(ownerId);
+    } else {
+      // ✅ Fix #24: كود التفعيل إلزامي لأي محل جديد. كان الكود null أو فاضي بيتخطى
+      // الحرق كله والمحل بيتعمل من غير كود. الأدمن بمفتاح adminBypass هو الاستثناء
+      // الوحيد، والرفض هنا بيحصل قبل رفع أي صور.
+      final code = shopData['activationCode'];
+      if (code is! String || code.trim().isEmpty) {
+        throw Exception('كود التفعيل مطلوب لإنشاء المحل.');
+      }
     }
 
     // ✅ إصلاح الكراش: ProductService.uploadImage الآن مُغلَّف بالكامل
@@ -214,10 +222,12 @@ class ShopService {
     // قراءتها بـ tx.get ونتحقق تاني ثم نحرق — فأي حرق متزامن بيجبر الـ SDK يعيد
     // المحاولة ويلاقي الكود اتحرق بالفعل.
     final DocumentReference<Map<String, dynamic>>? codeRef =
-        (activationCode != null && activationCode.isNotEmpty)
+        (!adminBypass && activationCode != null && activationCode.isNotEmpty)
             ? await _findUnusedActivationCode(activationCode)
             : null;
-    if (activationCode != null && activationCode.isNotEmpty && codeRef == null) {
+    // ✅ Fix #24: أي إنشاء من غير مسار الأدمن لازم يلاقي كود صالح ويحرقه — حتى لو
+    // الكود طلع null/فاضي هنا (الفحص المبكر فوق هو الأول، ده خط دفاع تاني).
+    if (!adminBypass && codeRef == null) {
       throw Exception('كود التفعيل غير صحيح أو مستخدم مسبقاً.');
     }
 
