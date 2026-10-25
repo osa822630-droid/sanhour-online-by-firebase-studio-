@@ -38,6 +38,16 @@ class _MerchantDashboardState extends State<MerchantDashboard>
   // ✅ Fix #09: الطول المحسوب مرة واحدة في initState — ثابت طوال دورة حياة الـ widget
   late int _resolvedTabCount;
 
+  // ✅ Fix #22: ترتيب التابات: 0 تسويق · 1 منتجاتي · 2 خدماتي · 3 عروضي ·
+  // 4 إحصائيات (لو الصلاحية موجودة). الـ FAB بيتحدد من الأرقام دي بس.
+  static const int _productsTabIndex = 1;
+  static const int _servicesTabIndex = 2;
+  static const int _offersTabIndex = 3;
+
+  // بيزيد بعد إضافة عرض جديد: تاب العروض بيحمّل بياناته مرة واحدة في initState،
+  // فبنغيّر مفتاحه عشان يتبني من جديد ويظهر العرض الجديد.
+  int _offersRevision = 0;
+
   Shop? _currentShop;
   List<Shop> _myShops = [];
   bool _isLoading = true;
@@ -49,10 +59,10 @@ class _MerchantDashboardState extends State<MerchantDashboard>
     _resolvedTabCount = auth.canViewShopStats ? 5 : 4;
     _tabController =
         TabController(length: _resolvedTabCount, vsync: this);
-    // ✅ Fix #82: تحديث الـ UI + تحميل الإحصائيات عند التبديل للـ stats tab
+    // ✅ Fix #82: تحميل الإحصائيات عند التبديل للـ stats tab
+    // (تحديث الـ FAB مع التاب بقى من ListenableBuilder في build — Fix #22)
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) return;
-      setState(() {});
       // الـ stats tab هو الأخير (4 أو 3 حسب الصلاحيات)
       final statsTabIndex = _resolvedTabCount - 1;
       if (_tabController.index == statsTabIndex) {
@@ -205,18 +215,26 @@ class _MerchantDashboardState extends State<MerchantDashboard>
                     MerchantMarketingTab(currentShop: _currentShop!),
                     MerchantProductsTab(currentShop: _currentShop!),
                     MerchantServicesTab(currentShop: _currentShop!),
-                    MerchantOffersTab(currentShop: _currentShop!),
+                    MerchantOffersTab(
+                        key: ValueKey('offers_$_offersRevision'),
+                        currentShop: _currentShop!),
                     if (canSeeStats)
                       MerchantStatsTab(shopId: _currentShop!.id),
                   ],
                 ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const GeminiChatButton(),
-          const SizedBox(height: 8),
-          if (_currentShop != null) _buildFAB(),
-        ],
+      // ✅ Fix #22: الـ FAB بيعتمد على index التاب الحالي. الـ TabController بيبلّغ
+      // بـ indexIsChanging == false عند السحب (swipe)، فكان الـ FAB بيفضل على حاله
+      // بعد السحب. ListenableBuilder بيعيد بناءه مع أي تغيير (ضغط أو سحب).
+      floatingActionButton: ListenableBuilder(
+        listenable: _tabController,
+        builder: (context, _) => Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const GeminiChatButton(),
+            const SizedBox(height: 8),
+            if (_currentShop != null) _buildFAB(),
+          ],
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
@@ -329,35 +347,49 @@ class _MerchantDashboardState extends State<MerchantDashboard>
     );
   }
 
+  // ✅ Fix #22: ربط الـ FAB بالتاب الصح — 1 منتجاتي → إضافة منتج، 3 عروضي → إضافة
+  // عرض. كان الكود بيعتبر index 2 (خدماتي) هو «إضافة عرض» وتاب العروض (3) من غير FAB.
   Widget _buildFAB() {
-    // index 0 = تسويق، index 3 = عروض — بدون FAB
-    if (_tabController.index == 0 || _tabController.index == 3) {
+    final tabIndex = _tabController.index;
+    // تاب الخدمات (MerchantServicesTab) عنده زر الإضافة الخاص بيه جوه التاب نفسه،
+    // فمفيش FAB هنا. بنسيب مكانه فاضي بس عشان زر Gemini ما يقعدش فوقه.
+    if (tabIndex == _servicesTabIndex) {
+      return const SizedBox(width: 56, height: 56);
+    }
+    // 0 تسويق وأي تاب تاني (الإحصائيات) — بدون FAB
+    if (tabIndex != _productsTabIndex && tabIndex != _offersTabIndex) {
       return const SizedBox.shrink();
     }
+    final isProducts = tabIndex == _productsTabIndex;
     return FloatingActionButton.extended(
-      onPressed: () async {
-        if (_tabController.index == 1) {
-          await Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => AddProductScreen(
-                      shopId: _currentShop!.id,
-                      shopCategory: _currentShop!.category)));
-        } else if (_tabController.index == 2) {
-          await Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) =>
-                      AddOfferScreen(shopId: _currentShop!.id)));
-        }
-        setState(() {});
-      },
-      label: Text(_tabController.index == 1 ? 'إضافة منتج' : 'إضافة عرض'),
-      icon: Icon(_tabController.index == 1
-          ? Icons.add_box
-          : Icons.local_offer),
+      onPressed: isProducts ? _addProduct : _addOffer,
+      label: Text(isProducts ? 'إضافة منتج' : 'إضافة عرض'),
+      icon: Icon(isProducts ? Icons.add_box : Icons.local_offer),
       backgroundColor: Colors.deepPurple,
       foregroundColor: Colors.white,
     );
+  }
+
+  Future<void> _addProduct() async {
+    final shop = _currentShop;
+    if (shop == null) return;
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => AddProductScreen(
+                shopId: shop.id, shopCategory: shop.category)));
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _addOffer() async {
+    final shop = _currentShop;
+    if (shop == null) return;
+    final added = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => AddOfferScreen(shopId: shop.id)));
+    if (!mounted) return;
+    // الشاشة بترجّع true بعد حفظ العرض — نعيد بناء تاب العروض عشان يظهر فيه.
+    if (added == true) setState(() => _offersRevision++);
   }
 }
