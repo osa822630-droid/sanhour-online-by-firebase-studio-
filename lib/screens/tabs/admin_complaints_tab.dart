@@ -59,16 +59,21 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
     }
   }
 
+  // ✅ Fix #26: «جديدة» = الحالة الابتدائية الموحّدة 'pending'. بنقبل كمان 'new' و
+  // null و '' عشان الشكاوى القديمة اللي اتسجّلت بـ 'new' (قبل التوحيد) ما تختفيش.
+  bool _isNewComplaint(Map<String, dynamic> c) {
+    final status = c['status'];
+    return status == 'pending' ||
+        status == 'new' ||
+        status == null ||
+        status == '';
+  }
+
   void _applyFilter() {
     final index = _tabController.index;
     setState(() {
       if (index == 0) {
-        _filteredComplaints = _allComplaints
-            .where((c) =>
-                c['status'] == 'pending' ||
-                c['status'] == null ||
-                c['status'] == '')
-            .toList();
+        _filteredComplaints = _allComplaints.where(_isNewComplaint).toList();
       } else if (index == 1) {
         _filteredComplaints = _allComplaints
             .where((c) =>
@@ -110,7 +115,7 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
           tabs: [
             Tab(
                 text:
-                    'جديدة (${_allComplaints.where((c) => c['status'] == 'pending' || c['status'] == null || c['status'] == '').length})'),
+                    'جديدة (${_allComplaints.where(_isNewComplaint).length})'),
             Tab(
                 text:
                     'مردودة (${_allComplaints.where((c) => c['status'] == 'replied' || c['status'] == 'in_progress').length})'),

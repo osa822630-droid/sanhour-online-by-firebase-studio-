@@ -64,8 +64,14 @@ class AdminService {
   // ==========================================================
 
   static Future<void> submitComplaint(Map<String, dynamic> data) async {
-    await _firestore.collection('complaints').add(
-        {...data, 'status': 'new', 'createdAt': FieldValue.serverTimestamp()});
+    // ✅ Fix #26: الحالة الابتدائية الموحّدة للشكوى = 'pending' (نفس قيمة الشاشة وتاب
+    // الأدمن وشاشة «شكاويّ» والـ seeder). كانت 'new' هنا بس، فتاب «جديدة» عند الأدمن
+    // ما كانش بيلاقي أي شكوى جديدة (كانت بتظهر في «الكل» بس).
+    await _firestore.collection('complaints').add({
+      ...data,
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
   }
 
   static Future<List<Map<String, dynamic>>> getComplaints() async {
