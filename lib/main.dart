@@ -363,8 +363,9 @@ class _MyAppState extends State<MyApp> {
               '/register_provider':    (_) => const ProviderRegistrationScreen(),
               '/merchant_type':        (_) => const MerchantTypeScreen(),
               '/account_edit':         (_) => const AccountEditScreen(),
-              '/favorites':            (_) => const MainScreen(),
-              '/offers':               (_) => const MainScreen(),
+              // ✅ Fix #28: كانت الاتنين بترجّع MainScreen() على تاب الرئيسية
+              '/favorites':            (_) => const MainScreen(initialIndex: MainScreen.favoritesTab),
+              '/offers':               (_) => const MainScreen(initialIndex: MainScreen.offersTab),
             },
 
             // ✅ QA Fix #22: مسارات الإشعارات والـ Deep Links الديناميكية

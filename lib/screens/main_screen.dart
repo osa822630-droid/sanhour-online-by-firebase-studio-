@@ -18,7 +18,15 @@ import '../widgets/gemini_chat_button.dart';
 import '../widgets/dealer_icon.dart';
 
 class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
+  // ✅ Fix #28: ترتيب التابات في الـ NavigationBar (نفس ترتيب _screens تحت)
+  static const int homeTab = 0;
+  static const int favoritesTab = 1;
+  static const int offersTab = 2;
+
+  /// التاب اللي الشاشة بتفتح عليه — الراوتس /favorites و/offers بتمرّره.
+  final int initialIndex;
+
+  const MainScreen({super.key, this.initialIndex = homeTab});
 
   static final GlobalKey<ScaffoldState> scaffoldKey =
       GlobalKey<ScaffoldState>();
@@ -28,7 +36,16 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
+  late int _selectedIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    // أي رقم خارج نطاق التابات بيرجع للرئيسية بدل ما يكسر IndexedStack
+    final index = widget.initialIndex;
+    _selectedIndex =
+        (index >= 0 && index < _screens.length) ? index : MainScreen.homeTab;
+  }
 
   // ✅ AdsHubScreen بدلاً من AllAdsScreen
   static const List<Widget> _screens = [
