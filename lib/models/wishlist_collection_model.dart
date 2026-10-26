@@ -1,5 +1,6 @@
 // lib/models/wishlist_collection_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/date_parser.dart';
 
 class WishlistCollection {
   final String id;
@@ -29,7 +30,7 @@ class WishlistCollection {
       'collaborators': collaborators,
       'isPublic': isPublic,
       'shareToken': shareToken,
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': FieldValue.serverTimestamp(),
       'items': items.map((x) => x.toMap()).toList(),
     };
   }
@@ -43,7 +44,7 @@ class WishlistCollection {
       isPublic: map['isPublic'] ?? false,
       shareToken: map['shareToken'],
       createdAt: map['createdAt'] != null
-          ? DateTime.parse(map['createdAt'])
+          ? DateParser.parse(map['createdAt'])
           : DateTime.now(),
       items: map['items'] != null
           ? List<WishlistItem>.from(

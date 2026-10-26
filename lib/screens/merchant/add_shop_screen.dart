@@ -136,7 +136,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
         'description': _description,
         'ownerId': user.id,
         'activationCode': _activationCode,
-        'createdAt': DateTime.now().toIso8601String(),
+        // ✅ Fix #25: createdAt بيتحدد على السيرفر جوه ShopService.createShop (serverTimestamp)
         'whatsapp': _whatsapp,
         'facebookUrl': _facebookUrl,
         'instagramUrl': _instagramUrl,

@@ -52,7 +52,7 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
         'details': _detailsController.text.trim(),
         'status': 'pending',
         'reply': '',
-        'createdAt': DateTime.now().toIso8601String(),
+        // ✅ Fix #25: createdAt بيتحدد على السيرفر جوه AdminService.submitComplaint (serverTimestamp)
       });
 
       if (!mounted) return;
