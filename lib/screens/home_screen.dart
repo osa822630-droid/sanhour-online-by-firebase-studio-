@@ -127,14 +127,15 @@ class _HomeScreenState extends State<HomeScreen> {
   // واستُبدل بآخر). الآن يُعاد الترتيب فقط عند تغيّر المحلات فعلياً.
   String? _lastShuffleSignature;
 
-  void _buildShuffleList(ShopsProvider provider) {
+  // ✅ Fix #29: force = true بيعيد الخلط حتى لو المحلات ما اتغيّرتش (زرار «خلّط»).
+  void _buildShuffleList(ShopsProvider provider, {bool force = false}) {
     if (provider.shops.isEmpty) {
       _shuffledShops = [];
       _lastShuffleSignature = null;
       return;
     }
     final signature = provider.shops.map((s) => s.id).join(',');
-    if (signature == _lastShuffleSignature) return;
+    if (!force && signature == _lastShuffleSignature) return;
     _lastShuffleSignature = signature;
 
     final rng = Random();
@@ -799,8 +800,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.bold)),
               TextButton.icon(
-                onPressed: () =>
-                    setState(() => _shuffledShops = []),
+                // ✅ Fix #29: كان بيفضّي القائمة (والتوقيع ما اتغيّرش فما كانتش بتتبني
+                // تاني) فالقسم كله كان بيختفي. دلوقتي بيعيد الخلط فعلًا.
+                onPressed: () => setState(
+                    () => _buildShuffleList(provider, force: true)),
                 icon: const Icon(Icons.shuffle,
                     size: 16, color: Color(0xFF5E35B1)),
                 label: const Text('خلّط',
