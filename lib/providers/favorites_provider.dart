@@ -83,12 +83,19 @@ class FavoritesProvider with ChangeNotifier {
   // ✅ QA Fix #25: تعديل المستخدم في نفس الـ instance بدلاً من إنشاء instance جديد
   void updateUser(User? newUser) {
     if (_user?.id == newUser?.id) return; // لا تغيير إذا كان نفس المستخدم
+    final wasGuest = _user == null;
     _user = newUser;
     _collectionsSubscription?.cancel();
     _collectionsSubscription = null;
     if (newUser != null) {
       _initCollectionsStream();
-      loadFavorites();
+      if (wasGuest) {
+        // ✅ Fix #27: ضيف سجّل دخول → ندمج مفضلته المحلية في حسابه (add-only) قبل ما
+        // تتمسح من الجهاز. الدالة بتنتهي بـ loadFavorites()، فمفيش قراءة مضاعفة.
+        unawaited(mergeLocalFavoritesOnLogin(newUser.id));
+      } else {
+        loadFavorites();
+      }
     } else {
       _clearAllFavorites();
       _loadLocalFavorites();
@@ -243,6 +250,9 @@ class FavoritesProvider with ChangeNotifier {
       final shopIds = await LocalFavoritesService.getIds('shop');
       final productIds = await LocalFavoritesService.getIds('product');
       final offerIds = await LocalFavoritesService.getIds('offer');
+      // ✅ Fix #27: الضيف بيحفظ الخدمات محليًا بنوع 'service' كمان، وclear() تحت بيمسح
+      // كل الأنواع — لو ما اتدمجتش هتتضيّع مع المسح.
+      final serviceIds = await LocalFavoritesService.getIds('service');
 
       // كل ID → addFavoriteIfNotExists (لا toggle)
       for (final id in shopIds) {
@@ -255,13 +265,19 @@ class FavoritesProvider with ChangeNotifier {
       for (final id in offerIds) {
         await ApiService.addFavoriteIfNotExists('offer', id, userId: userId);
       }
+      for (final id in serviceIds) {
+        await ApiService.addFavoriteIfNotExists('service', id,
+            userId: userId);
+      }
 
+      // المسح بعد نجاح كل الإضافات بس: لو حاجة فشلت المفضلة المحلية بتفضل زي ما هي.
       await LocalFavoritesService.clear();
-      // إعادة تحميل المفضلة من Firestore بعد الدمج
-      await loadFavorites();
     } catch (e) {
       debugPrint('mergeLocalFavoritesOnLogin error: $e');
     }
+    // إعادة تحميل المفضلة من Firestore بعد الدمج — حتى لو الدمج فشل، لأن updateUser
+    // بقت بتنادي الدمج بدل loadFavorites() مباشرة (loadFavorites مش بترمي استثناء).
+    await loadFavorites();
   }
 
   Future<void> _loadLocalFavorites() async {
