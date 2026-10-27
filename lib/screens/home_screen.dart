@@ -39,6 +39,18 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> _shuffledShops = [];
   bool _dataLoaded = false;
 
+  // ✅ Fix #30: شريحة «نوع النتيجة» — بتحدد أقسام الرئيسية اللي بتظهر.
+  // «الكل» = كل الأقسام. غير كده بيظهر قسم النوع المختار بس (الإعلانات والفئات
+  // دايمًا ظاهرين). محلات = المحلات المميزة + اخترنا لك · خدمات = طلبات الخدمات.
+  static const String _typeAll = 'الكل';
+  static const String _typeShops = 'محلات';
+  static const String _typeProducts = 'منتجات';
+  static const String _typeOffers = 'عروض';
+  static const String _typeServices = 'خدمات';
+  String _resultType = _typeAll;
+
+  bool _showType(String type) => _resultType == _typeAll || _resultType == type;
+
   // إعدادات الموقع من Firestore
   bool _showLocationFilter = false;
   List<String> _regions = [];
@@ -326,28 +338,36 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ...provider.categories
                                           .map((c) => c.name),
                                     ],
+                                    // الشريحة المحددة بتتبع حالة الـ provider الفعلية
+                                    // (الـ SearchFilter بيتبني من جديد مع كل rebuild)
+                                    defaultOption:
+                                        provider.selectedCategory ?? 'الكل',
                                   ),
                                   SearchFilter(
                                     id: 'type',
                                     label: 'نوع النتيجة',
                                     options: [
-                                      'الكل',
-                                      'محلات',
-                                      'منتجات',
-                                      'عروض',
-                                      'خدمات',
+                                      _typeAll,
+                                      _typeShops,
+                                      _typeProducts,
+                                      _typeOffers,
+                                      _typeServices,
                                     ],
+                                    defaultOption: _resultType,
                                   ),
                                 ]
                               : [],
                           onFilterChanged: (id, val) {
-                            // تمرير الفلتر للـ provider عبر search
                             if (id == 'category') {
-                              if (val != 'الكل') {
-                                context.read<ShopsProvider>().search(val);
-                              } else {
-                                context.read<ShopsProvider>().search('');
-                              }
+                              // ✅ Fix #30: فلتر فئة حقيقي بدل search(اسم الفئة) — اللي
+                              // كان بيدوّر بالاسم في اسم/وصف المحل وبيستبدل نص بحث
+                              // المستخدم. fetchShops(category) هو نفس مسار الفئة اللي
+                              // تحديث الرئيسية بيحافظ عليه، ونص البحث بيفضل مطبّق.
+                              context.read<ShopsProvider>().fetchShops(
+                                  category: val == 'الكل' ? null : val);
+                            } else if (id == 'type') {
+                              // ✅ Fix #30: شريحة النوع ما كانش ليها معالج خالص
+                              setState(() => _resultType = val);
                             }
                           },
                           // ✅ البحث المتقدم من داخل شريط البحث
@@ -388,7 +408,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
 
                           // المحلات المميزة
-                          if (provider.featuredShops.isNotEmpty) ...[
+                          if (_showType(_typeShops) &&
+                              provider.featuredShops.isNotEmpty) ...[
                             _sectionHeader('⭐ محلات مميزة'),
                             HorizontalList(
                               title: '⭐ محلات مميزة',
@@ -399,7 +420,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
 
                           // أحدث المنتجات
-                          if (provider.products.isNotEmpty) ...[
+                          if (_showType(_typeProducts) &&
+                              provider.products.isNotEmpty) ...[
                             _sectionHeader('🛍️ أحدث المنتجات'),
                             HorizontalList(
                               title: '🛍️ أحدث المنتجات',
@@ -410,7 +432,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
 
                           // أحدث العروض
-                          if (provider.offers.isNotEmpty) ...[
+                          if (_showType(_typeOffers) &&
+                              provider.offers.isNotEmpty) ...[
                             _sectionHeader('🏷️ أحدث العروض',
                                 onViewAll: () =>
                                     Navigator.pushNamed(context, '/offers')),
@@ -440,16 +463,21 @@ class _HomeScreenState extends State<HomeScreen> {
                             _emptyState(context, provider),
 
                           // ── سنهور ديلر ────────────────────────
-                          _buildDealerSection(context),
+                          // (الديلر والوظائف مالهمش نوع في الشريحة → «الكل» بس)
+                          if (_resultType == _typeAll)
+                            _buildDealerSection(context),
 
                           // ── فرص عمل ───────────────────────────
-                          _buildJobsPreviewSection(context),
+                          if (_resultType == _typeAll)
+                            _buildJobsPreviewSection(context),
 
                           // ── طلبات الخدمات ─────────────────────
-                          _buildServicesPreviewSection(context),
+                          if (_showType(_typeServices))
+                            _buildServicesPreviewSection(context),
 
                           // اخترنا لك
-                          if (_shuffledShops.isNotEmpty)
+                          if (_showType(_typeShops) &&
+                              _shuffledShops.isNotEmpty)
                             _forYouSection(context, provider),
 
                           const AppFooter(),
