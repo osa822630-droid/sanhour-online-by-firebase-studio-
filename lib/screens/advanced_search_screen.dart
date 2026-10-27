@@ -31,6 +31,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
   // ✅ Q7-1b: نتائج Firestore keyword search
   List<Product> _firestoreProducts = [];
   List<Shop> _firestoreShops = [];
+  List<Offer> _firestoreOffers = []; // ✅ Fix #31: كانت بتتجاب وبتتشال
   bool _isSearching = false;
   Timer? _debounce;
   final FocusNode _focusNode = FocusNode();
@@ -196,11 +197,26 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
   }
 
   List<Offer> _filterOffers(ShopsProvider p) {
-    var list = p.allOffers.where((o) {
-      final q = _searchCtrl.text.trim().toLowerCase();
+    final q = _searchCtrl.text.trim().toLowerCase();
+    // ✅ Fix #31: نتائج Firestore بتدخل في القائمة. بنَدمجها مع القائمة المحلية (من غير
+    // تكرار بالـ id) بدل ما نستبدلها زي المحلات والمنتجات: العروض اللي بتتضاف من
+    // التطبيق ملهاش searchKeywords، فلو استبدلنا هنخسر نتائج بتظهر دلوقتي.
+    final List<Offer> baseList;
+    if (q.length >= 2 && _firestoreOffers.isNotEmpty) {
+      final seen = <String>{};
+      baseList = [
+        for (final o in [..._firestoreOffers, ...p.allOffers])
+          if (seen.add(o.id)) o,
+      ];
+    } else {
+      baseList = p.allOffers;
+    }
+
+    var list = baseList.where((o) {
       return q.isEmpty ||
           o.title.toLowerCase().contains(q) ||
-          o.description.toLowerCase().contains(q);
+          o.description.toLowerCase().contains(q) ||
+          (o.searchKeywords?.any((k) => k.contains(q)) ?? false);
     }).toList();
 
     switch (_selectedSort) {
@@ -223,6 +239,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
       setState(() {
         _firestoreProducts = [];
         _firestoreShops = [];
+        _firestoreOffers = [];
         _isSearching = false;
       });
       return;
@@ -273,7 +290,11 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
         _firestoreShops = futures[1].docs
             .map((d) => Shop.fromMap(d.data(), d.id))
             .toList();
-        // العروض تُعرض ضمن صف المنتجات (أو يمكن إضافة tab لها لاحقاً)
+        // ✅ Fix #31: نتائج العروض كانت بتتجاب (وبتتحسب قراءات) وبعدين بتتشال —
+        // والتاب «عروض» موجود فعلًا. دلوقتي بتتخزّن وبيستخدمها _filterOffers.
+        _firestoreOffers = futures[2].docs
+            .map((d) => Offer.fromMap(d.data(), d.id))
+            .toList();
         _isSearching = false;
       });
     } catch (e) {
