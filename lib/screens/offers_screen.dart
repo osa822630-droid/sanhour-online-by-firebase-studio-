@@ -44,16 +44,18 @@ class _OffersScreenState extends State<OffersScreen> {
           .toList();
     }
 
-    // فلتر الصلاحية
+    // فلتر الصلاحية — الاستعلام بيرجّع كل العروض isActive حتى بعد ما
+    // validUntil يعدّي، فلازم الشريحتين يستبعدوا العروض المنتهية بالفعل
+    // (isExpired) ويكتفوا بالنطاق [دلوقتي، دلوقتي + المدة).
     if (_selectedExpiry == 'ينتهي اليوم') {
       final end = DateTime.now().add(const Duration(hours: 24));
       result = result
-          .where((o) => o.validUntil.isBefore(end))
+          .where((o) => !o.isExpired && o.validUntil.isBefore(end))
           .toList();
     } else if (_selectedExpiry == 'خلال أسبوع') {
       final end = DateTime.now().add(const Duration(days: 7));
       result = result
-          .where((o) => o.validUntil.isBefore(end))
+          .where((o) => !o.isExpired && o.validUntil.isBefore(end))
           .toList();
     }
 
