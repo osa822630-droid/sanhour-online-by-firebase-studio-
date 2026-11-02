@@ -1,5 +1,11 @@
 // lib/screens/all_ads_screen.dart
-// ✅ شريط بحث موحّد "ابحث عن إعلان" مع فلتر الحالة (نشط / منتهي / الكل)
+// ✅ Fix #33: شاشة الإعلانات (واجهة المشتري) = أرشيف الإعلانات من الأحدث للأقدم
+//    مع زر عكس الترتيب، وتحميل تدريجي (20 إعلان في كل مرة)، وشريط بحث موحّد.
+//    • مفيش تقسيم نشط/منتهي: الإعلان بيفضل ظاهر هنا ٦ شهور من تاريخ إنشائه
+//      (AdService.archiveWindow)، وبعدها بيختفي من الشاشة دي بس وبيفضل عند
+//      التاجر في "سجل الإعلانات السابقة".
+//    • الإعلانات غير النشطة (isActive:false) وعناصر تحكم الأدمن مخفية عن المشتري.
+import 'package:cloud_firestore/cloud_firestore.dart' show DocumentSnapshot;
 import 'package:flutter/material.dart';
 import '../models/ad_model.dart';
 import '../services/ad_service.dart';
@@ -17,182 +23,277 @@ class AllAdsScreen extends StatefulWidget {
 }
 
 class _AllAdsScreenState extends State<AllAdsScreen> {
-  List<AdModel> _allAds = [];
-  bool _isLoading = true;
+  static const Color _brand = Color(0xFF5E35B1);
+
+  final ScrollController _scrollController = ScrollController();
+  final List<AdModel> _ads = [];
+  DocumentSnapshot? _lastDoc;
+  bool _isLoading = true; // تحميل أول صفحة (سبينر كامل الشاشة)
+  bool _isLoadingMore = false; // تحميل الصفحات التالية (سبينر أسفل القايمة)
+  bool _hasMore = false;
+  bool _loadFailed = false;
   bool _newestFirst = true;
   String _searchQuery = '';
-  String _statusFilter = 'الكل'; // الكل / نشط / منتهي
+  // رقم الطلب الحالي: أي نتيجة طلب أقدم (بعد عكس الترتيب أو التحديث) بتتجاهل
+  int _loadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadAds();
+    _scrollController.addListener(_onScroll);
+    _loadFirstPage();
   }
 
-  Future<void> _loadAds() async {
-    if (!mounted) return;
-    setState(() => _isLoading = true);
-    try {
-      final ads = await AdService.getAllAds();
-      if (!mounted) return;
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  // تحميل الصفحة التالية تلقائيًا لما المستخدم يقرّب من آخر القايمة
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 300) _loadMore();
+  }
+
+  /// يحمّل أول صفحة. [silent] = true للسحب للتحديث: القايمة الحالية بتفضل
+  /// ظاهرة لحد ما توصل النتيجة الجديدة بدل سبينر كامل الشاشة.
+  Future<void> _loadFirstPage({bool silent = false}) async {
+    final generation = ++_loadGeneration;
+    if (!silent) {
       setState(() {
-        _allAds = ads;
-        _isLoading = false;
+        _isLoading = true;
+        _loadFailed = false;
       });
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+    }
+    final page = await AdService.getArchivePage(newestFirst: _newestFirst);
+    if (!mounted || generation != _loadGeneration) return;
+    final keepOldList = silent && page.failed && _ads.isNotEmpty;
+    setState(() {
+      if (!keepOldList) {
+        _ads
+          ..clear()
+          ..addAll(page.ads);
+        _lastDoc = page.lastDocument;
+        _hasMore = page.hasMore;
+        _loadFailed = page.failed;
+      }
+      _isLoading = false;
+      _isLoadingMore = false;
+    });
+    if (keepOldList) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذّر تحديث الإعلانات، حاول مرة أخرى')),
+      );
     }
   }
 
-  List<AdModel> get _filtered {
-    final now = DateTime.now();
-    var result = List<AdModel>.from(_allAds);
-
-    // فلتر الحالة
-    if (_statusFilter == 'نشط') {
-      result = result.where((a) {
-        final expired = a.expiresAt != null && a.expiresAt!.isBefore(now);
-        return a.isActive && !expired;
-      }).toList();
-    } else if (_statusFilter == 'منتهي') {
-      result = result.where((a) {
-        final expired = a.expiresAt != null && a.expiresAt!.isBefore(now);
-        return !a.isActive || expired;
-      }).toList();
-    }
-
-    // فلتر نص البحث
-    if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
-      result = result
-          .where((a) => a.text.toLowerCase().contains(q))
-          .toList();
-    }
-
-    // الترتيب — AdModel لا يحتوي على createdAt، نستخدم expiresAt كمرجع
-    result.sort((a, b) {
-      final da = a.expiresAt ?? DateTime(2100);
-      final db = b.expiresAt ?? DateTime(2100);
-      return _newestFirst ? db.compareTo(da) : da.compareTo(db);
+  /// يحمّل الصفحة التالية. [isRetry] = true لما المستخدم يضغط "تحميل المزيد"
+  /// أو "إعادة المحاولة" (التحميل التلقائي بيقف بعد أول فشل عشان مفيش loop).
+  Future<void> _loadMore({bool isRetry = false}) async {
+    if (_isLoading || _isLoadingMore || !_hasMore) return;
+    final cursor = _lastDoc;
+    if (cursor == null || (_loadFailed && !isRetry)) return;
+    final generation = _loadGeneration;
+    setState(() {
+      _isLoadingMore = true;
+      _loadFailed = false;
     });
+    final page = await AdService.getArchivePage(
+      newestFirst: _newestFirst,
+      startAfter: cursor,
+    );
+    if (!mounted || generation != _loadGeneration) return;
+    setState(() {
+      _ads.addAll(page.ads);
+      if (!page.failed) {
+        _lastDoc = page.lastDocument ?? cursor;
+        _hasMore = page.hasMore;
+      }
+      _loadFailed = page.failed;
+      _isLoadingMore = false;
+    });
+  }
 
-    return result;
+  // عكس الترتيب = استعلام جديد بالاتجاه العكسي (الترتيب من السيرفر عشان
+  // التحميل التدريجي يفضل صحيح)، والـ cursor بيتصفّر مع أول صفحة.
+  void _toggleSort() {
+    setState(() => _newestFirst = !_newestFirst);
+    _loadFirstPage();
+  }
+
+  // البحث على الإعلانات المحمّلة بس (التحميل تدريجي)
+  List<AdModel> get _visibleAds {
+    if (_searchQuery.isEmpty) return _ads;
+    final query = _searchQuery.toLowerCase();
+    return _ads.where((a) => a.text.toLowerCase().contains(query)).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final ads = _filtered;
 
     return Scaffold(
       backgroundColor:
           isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
-      appBar: widget.showAppBar ? AppBar(
-        title: Text(
-          'الإعلانات (${_allAds.length})',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: const Color(0xFF5E35B1),
-        foregroundColor: Colors.white,
-        centerTitle: true,
-        actions: [
-          Tooltip(
-            message: _newestFirst ? 'الأقدم أولاً' : 'الأحدث أولاً',
-            child: IconButton(
-              icon: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  _newestFirst
-                      ? Icons.arrow_downward_rounded
-                      : Icons.arrow_upward_rounded,
-                  key: ValueKey(_newestFirst),
-                ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text(
+                'الإعلانات',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              onPressed: () =>
-                  setState(() => _newestFirst = !_newestFirst),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadAds,
-          ),
-        ],
-      ) : null,
+              backgroundColor: _brand,
+              foregroundColor: Colors.white,
+              centerTitle: true,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loadFirstPage,
+                ),
+              ],
+            )
+          : null,
       body: Column(
         children: [
-          // ✅ شريط بحث "ابحث عن إعلان" مع فلتر الحالة
+          // ✅ شريط بحث "ابحث عن إعلان" (من غير فلتر حالة — مفيش نشط/منتهي)
           ContextSearchBar(
             hint: 'ابحث عن إعلان...',
             onSearch: (q) => setState(() => _searchQuery = q),
-            filters: [
-              SearchFilter(
-                id: 'status',
-                label: 'الحالة',
-                options: ['الكل', 'نشط', 'منتهي'],
-                defaultOption: _statusFilter,
-              ),
-            ],
-            onFilterChanged: (id, val) {
-              if (id == 'status') setState(() => _statusFilter = val);
-            },
-            showFilterButton: true,
+            showFilterButton: false,
           ),
-
-          // نتائج
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                        color: Color(0xFF5E35B1)))
-                : ads.isEmpty
-                    ? _buildEmpty()
-                    : RefreshIndicator(
-                        color: const Color(0xFF5E35B1),
-                        onRefresh: _loadAds,
-                        child: ListView(
-                          padding: const EdgeInsets.all(12),
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Text('${ads.length} إعلان',
-                                  style: TextStyle(
-                                      color: Colors.grey[500],
-                                      fontSize: 12)),
-                            ),
-                            ...ads.map((a) => _buildCard(a, isDark)),
-                            const AppFooter(),
-                          ],
-                        ),
-                      ),
-          ),
+          Expanded(child: _buildBody(isDark)),
         ],
       ),
     );
   }
 
-  Widget _buildEmpty() => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.campaign_outlined, size: 80, color: Colors.grey[300]),
-            const SizedBox(height: 12),
-            Text(
-              _searchQuery.isNotEmpty || _statusFilter != 'الكل'
-                  ? 'لا توجد نتائج'
-                  : 'لا توجد إعلانات',
-              style: TextStyle(color: Colors.grey[500], fontSize: 16),
-            ),
+  Widget _buildBody(bool isDark) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: _brand));
+    }
+    // فشل تحميل أول صفحة ومفيش بيانات نعرضها
+    if (_loadFailed && _ads.isEmpty) {
+      return _buildMessage(
+        icon: Icons.cloud_off_outlined,
+        text: 'تعذّر تحميل الإعلانات',
+        actionLabel: 'إعادة المحاولة',
+        onAction: _loadFirstPage,
+      );
+    }
+    final ads = _visibleAds;
+    if (ads.isEmpty) {
+      final searching = _searchQuery.isNotEmpty;
+      return _buildMessage(
+        icon: Icons.campaign_outlined,
+        text: searching ? 'لا توجد نتائج' : 'لا توجد إعلانات',
+        // البحث على المحمّل بس — نسيب للمستخدم يحمّل الباقي لو لسه في المزيد
+        actionLabel:
+            searching && _hasMore ? 'تحميل المزيد من الإعلانات' : null,
+        onAction: () => _loadMore(isRetry: true),
+      );
+    }
+    return RefreshIndicator(
+      color: _brand,
+      onRefresh: () => _loadFirstPage(silent: true),
+      child: ListView.builder(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(12),
+        // 0: صف الترتيب · 1..n: الإعلانات · n+1: تذييل التحميل + الفوتر
+        itemCount: ads.length + 2,
+        itemBuilder: (context, index) {
+          if (index == 0) return _buildSortRow();
+          if (index <= ads.length) return _buildCard(ads[index - 1], isDark);
+          return _buildListFooter();
+        },
+      ),
+    );
+  }
+
+  Widget _buildMessage({
+    required IconData icon,
+    required String text,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 80, color: Colors.grey[300]),
+          const SizedBox(height: 12),
+          Text(text, style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+          if (actionLabel != null) ...[
+            const SizedBox(height: 8),
+            TextButton(onPressed: onAction, child: Text(actionLabel)),
           ],
+        ],
+      ),
+    );
+  }
+
+  // ✅ زر عكس الترتيب جوه جسم الشاشة: الـ AppBar مخفي لما الشاشة تتعرض
+  // جوه AdsHubScreen (showAppBar: false) فزر الـ AppBar القديم مكانش ظاهر.
+  Widget _buildSortRow() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Align(
+        alignment: AlignmentDirectional.centerEnd,
+        child: TextButton.icon(
+          onPressed: _toggleSort,
+          icon: const Icon(Icons.swap_vert_rounded, size: 18),
+          label: Text(_newestFirst ? 'الأحدث أولًا' : 'الأقدم أولًا'),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildListFooter() {
+    final Widget status;
+    if (_isLoadingMore) {
+      status = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2.5, color: _brand),
+          ),
         ),
       );
+    } else if (_loadFailed && _hasMore) {
+      status = Center(
+        child: TextButton.icon(
+          onPressed: () => _loadMore(isRetry: true),
+          icon: const Icon(Icons.refresh),
+          label: const Text('تعذّر التحميل — إعادة المحاولة'),
+        ),
+      );
+    } else if (_hasMore) {
+      status = Center(
+        child: TextButton(
+          onPressed: () => _loadMore(isRetry: true),
+          child: const Text('تحميل المزيد'),
+        ),
+      );
+    } else {
+      status = const SizedBox.shrink();
+    }
+    return Column(children: [status, const AppFooter()]);
+  }
 
-  // ✅ Fix #141: تفويض العرض لـ AdminAdCard المشترك — لا تكرار
+  // ✅ Fix #33: عرض الإعلان لواجهة المشتري بدون عناصر تحكم الأدمن
+  // (showAdminControls: false) — الـ callbacks فاضية لأن مفيش تفعيل/حذف هنا.
   Widget _buildCard(AdModel ad, bool isDark) {
     return AdminAdCard(
       ad: ad,
       isDark: isDark,
-      onToggle: () {},  // all_ads_screen view-only — no toggle
-      onDelete: () {}, // view-only
+      showAdminControls: false,
+      onToggle: () {},
+      onDelete: () {},
     );
   }
 }

@@ -21,6 +21,23 @@ class AdCodeException implements Exception {
   String toString() => 'AdCodeException: $userMessage';
 }
 
+/// ✅ Fix #33: نتيجة صفحة من أرشيف الإعلانات (واجهة المشتري) — نفس نمط
+/// ProductPageResult، مع علم [failed] عشان الشاشة تفرّق بين "مفيش إعلانات"
+/// و"فشل التحميل" وتعرض رسالة وزر إعادة محاولة.
+class AdsPageResult {
+  final List<AdModel> ads;
+  final DocumentSnapshot? lastDocument;
+  final bool hasMore;
+  final bool failed;
+
+  const AdsPageResult({
+    this.ads = const [],
+    this.lastDocument,
+    this.hasMore = false,
+    this.failed = false,
+  });
+}
+
 class AdService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -163,6 +180,52 @@ class AdService {
           .toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  // ==========================================================
+  // ✅ Fix #33: أرشيف الإعلانات لواجهة المشتري (شاشة الإعلانات)
+  // ----------------------------------------------------------
+  // • isActive == true إلزامي: قاعدة قراءة ads بتمنع أي حد غير الأدمن من
+  //   قراءة إعلان غير نشط (فيديو تحت المراجعة / مرفوض / لسه مدفوعش)،
+  //   وأي استعلام من غير الشرط ده بيترفض بالكامل.
+  // • من غير فلتر على expiresAt: الإعلان بيفضل في الأرشيف بعد أسبوعه لحد
+  //   ما يعدّي [archiveWindow] من تاريخ إنشائه (createdAt). الاختفاء من
+  //   هنا بس — المستند نفسه مبيتمسحش وبيفضل في سجل الإعلانات عند التاجر.
+  // • الترتيب بـ createdAt (composite index: isActive + createdAt موجود
+  //   في firestore.indexes.json) والتحميل تدريجي بـ startAfterDocument،
+  //   ونفس الـ index بيخدم الاتجاهين (الأحدث أولًا / الأقدم أولًا).
+  // ==========================================================
+  static const Duration archiveWindow = Duration(days: 183); // ≈ ٦ شهور
+  static const int archivePageSize = 20;
+
+  static Future<AdsPageResult> getArchivePage({
+    required bool newestFirst,
+    DocumentSnapshot? startAfter,
+    int pageSize = archivePageSize,
+  }) async {
+    try {
+      final cutoff =
+          Timestamp.fromDate(DateTime.now().subtract(archiveWindow));
+      Query query = _firestore
+          .collection('ads')
+          .where('isActive', isEqualTo: true)
+          .where('createdAt', isGreaterThanOrEqualTo: cutoff)
+          .orderBy('createdAt', descending: newestFirst);
+      if (startAfter != null) query = query.startAfterDocument(startAfter);
+      final snap = await query.limit(pageSize).get();
+      return AdsPageResult(
+        ads: snap.docs
+            .map((doc) =>
+                AdModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+            .toList(),
+        lastDocument: snap.docs.isNotEmpty ? snap.docs.last : null,
+        hasMore: snap.docs.length == pageSize,
+      );
+    } catch (e, s) {
+      developer.log('getArchivePage error: $e',
+          name: 'AdService', error: e, stackTrace: s);
+      return const AdsPageResult(failed: true);
     }
   }
 

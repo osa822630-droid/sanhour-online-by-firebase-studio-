@@ -3,6 +3,7 @@
 // ✅ توافق خلفي كامل: getter imageUrl يعود بصورة الغلاف دائماً
 // ✅ fromMap() يقرأ imageUrls أو يُحوِّل imageUrl القديمة لقائمة تلقائياً
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/date_parser.dart';
 
 class AdModel {
   final String id;
@@ -16,6 +17,9 @@ class AdModel {
   final String? targetType;
   final String? targetId;
   final DateTime? expiresAt;
+  // ✅ Fix #33: تاريخ الإنشاء (قراءة فقط — الكتابة بتفضل serverTimestamp في
+  // toMap) بيتعرض في كارت الإعلان لواجهة المشتري بدل شارة نشط/منتهي.
+  final DateTime? createdAt;
   final bool isActive;
   final int clickCount;
   final String? shopId;
@@ -31,6 +35,7 @@ class AdModel {
     this.targetType = 'none',
     this.targetId,
     this.expiresAt,
+    this.createdAt,
     this.isActive = true,
     this.clickCount = 0,
     this.shopId,
@@ -72,6 +77,9 @@ class AdModel {
       targetId: map['targetId'],
       expiresAt: map['expiresAt'] != null
           ? (map['expiresAt'] as Timestamp).toDate()
+          : null,
+      createdAt: map['createdAt'] != null
+          ? DateParser.parse(map['createdAt'])
           : null,
       isActive: map['isActive'] ?? true,
       clickCount: map['clickCount'] ?? 0,

@@ -229,6 +229,9 @@ class AdminAdCard extends StatelessWidget {
   final bool isDark;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
+  // ✅ Fix #33: false = واجهة المشتري — بيخفي شارة نشط/منتهي وتاريخ الانتهاء
+  // وعدد النقرات وزر التفعيل والحذف (عناصر الأدمن)، ويعرض تاريخ النشر بدلهم.
+  final bool showAdminControls;
 
   const AdminAdCard({
     super.key,
@@ -236,6 +239,7 @@ class AdminAdCard extends StatelessWidget {
     required this.isDark,
     required this.onToggle,
     required this.onDelete,
+    this.showAdminControls = true,
   });
 
   @override
@@ -283,7 +287,8 @@ class AdminAdCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
+              // ✅ Fix #33: شارة الحالة وتاريخ الانتهاء للأدمن بس
+              if (showAdminControls) Row(children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -299,13 +304,16 @@ class AdminAdCard extends StatelessWidget {
                 if (ad.expiresAt != null)
                   Text('ينتهي: ${DateFormat('dd/MM/yyyy').format(ad.expiresAt!)}',
                       style: TextStyle(color: Colors.grey[500], fontSize: 11)),
-              ]),
+              ]) else if (ad.createdAt != null)
+                Text('نُشر: ${DateFormat('dd/MM/yyyy').format(ad.createdAt!)}',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 11)),
               if (ad.text.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(ad.text, style: const TextStyle(fontSize: 14, height: 1.4)),
               ],
-              const SizedBox(height: 8),
-              Row(children: [
+              // ✅ Fix #33: عدد النقرات وتفعيل/حذف الإعلان للأدمن بس
+              if (showAdminControls) const SizedBox(height: 8),
+              if (showAdminControls) Row(children: [
                 Icon(Icons.touch_app_outlined, size: 15, color: Colors.grey[500]),
                 const SizedBox(width: 4),
                 Text('${ad.clickCount} نقرة',
