@@ -78,11 +78,19 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
       );
 
       // ✅ Fix #31: إلغاء تفعيل الإعلانات السابقة لنفس المستخدم في batch ذرية
+      // ✅ Item #34: القاعدة (إعلان وظيفة نشط واحد لكل ناشر) مقصودة، لكنها كانت
+      // بتتنفّذ بصمت. دلوقتي الناشر بيتنبّه ويوافق قبل ما أي حاجة تتكتب؛
+      // لو رفض بنخرج من غير أي كتابة (الـ finally بيرجّع حالة الـ loading).
       final prevAds = await FirebaseFirestore.instance
           .collection('job_ads')
           .where('posterId', isEqualTo: user.id)
           .where('isActive', isEqualTo: true)
           .get();
+      if (prevAds.docs.isNotEmpty) {
+        if (!mounted) return;
+        final confirmed = await _confirmReplacePrevious(prevAds.docs);
+        if (!confirmed) return;
+      }
       final batch = FirebaseFirestore.instance.batch();
       for (final doc in prevAds.docs) {
         batch.update(doc.reference, {'isActive': false});
@@ -108,8 +116,10 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
       });
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('تم نشر إعلان الوظيفة بنجاح ✅'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(prevAds.docs.isEmpty
+            ? 'تم نشر إعلان الوظيفة بنجاح ✅'
+            : 'تم نشر إعلان الوظيفة بنجاح ✅ — وتم إيقاف إعلاناتك السابقة (${prevAds.docs.length})'),
         backgroundColor: Colors.green,
       ));
       // ✅ إصلاح: تأخير بسيط قبل الإغلاق حتى تظهر رسالة النجاح فعلياً
@@ -125,6 +135,62 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  // ✅ Item #34: تنبيه صريح قبل إيقاف إعلانات الوظائف السابقة لنفس الناشر.
+  // بيرجّع true بس لو الناشر وافق؛ الإغلاق بالضغط بره الحوار = رفض.
+  Future<bool> _confirmReplacePrevious(
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> previous) async {
+    final titles = previous
+        .map((d) => (d.data()['title'] as String?)?.trim() ?? '')
+        .where((t) => t.isNotEmpty)
+        .take(3)
+        .toList();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('إيقاف إعلاناتك السابقة؟'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              previous.length == 1
+                  ? 'لديك إعلان وظيفة منشور حاليًا.'
+                  : 'لديك إعلانات وظائف منشورة حاليًا (العدد: ${previous.length}).',
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'نشر إعلان جديد سيؤدي إلى إيقاف الإعلانات السابقة تلقائيًا '
+              '(إعلان وظيفة نشط واحد لكل ناشر)، ولن تظهر للباحثين عن عمل بعد ذلك.',
+            ),
+            if (titles.isNotEmpty) const SizedBox(height: 8),
+            for (final t in titles)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text('• $t',
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5E35B1),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('نشر وإيقاف السابق'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   @override
