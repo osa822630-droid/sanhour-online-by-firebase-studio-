@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 import '../providers/auth_provider.dart';
+import '../services/dealer_listing_service.dart';
 import '../services/media_upload_service.dart';
 import '../widgets/cached_image.dart';
 import '../widgets/error_state_widget.dart';
@@ -454,6 +455,11 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
     String selectedCat = 'أخرى';
     File? imageFile;
     bool submitting = false;
+    // ✅ Item #35: كود دفع الإعلان الإضافي (dealer_listing_fee) — متغيّر محلي
+    // بدل TextEditingController عشان مفيش حاجة تتعمل لها dispose.
+    String feeCode = '';
+    // رسالة الخطأ بتظهر تحت الحقل نفسه لأن الـ SnackBar بيتغطّى بالـ bottom sheet.
+    String? feeCodeError;
 
     showModalBottomSheet(
       context: context, isScrollControlled: true,
@@ -471,7 +477,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
               if (isPaid) Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                child: const Text('لديك إعلان نشط هذا الشهر. إضافة إعلان آخر سيكلفك 100 جنيه تُسدَّد للإدارة.',
+                child: const Text('لديك إعلان نشط هذا الشهر. إضافة إعلان آخر تتطلب كود دفع (100 جنيه) تحصل عليه من الإدارة بعد السداد.',
                     style: TextStyle(fontSize: 12, color: Colors.orange)),
               ),
               const SizedBox(height: 12),
@@ -511,14 +517,46 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                 items: _cats.where((c) => c != 'الكل').map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                 onChanged: (v) => setSheetState(() => selectedCat = v!),
               ),
+              // ✅ Item #35: الإعلان المدفوع لازم يتنشر بكود dealer_listing_fee
+              if (isPaid) ...[
+                const SizedBox(height: 10),
+                TextField(
+                  onChanged: (v) {
+                    feeCode = v;
+                    if (feeCodeError != null) {
+                      setSheetState(() => feeCodeError = null);
+                    }
+                  },
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: InputDecoration(
+                    labelText: 'كود دفع الإعلان *',
+                    hintText: 'DLR-XXXX-XXXX',
+                    helperText:
+                        'تحصل عليه من الإدارة بعد سداد ${DealerListingService.extraListingFee} جنيه',
+                    errorText: feeCodeError,
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: submitting ? null : () async {
                     if (titleCtrl.text.isEmpty || priceCtrl.text.isEmpty || phoneCtrl.text.isEmpty) return;
+                    if (isPaid && feeCode.trim().isEmpty) {
+                      setSheetState(() => feeCodeError =
+                          'أدخل كود دفع الإعلان الذي استلمته من الإدارة.');
+                      return;
+                    }
                     setSheetState(() => submitting = true);
                     try {
+                      // ✅ Item #35: نتحقق من الكود قبل رفع الصورة عشان كود غلط
+                      // ما يسيبش صورة يتيمة في الـ Storage.
+                      DocumentReference<Map<String, dynamic>>? feeCodeRef;
+                      if (isPaid) {
+                        feeCodeRef = await DealerListingService.findFeeCode(feeCode);
+                      }
                       String imageUrl = '';
                       if (imageFile != null) {
                         // ✅ إصلاح الكراش: MediaUploadService بدل ApiService.uploadImage الخام
@@ -530,7 +568,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                         );
                       }
                       // ✅ إصلاح اسم المجموعة: dealer_listings (وليس dealer_ads)
-                      await FirebaseFirestore.instance.collection('dealer_listings').add({
+                      final listing = <String, dynamic>{
                         'sellerId': auth.user!.id,
                         'title': titleCtrl.text.trim(),
                         'description': descCtrl.text.trim(),
@@ -540,9 +578,32 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                         'imageUrls': imageUrl.isNotEmpty ? [imageUrl] : [],
                         'condition': 'used_good',
                         'isActive': true,
-                        'createdAt': FieldValue.serverTimestamp(),
-                      });
+                      };
+                      if (feeCodeRef != null) {
+                        // ✅ Item #35: حرق كود الرسوم ونشر الإعلان في transaction واحدة
+                        await DealerListingService.publishPaidListing(
+                          codeRef: feeCodeRef,
+                          userId: auth.user!.id,
+                          listing: listing,
+                        );
+                      } else {
+                        await FirebaseFirestore.instance
+                            .collection('dealer_listings')
+                            .add({
+                          ...listing,
+                          'createdAt': FieldValue.serverTimestamp(),
+                        });
+                      }
                       if (ctx.mounted) Navigator.pop(ctx);
+                    } on DealerFeeCodeException catch (e) {
+                      // ✅ Item #35: سبب رفض الكود بالعربي (غير صحيح / مستخدم / منتهي)
+                      // بيظهر تحت حقل الكود؛ والحارس عشان الـ sheet ممكن يتقفل أثناء الانتظار.
+                      if (ctx.mounted) {
+                        setSheetState(() {
+                          submitting = false;
+                          feeCodeError = e.userMessage;
+                        });
+                      }
                     } on MediaUploadException catch (e) {
                       setSheetState(() => submitting = false);
                       if (ctx.mounted) {

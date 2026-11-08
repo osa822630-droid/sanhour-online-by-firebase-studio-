@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../services/audit_log_service.dart';
+import '../../services/dealer_listing_service.dart';
 
 class AdminCodesTab extends StatefulWidget {
   const AdminCodesTab({super.key});
@@ -15,11 +16,12 @@ class AdminCodesTab extends StatefulWidget {
 
 class _AdminCodesTabState extends State<AdminCodesTab> {
   bool _isLoading = true;
-  int _selectedTypeIndex = 0; // 0 = Shops, 1 = Ads
+  int _selectedTypeIndex = 0; // 0 = Shops, 1 = Ads, 2 = Dealer listing fee
 
   // القوائم
   List<Map<String, dynamic>> _shopCodes = [];
   List<Map<String, dynamic>> _adCodes = [];
+  List<Map<String, dynamic>> _dealerCodes = [];
 
   // الفلترة
   String _filterStatus = 'all'; // 'all', 'active', 'used'
@@ -45,10 +47,18 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
 
       if (mounted) {
         setState(() {
-          _shopCodes =
-              allCodes.where((c) => c['type'] != 'ad_activation').toList();
+          // ✅ Item #35: أكواد رسوم إعلان الديلر ليها تبويب مستقل، فلازم تتشال
+          // من قائمة أكواد المحلات (كانت بتتحسب كل ما هو غير ad_activation).
+          _shopCodes = allCodes
+              .where((c) =>
+                  c['type'] != 'ad_activation' &&
+                  c['type'] != DealerListingService.feeCodeType)
+              .toList();
           _adCodes =
               allCodes.where((c) => c['type'] == 'ad_activation').toList();
+          _dealerCodes = allCodes
+              .where((c) => c['type'] == DealerListingService.feeCodeType)
+              .toList();
           _isLoading = false;
         });
       }
@@ -60,8 +70,11 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
 
   // القائمة الحالية المعروضة بناءً على التبويب والفلتر
   List<Map<String, dynamic>> get _currentList {
-    List<Map<String, dynamic>> source =
-        _selectedTypeIndex == 0 ? _shopCodes : _adCodes;
+    final List<Map<String, dynamic>> source = switch (_selectedTypeIndex) {
+      0 => _shopCodes,
+      1 => _adCodes,
+      _ => _dealerCodes,
+    };
 
     if (_filterStatus == 'all') return source;
     if (_filterStatus == 'active') {
@@ -76,8 +89,11 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
   @override
   Widget build(BuildContext context) {
     final currentList = _currentList;
-    final Color primaryColor =
-        _selectedTypeIndex == 0 ? Colors.deepPurple[800]! : Colors.deepOrangeAccent[800]!;
+    final Color primaryColor = switch (_selectedTypeIndex) {
+      0 => Colors.deepPurple[800]!,
+      1 => Colors.deepOrangeAccent[800]!,
+      _ => Colors.teal[700]!,
+    };
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -85,8 +101,11 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
         onPressed: _generateCode,
         backgroundColor: primaryColor,
         icon: const Icon(Icons.add),
-        label:
-            Text(_selectedTypeIndex == 0 ? 'توليد كود محل' : 'توليد كود إعلان'),
+        label: Text(switch (_selectedTypeIndex) {
+          0 => 'توليد كود محل',
+          1 => 'توليد كود إعلان',
+          _ => 'توليد كود رسوم ديلر',
+        }),
       ),
       body: Column(
         children: [
@@ -105,9 +124,10 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                   ),
                   child: Row(
                     children: [
-                      _buildToggleOption('🏪 تفعيل المحلات', 0, Colors.blue),
+                      _buildToggleOption('🏪 المحلات', 0, Colors.blue),
                       _buildToggleOption(
-                          '📢 كوبونات الإعلانات', 1, Colors.deepOrangeAccent),
+                          '📢 الإعلانات', 1, Colors.deepOrangeAccent),
+                      _buildToggleOption('🏷️ رسوم الديلر', 2, Colors.teal),
                     ],
                   ),
                 ),
@@ -224,7 +244,11 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
         ? (codeData['createdAt'] as Timestamp).toDate()
         : null;
     String dateStr = date != null ? DateFormat('yyyy-MM-dd').format(date) : 'لا يوجد تاريخ';
-    String valueStr = _selectedTypeIndex == 1 ? '• 50 ج.م' : '';
+    final String valueStr = switch (_selectedTypeIndex) {
+      1 => '• 50 ج.م',
+      2 => '• ${DealerListingService.extraListingFee} ج.م',
+      _ => '',
+    };
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -267,9 +291,11 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                     child: Icon(
                       isUsed
                           ? Icons.check_circle
-                          : (_selectedTypeIndex == 0
-                              ? Icons.store
-                              : Icons.campaign),
+                          : switch (_selectedTypeIndex) {
+                              0 => Icons.store,
+                              1 => Icons.campaign,
+                              _ => Icons.sell,
+                            },
                       color: isUsed ? Colors.grey : themeColor,
                     ),
                   ),
@@ -370,8 +396,11 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
           'expiresAt': Timestamp.fromDate(
               DateTime.now().add(const Duration(days: 30))),
         });
-      } else {
+      } else if (_selectedTypeIndex == 1) {
         newCode = await ApiService.generateAdCode();
+      } else {
+        // ✅ Item #35: كود رسوم إعلان الديلر الإضافي (dealer_listing_fee)
+        newCode = await DealerListingService.generateFeeCode();
       }
 
       await _loadCodes();
@@ -405,15 +434,20 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 2,
-                    color:
-                        _selectedTypeIndex == 0 ? Colors.blue : Colors.deepOrangeAccent),
+                    color: switch (_selectedTypeIndex) {
+                      0 => Colors.blue,
+                      1 => Colors.deepOrangeAccent,
+                      _ => Colors.teal,
+                    }),
               ),
             ),
             const SizedBox(height: 10),
             Text(
-              _selectedTypeIndex == 0
-                  ? 'كود لتفعيل حساب تاجر جديد'
-                  : 'كوبون إعلاني بقيمة 50 ج.م',
+              switch (_selectedTypeIndex) {
+                0 => 'كود لتفعيل حساب تاجر جديد',
+                1 => 'كوبون إعلاني بقيمة 50 ج.م',
+                _ => 'كود دفع إعلان ديلر إضافي بقيمة ${DealerListingService.extraListingFee} ج.م',
+              },
               style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
           ],
