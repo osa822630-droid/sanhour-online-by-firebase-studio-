@@ -758,7 +758,24 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
     );
   }
 
+  // ✅ Item #36: عدد التقييمات لكل نجمة من التقييمات المحمّلة فعلاً
+  // (ReviewService.getReviews بترجّع كل تقييمات المحل بلا limit فالتوزيع دقيق)
+  // بدل القيمة الوهمية الثابتة 0.3 * star/5.
+  Map<int, int> _ratingCounts() {
+    final counts = <int, int>{1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+    for (final r in _reviews) {
+      final raw = r['rating'];
+      final stars = raw is num ? raw.round() : 0;
+      if (stars >= 1 && stars <= 5) {
+        counts[stars] = (counts[stars] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
   Widget _buildReviewsTab() {
+    final ratingCounts = _ratingCounts();
+    final ratedTotal = ratingCounts.values.fold<int>(0, (a, b) => a + b);
     return Column(children: [
       // خلاصة التقييم
       if (widget.shop.reviewCount > 0)
@@ -789,10 +806,20 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                   const Icon(Icons.star, color: Colors.amber, size: 12),
                   const SizedBox(width: 6),
                   Expanded(child: LinearProgressIndicator(
-                    value: widget.shop.reviewCount > 0 ? (0.3 * (star / 5)) : 0,
+                    // ✅ Item #36: النسبة الحقيقية لتقييمات هذه النجمة من الإجمالي
+                    value: ratedTotal > 0
+                        ? (ratingCounts[star] ?? 0) / ratedTotal
+                        : 0,
                     backgroundColor: Colors.grey[200],
                     valueColor: const AlwaysStoppedAnimation(Colors.amber),
                   )),
+                  const SizedBox(width: 6),
+                  SizedBox(
+                    width: 22,
+                    child: Text('${ratingCounts[star] ?? 0}',
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  ),
                 ]),
               );
             }))),
