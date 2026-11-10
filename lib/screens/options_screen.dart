@@ -7,7 +7,6 @@ import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../providers/theme_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import 'merchant_dashboard.dart';
@@ -52,8 +51,11 @@ class _OptionsScreenState extends State<OptionsScreen> {
 
   Future<void> _performSoftDelete(
       BuildContext dialogContext, app_auth.AuthProvider authProvider) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    // ✅ Item #37: هوية التطبيق (mock user id) مش uid جلسة Firebase المجهولة؛
+    // مستند users/{id} و shops.ownerId بيتخزّنوا بمعرّف المستخدم الفعلي، فاستخدام
+    // currentUser.uid كان بيستهدف مستند غلط (والحذف مبيتمّش).
+    final userId = authProvider.user?.id;
+    if (userId == null || userId.isEmpty) return;
 
     setState(() => _isDeleting = true);
 
@@ -62,7 +64,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
       final batch = firestore.batch();
       final deletionDate = DateTime.now().add(const Duration(days: 15));
 
-      batch.update(firestore.collection('users').doc(user.uid), {
+      batch.update(firestore.collection('users').doc(userId), {
         'isDeleted': true,
         'scheduledForDeletionAt': Timestamp.fromDate(deletionDate),
         'isActive': false,
@@ -71,7 +73,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
       if (authProvider.userRole == app_auth.UserRole.merchant) {
         final shopsQ = await firestore
             .collection('shops')
-            .where('ownerId', isEqualTo: user.uid)
+            .where('ownerId', isEqualTo: userId)
             .get();
         for (final doc in shopsQ.docs) {
           batch.update(doc.reference, {
