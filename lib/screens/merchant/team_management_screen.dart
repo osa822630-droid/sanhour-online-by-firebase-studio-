@@ -60,7 +60,18 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
         return;
       }
 
-      final userId = snap.docs.first.id;
+      // ✅ Item #38: قواعد Firestore بتسمح بإضافة حساب عميل عادي (customer) بس —
+      // مش تاجر/مشرف/أدمن ولا حسابك إنت. بنفحصها هنا برسالة واضحة بدل خطأ عام.
+      final target = snap.docs.first;
+      if (target.data()['userType'] != 'customer') {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('لا يمكن إضافة هذا المستخدم: حسابه ليس حساب عميل عادي'),
+            backgroundColor: Colors.red));
+        return;
+      }
+
+      final userId = target.id;
       await _firestore.collection('users').doc(userId).update({
         'linkedShopId': widget.shop.id,
         'shopRole': role, // 'partner' or 'worker'
@@ -81,11 +92,22 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
   }
 
   Future<void> _removeMember(String userId) async {
-    await _firestore.collection('users').doc(userId).update({
-      'linkedShopId': null,
-      'shopRole': 'owner',
-      'userType': 'customer',
-    });
+    // ✅ Item #38: التحديث ممكن يترفض بالقواعد (مثلاً عضو مش من فريق محلك أو مالك
+    // المحل نفسه) — كان بيطلع كاستثناء غير ممسوك بدل رسالة للمستخدم.
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'linkedShopId': null,
+        'shopRole': 'owner',
+        'userType': 'customer',
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('تعذّرت إزالة العضو، حاول مجدداً'),
+          backgroundColor: Colors.red));
+      return;
+    }
+    if (!mounted) return;
     await _loadTeam();
   }
 

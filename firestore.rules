@@ -94,10 +94,48 @@ service cloud.firestore {
       allow create: if isOwner(userId)
         && (!request.resource.data.keys().hasAny(['userType'])
           || request.resource.data.userType in ['customer', 'merchant']);
+      // ✅ Item #38: إدارة الفريق (TeamManagementScreen). صاحب المحل بيعدّل مستند
+      // *عضو تاني* (linkedShopId / shopRole / userType)، وده كان بيترفض دايماً: فرع
+      // المالك تحت بيمنع userType، وفرع الأدمن مش بيخص التاجر. الفتح ضيّق عن قصد:
+      //   • الحقول التلاتة دي بس (teamFieldsOnly)، ومش على مستندك إنت (!isOwner).
+      //   • المُنفِّذ تاجر حالي (isMerchant) وصاحب المحل المعني (isShopOwner)، فصاحب
+      //     محل اتنزّل لعميل بقرار أدمن مايقدرش يضيف فريق.
+      //   • الإضافة: العضو الحالي customer فقط ← merchant بدور partner/worker فقط
+      //     (يعني admin/moderator/تاجر تاني مستحيل يتأثّروا، ولا ينفع تمنح admin).
+      //   • الإزالة: عضو فعلي (partner/worker) في فريق محل أنت صاحبه ← customer؛
+      //     مالك المحل (shopRole == owner) مايتشالش من هنا.
+      function teamFieldsOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['linkedShopId', 'shopRole', 'userType']);
+      }
+      function isTeamAdd() {
+        return teamFieldsOnly()
+          && !isOwner(userId)
+          && isMerchant()
+          && resource.data.userType == 'customer'
+          && request.resource.data.userType == 'merchant'
+          && request.resource.data.shopRole in ['partner', 'worker']
+          && request.resource.data.linkedShopId is string
+          && isShopOwner(request.resource.data.linkedShopId);
+      }
+      function isTeamRemove() {
+        return teamFieldsOnly()
+          && !isOwner(userId)
+          && isMerchant()
+          && resource.data.userType == 'merchant'
+          && resource.data.shopRole in ['partner', 'worker']
+          && resource.data.linkedShopId is string
+          && isShopOwner(resource.data.linkedShopId)
+          && request.resource.data.userType == 'customer'
+          && request.resource.data.linkedShopId == null
+          && request.resource.data.shopRole == 'owner';
+      }
       allow update: if isOwner(userId)
         // ✅ Fix #135: منع self-escalation إلى admin/moderator
         && !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['userType']))
-        || isAdmin();
+        || isAdmin()
+        || isTeamAdd()
+        || isTeamRemove();
       allow delete: if isOwner(userId) || isAdmin();
 
       // Favorites sub-collection
