@@ -111,6 +111,10 @@ class JobAdModel {
   }
 
   // ✅ Fix #154: toMap شامل — يحتوي على كل الحقول المطلوبة للـ Firestore
+  // ✅ Item #39: toMap بقت آمنة للتحديث: مفيهاش createdAt ولا viewCount /
+  // applicationCount، فأي set/update بيها مايصفّرش تاريخ النشر ولا العدّادات
+  // (كانت بتكتب createdAt = وقت السيرفر والعدّادات = 0 مع كل كتابة).
+  // الإنشاء بيستخدم toCreateMap() اللي بتضيف الحقول دي.
   Map<String, dynamic> toMap() => {
     'id': id,
     'posterId': posterId,
@@ -124,11 +128,17 @@ class JobAdModel {
     'workType': workType,
     'requiredCount': requiredCount,
     'isActive': isActive,
-    'createdAt': FieldValue.serverTimestamp(),
     'updatedAt': FieldValue.serverTimestamp(),
     'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : null,
     // ✅ Fix #154: حقول searchKeywords لدعم البحث
     'searchKeywords': _buildKeywords(),
+  };
+
+  /// حمولة إنشاء إعلان جديد فقط: toMap() + createdAt من السيرفر (اتفاقية #25)
+  /// + عدّادات المشاهدات والطلبات تبدأ من صفر.
+  Map<String, dynamic> toCreateMap() => {
+    ...toMap(),
+    'createdAt': FieldValue.serverTimestamp(),
     'viewCount': 0,
     'applicationCount': 0,
   };

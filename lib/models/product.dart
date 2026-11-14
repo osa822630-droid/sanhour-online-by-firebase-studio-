@@ -2,6 +2,8 @@
 // ✅ Phase 1 Fix #06: إضافة 'searchKeywords' إلى toMap().
 // كان الحقل موجوداً في الكلاس ويُقرأ في fromMap()، لكنه لم يُحفظ عند الكتابة.
 // النتيجة: كل منتج جديد يُحفظ في Firestore بدون searchKeywords → لا يظهر في البحث أبدًا.
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Product {
   final String id;
   final String shopId;
@@ -87,6 +89,12 @@ class Product {
       'listName': listName,
       // ✅ Phase 1 Fix #06: searchKeywords تُحفظ الآن في Firestore
       'searchKeywords': searchKeywords ?? <String>[],
+      // ✅ Item #39: كان createdAt مش بيتكتب خالص (أي كتابة بالـ map دي كانت بتفقد
+      // تاريخ الإنشاء). لو موجود بنحافظ عليه كـ Timestamp، ولو لسه null (منتج
+      // جديد) السيرفر هو اللي يحطّه (اتفاقية #25: الكتابة بـ serverTimestamp).
+      'createdAt': createdAt != null
+          ? Timestamp.fromDate(createdAt!)
+          : FieldValue.serverTimestamp(),
     };
   }
 
@@ -141,9 +149,18 @@ class Product {
     );
   }
 
+  // ✅ Item #39: بتُستخدم للتخزين المحلي (Hive cache) وده مبيقبلش Timestamp ولا
+  // FieldValue، فـ createdAt بيتحوّل لنص ISO-8601 (fromMap بيقراه بـ DateTime.tryParse)
+  // وبيتشال لو لسه null. الكتابة على Firestore بتستخدم toMap() مباشرة.
   Map<String, dynamic> toMapWithId() {
     final map = toMap();
     map['id'] = id;
+    final created = createdAt;
+    if (created != null) {
+      map['createdAt'] = created.toIso8601String();
+    } else {
+      map.remove('createdAt');
+    }
     return map;
   }
 
