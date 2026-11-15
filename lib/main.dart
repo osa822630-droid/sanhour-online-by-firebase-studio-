@@ -19,6 +19,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:app_links/app_links.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'dart:developer' as developer;
 
 import 'firebase_options.dart';
@@ -64,6 +65,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ Item #40: DateHelper بيبني DateFormat(..., 'ar') (حقول static final)،
+  // وبيانات التواريخ العربية لازم تتحمّل قبل أول استخدام وإلا بيترمي
+  // LocaleDataException. كنا معتمدين بالصدفة على إن MaterialApp حمّلتها قبل أول
+  // شاشة بتنسّق تاريخ، فبنحمّلها هنا صراحةً قبل أي شيء تاني.
+  await initializeDateFormatting('ar');
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
