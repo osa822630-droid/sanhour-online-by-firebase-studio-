@@ -1,6 +1,10 @@
+# Trigger Stamp: 2026-11-18T00:42:31.922Z
 name: Build Release APK
 
 on:
+  push:
+    branches:
+      - '**'
   workflow_dispatch:
     inputs:
       build_mode:
@@ -8,7 +12,7 @@ on:
         required: false
         default: 'release'
       split_per_abi:
-        description: 'Build split APKs per ABI in addition to universal APK'
+        description: 'Build split APKs per ABI'
         required: false
         default: 'false'
 
@@ -16,6 +20,10 @@ permissions:
   contents: write
   actions: read
   checks: write
+
+env:
+  DEFAULT_BUILD_MODE: 'release'
+  DEFAULT_SPLIT_ABI: 'false'
 
 jobs:
   build-apk:
@@ -50,12 +58,7 @@ jobs:
         run: |
           if [ ! -f "android/key.properties" ]; then
             echo "Generating release keystore for APK signing..."
-            keytool -genkey -v -keystore android/app/sanhour-release-key.jks \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -alias sanhour_key \
-              -storepass sanhourOnline2026 \
-              -keypass sanhourOnline2026 \
-              -dname "CN=Sanhour Online, OU=Mobile, O=Sanhour, L=Fayoum, ST=Fayoum, C=EG"
+            keytool -genkey -v -keystore android/app/sanhour-release-key.jks               -keyalg RSA -keysize 2048 -validity 10000               -alias sanhour_key               -storepass sanhourOnline2026               -keypass sanhourOnline2026               -dname "CN=Sanhour Online, OU=Mobile, O=Sanhour, L=Fayoum, ST=Fayoum, C=EG"
             cat <<EOF > android/key.properties
           storePassword=sanhourOnline2026
           keyPassword=sanhourOnline2026
@@ -66,11 +69,16 @@ jobs:
 
       - name: Build Android APK
         run: |
-          if [ "${{ github.event.inputs.build_mode }}" = "debug" ]; then
+          MODE="${{ github.event.inputs.build_mode }}"
+          if [ -z "$MODE" ]; then MODE="$DEFAULT_BUILD_MODE"; fi
+          SPLIT="${{ github.event.inputs.split_per_abi }}"
+          if [ -z "$SPLIT" ]; then SPLIT="$DEFAULT_SPLIT_ABI"; fi
+          echo "Building APK with MODE=$MODE, SPLIT=$SPLIT"
+          if [ "$MODE" = "debug" ]; then
             flutter build apk --debug --no-tree-shake-icons
           else
             flutter build apk --release --no-tree-shake-icons
-            if [ "${{ github.event.inputs.split_per_abi }}" = "true" ]; then
+            if [ "$SPLIT" = "true" ]; then
               flutter build apk --release --split-per-abi --no-tree-shake-icons
             fi
           fi
@@ -100,11 +108,11 @@ jobs:
           retention-days: 30
 
       - name: Publish GitHub Release with direct APK download
-        if: always() && github.event.inputs.build_mode != 'debug'
+        if: success()
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-build-${{ github.run_number }}
-          name: "سنهور أونلاين — Release APK #${{ github.run_number }} (${{ github.ref_name }})"
+          name: "Sanhour Online — APK Build #${{ github.run_number }} (${{ github.ref_name }})"
           body: |
             ### 📱 نسخة أندرويد الجاهزة للتثبيت (Release APK)
             - **الفرع (Branch):** `${{ github.ref_name }}`
