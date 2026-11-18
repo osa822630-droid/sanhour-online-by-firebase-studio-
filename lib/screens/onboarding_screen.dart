@@ -35,7 +35,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingPage(
       icon: Icons.search_rounded,
-      color: Color(0xFF7B1FA2),
+      color: Color(0xFF512DA8),
       title: 'ابحث عن أي شيء',
       subtitle: 'بحث متقدم وفلترة ذكية',
       description:
@@ -43,7 +43,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingPage(
       icon: Icons.favorite_rounded,
-      color: Color(0xFFAD1457),
+      color: Color(0xFF4527A0),
       title: 'المفضلة والقوائم',
       subtitle: 'احفظ ما يعجبك',
       description:
@@ -51,7 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingPage(
       icon: Icons.local_offer_rounded,
-      color: Color(0xFFE65100),
+      color: Color(0xFF3949AB),
       title: 'عروض وخصومات يومية',
       subtitle: 'لا يفوتك أي خصم',
       description:
@@ -60,7 +60,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     // ✅ Item #46: تصحيح وصف سنهور ديلر ليعكس هويته كسوق للمستعمل بدلاً من التوصيل
     _OnboardingPage(
       icon: Icons.sell_rounded,
-      color: Color(0xFF1B5E20),
+      color: Color(0xFF4A2596),
       title: 'سنهور ديلر (سوق المستعمل)',
       subtitle: 'بيع واشتري المستعمل بسهولة',
       description:
@@ -68,7 +68,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingPage(
       icon: Icons.handyman,
-      color: Color(0xFF006064),
+      color: Color(0xFF311B92),
       title: 'طلبات الخدمات والوظائف',
       subtitle: 'مركز الإعلانات المتكامل',
       description:
@@ -221,7 +221,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   color: Colors.white.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(page.icon, size: 72, color: Colors.white),
+                child: page.icon == Icons.storefront
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: Image.asset(
+                      'assets/images/app_icon.png',
+                      width: 96,
+                      height: 96,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          Icon(page.icon, size: 72, color: const Color(0xFFFFC72C)),
+                    ),
+                  )
+                : Icon(page.icon, size: 72, color: const Color(0xFFFFC72C)),
               ),
               const SizedBox(height: 48),
               Text(

@@ -37,8 +37,33 @@ service firebase.storage {
         : '';
     }
 
+    function isBootstrapSuperAdmin() {
+      return sessionAllowed()
+        && 'email' in request.auth.token
+        && request.auth.token.email in [
+          'u201008908728@users.sanhour.online',
+          '+201008908728@users.sanhour.online',
+          'admin@sanhour.com'
+        ];
+    }
+
+    function isBootstrapTestMerchant() {
+      return sessionAllowed()
+        && 'email' in request.auth.token
+        && request.auth.token.email in [
+          'u201234567890@users.sanhour.online',
+          '+201234567890@users.sanhour.online'
+        ];
+    }
+
     function effectiveRole() {
-      return tokenRole() != '' ? tokenRole() : firestoreRole();
+      return isBootstrapSuperAdmin()
+        ? 'super_admin'
+        : (tokenRole() != ''
+            ? tokenRole()
+            : (firestoreRole() != ''
+                ? firestoreRole()
+                : (isBootstrapTestMerchant() ? 'merchant' : '')));
     }
 
     function isStaff() {

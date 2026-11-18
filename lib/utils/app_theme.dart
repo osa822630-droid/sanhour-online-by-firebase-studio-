@@ -21,9 +21,9 @@ class AppColors {
 
   // Neutral & Dark Surfaces
   static const surface        = Color(0xFFF8F7FF);
-  static const surfaceDark    = Color(0xFF0E0E1A);
-  static const cardDark       = Color(0xFF1E1E2E);
-  static const inputDark      = Color(0xFF252538);
+  static const surfaceDark    = Color(0xFF18162B);
+  static const cardDark       = Color(0xFF23203A);
+  static const inputDark      = Color(0xFF2D2948);
   static const textMuted      = Color(0xFF9E9E9E);
 
   // Category colors
@@ -129,7 +129,7 @@ class AppTheme {
       ),
       primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Tajawal'),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF16162A),
+        backgroundColor: Color(0xFF211E3A),
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
@@ -152,14 +152,14 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey[800]!, width: 1),
+          borderSide: const BorderSide(color: Color(0xFF423C68), width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppColors.primaryLight, width: 1.5),
         ),
         prefixIconColor: AppColors.primaryLight,
-        labelStyle: const TextStyle(color: AppColors.primaryLight),
+        labelStyle: const TextStyle(color: Color(0xFFD6BCFA)),
       ),
       cardTheme: CardThemeData(
         elevation: 2,

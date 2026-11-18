@@ -10,7 +10,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class ThemeProvider with ChangeNotifier {
   static const String _key = 'themeMode';
 
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.light;
   String currentSeason = 'none';
 
   // ✅ Fix #14: حقل لتخزين الـ subscription حتى نستطيع إلغاءه في dispose()
@@ -54,7 +54,7 @@ class ThemeProvider with ChangeNotifier {
       } else if (themeString == 'light') {
         _themeMode = ThemeMode.light;
       } else {
-        _themeMode = ThemeMode.system;
+        _themeMode = ThemeMode.light;
       }
       notifyListeners();
     } catch (e) {

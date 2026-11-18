@@ -1,0 +1,74 @@
+name: Deploy Firebase Rules & Functions
+
+on:
+  push:
+    branches:
+      - main
+      - gemini-branch
+    paths:
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
+      - 'storage.rules'
+      - 'functions/**'
+      - 'firebase.json'
+      - '.github/workflows/firebase-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      deploy_targets:
+        description: 'Targets to deploy (e.g. firestore:rules,firestore:indexes,storage,functions)'
+        required: false
+        default: 'firestore:rules,firestore:indexes,storage,functions'
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  firebase-deploy:
+    name: Deploy Firestore Rules, Storage Rules & Cloud Functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Cloud Functions dependencies
+        run: |
+          if [ -d "functions" ]; then
+            cd functions
+            npm install
+          fi
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy to Firebase (sanhour-online)
+        id: deploy_step
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          set -e
+          TARGETS="${{ github.event.inputs.deploy_targets }}"
+          if [ -z "$TARGETS" ]; then
+            TARGETS="firestore:rules,firestore:indexes,storage,functions"
+          fi
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "$FIREBASE_SERVICE_ACCOUNT" > /tmp/gcp-sa.json
+            export GOOGLE_APPLICATION_CREDENTIALS="/tmp/gcp-sa.json"
+            echo "Deploying ($TARGETS) using FIREBASE_SERVICE_ACCOUNT..."
+            firebase deploy --project sanhour-online --only "$TARGETS" --non-interactive 2>&1 | tee firebase_deploy.log
+            rm -f /tmp/gcp-sa.json
+          elif [ -n "$FIREBASE_TOKEN" ]; then
+            echo "Deploying ($TARGETS) using FIREBASE_TOKEN..."
+            firebase deploy --project sanhour-online --only "$TARGETS" --token "$FIREBASE_TOKEN" --non-interactive 2>&1 | tee firebase_deploy.log
+          else
+            echo "ℹ️ لم يتم العثور على FIREBASE_SERVICE_ACCOUNT أو FIREBASE_TOKEN في GitHub Secrets بعد." | tee firebase_deploy.log
+            echo "للتفعيل التلقائي من الموبايل: افتح صفحة الرفع واضغط على قسم إعداد مفتاح Firebase السحابي." | tee -a firebase_deploy.log
+            exit 0
+          fi

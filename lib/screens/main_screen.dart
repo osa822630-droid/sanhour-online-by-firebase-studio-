@@ -22,6 +22,9 @@ class MainScreen extends StatefulWidget {
   static const int homeTab = 0;
   static const int favoritesTab = 1;
   static const int offersTab = 2;
+  static const int categoriesTab = 3;
+  static const int dealerTab = 4;
+  static const int adsHubTab = 5;
 
   final int initialIndex;
 
@@ -30,8 +33,15 @@ class MainScreen extends StatefulWidget {
   static final GlobalKey<ScaffoldState> scaffoldKey =
       GlobalKey<ScaffoldState>();
 
+  static void openDrawer() {
+    scaffoldKey.currentState?.openDrawer();
+  }
+
   static final ValueNotifier<int?> tabSwitchRequest = ValueNotifier<int?>(null);
-  static void switchTab(int tabIndex) {
+  static void switchTab(int tabIndex, {int? adsSubTab}) {
+    if (adsSubTab != null) {
+      AdsHubScreen.subTabRequest.value = adsSubTab;
+    }
     tabSwitchRequest.value = tabIndex;
   }
 
@@ -40,7 +50,6 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  final GlobalKey<ScaffoldState> _localScaffoldKey = GlobalKey<ScaffoldState>();
   late int _selectedIndex;
   late final Set<int> _activatedTabs;
 
@@ -113,7 +122,7 @@ class _MainScreenState extends State<MainScreen> {
         setState(() => _selectedIndex = 0);
       },
       child: Scaffold(
-        key: _localScaffoldKey,
+        key: MainScreen.scaffoldKey,
         drawer: _buildOptionsDrawer(context, isDark),
         body: IndexedStack(
           index: _selectedIndex,
@@ -129,7 +138,7 @@ class _MainScreenState extends State<MainScreen> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: _onItemTapped,
-          backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+          backgroundColor: isDark ? const Color(0xFF23203A) : Colors.white,
           indicatorColor: Colors.deepPurple.withValues(alpha: 0.15),
           surfaceTintColor: Colors.transparent,
           height: 62,
@@ -191,7 +200,7 @@ class _MainScreenState extends State<MainScreen> {
   // ════════════════════════════════════════════════════════════════════
   Widget _buildOptionsDrawer(BuildContext context, bool isDark) {
     return Drawer(
-      backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF211E3A) : Colors.white,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,6 +322,42 @@ class _MainScreenState extends State<MainScreen> {
             ),
 
             const SizedBox(height: 8),
+
+            // لوحة تحكم الإدارة (للأدمن والمشرفين)
+            Consumer<AuthProvider>(
+              builder: (ctx, auth, _) {
+                if (!auth.isAdmin) return const SizedBox.shrink();
+                return _drawerItem(
+                  context,
+                  icon: Icons.admin_panel_settings_outlined,
+                  label: 'لوحة تحكم الإدارة',
+                  iconColor: const Color(0xFFD97706),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/admin');
+                  },
+                );
+              },
+            ),
+
+            // لوحة تحكم التاجر (للتجار)
+            Consumer<AuthProvider>(
+              builder: (ctx, auth, _) {
+                if (auth.userRole != UserRole.merchant) {
+                  return const SizedBox.shrink();
+                }
+                return _drawerItem(
+                  context,
+                  icon: Icons.storefront_outlined,
+                  label: 'لوحة تحكم التاجر',
+                  iconColor: const Color(0xFF00897B),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/merchant');
+                  },
+                );
+              },
+            ),
 
             // الإعدادات
             _drawerItem(

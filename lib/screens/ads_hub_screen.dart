@@ -10,6 +10,9 @@ class AdsHubScreen extends StatefulWidget {
   final int initialTab;
   const AdsHubScreen({super.key, this.initialTab = 0});
 
+  /// يسمح بالتبديل البرمجي إلى تبويب فرعي محدد (0: إعلانات، 1: وظائف، 2: خدمات)
+  static final ValueNotifier<int?> subTabRequest = ValueNotifier<int?>(null);
+
   @override
   State<AdsHubScreen> createState() => _AdsHubScreenState();
 }
@@ -22,13 +25,27 @@ class _AdsHubScreenState extends State<AdsHubScreen>
   @override
   void initState() {
     super.initState();
-    final initial = widget.initialTab.clamp(0, 2);
+    final req = AdsHubScreen.subTabRequest.value;
+    final initial = (req ?? widget.initialTab).clamp(0, 2);
     _activatedTabs = {initial};
     _tabs = TabController(
       length: 3,
       vsync: this,
       initialIndex: initial,
     )..addListener(_onTabChanged);
+    AdsHubScreen.subTabRequest.addListener(_onSubTabRequested);
+  }
+
+  void _onSubTabRequested() {
+    final target = AdsHubScreen.subTabRequest.value;
+    if (target != null && mounted) {
+      final idx = target.clamp(0, 2);
+      setState(() {
+        _activatedTabs.add(idx);
+      });
+      _tabs.animateTo(idx);
+      AdsHubScreen.subTabRequest.value = null;
+    }
   }
 
   void _onTabChanged() {
@@ -41,6 +58,7 @@ class _AdsHubScreenState extends State<AdsHubScreen>
 
   @override
   void dispose() {
+    AdsHubScreen.subTabRequest.removeListener(_onSubTabRequested);
     _tabs.dispose();
     super.dispose();
   }

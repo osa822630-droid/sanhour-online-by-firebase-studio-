@@ -74,15 +74,17 @@ dev_dependencies:
   faker: ^2.2.0
 
 flutter_native_splash:
-  color: "#0D0614"
-  image: assets/images/splash_background.png
+  color: "#2A136E"
+  background_image: assets/images/splash_background.png
+  fullscreen: true
   android_12:
-    image: assets/images/splash_background.png
-    color: "#0D0614"
+    image: assets/images/app_icon.png
+    color: "#2A136E"
 
 flutter_icons:
   android: "launcher_icon"
   ios: true
+  image_path: "assets/images/app_icon.png"
 
 flutter:
   uses-material-design: true

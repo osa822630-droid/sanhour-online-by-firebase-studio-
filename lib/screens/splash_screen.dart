@@ -312,40 +312,42 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF4527A0), Color(0xFF7B1FA2)]),
-        ),
-        child: Center(
-            child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    shape: BoxShape.circle),
-                child: const Icon(Icons.storefront,
-                    size: 70, color: Colors.white),
+      backgroundColor: const Color(0xFF2A136E),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'assets/images/splash_background.png',
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            alignment: Alignment.center,
+            errorBuilder: (_, __, ___) => Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF4527A0), Color(0xFF2A136E)],
+                ),
               ),
-              const SizedBox(height: 24),
-              const Text('سنهور أونلاين',
-                  style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white)),
-              const SizedBox(height: 8),
-              const Text('سنهور كلها في جيبك',
-                  style: TextStyle(
-                      fontSize: 14, color: Colors.white70, letterSpacing: 2)),
-              const SizedBox(height: 40),
-              const CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  strokeWidth: 2),
-            ])),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 44,
+            child: Center(
+              child: SizedBox(
+                width: 30,
+                height: 30,
+                child: const CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFC72C)),
+                  strokeWidth: 2.8,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

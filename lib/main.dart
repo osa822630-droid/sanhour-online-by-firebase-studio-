@@ -21,7 +21,6 @@ import 'screens/admin_dashboard.dart';
 import 'screens/merchant_dashboard.dart';
 import 'screens/splash_screen.dart';
 import 'screens/advanced_search_screen.dart';
-import 'screens/sanhour_dealer_screen.dart';
 import 'screens/interests_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/subscription_screen.dart';
@@ -38,7 +37,6 @@ import 'screens/complete_profile_screen.dart';
 import 'screens/shop_detail_screen.dart';
 import 'screens/detail_screen.dart';
 import 'screens/seeder_screen.dart';
-import 'screens/categories_screen.dart';
 import 'models/wishlist_collection_model.dart';
 import 'screens/collection_detail_screen.dart';
 import 'providers/shops_provider.dart';
@@ -244,12 +242,13 @@ class _MyAppState extends State<MyApp> {
               '/admin':              (_) => const AdminDashboard(),
               '/merchant':           (_) => const MerchantDashboard(),
               '/advanced_search':    (_) => const AdvancedSearchScreen(),
-              '/dealer':             (_) => const SanhourDealerScreen(),
+              '/dealer':             (_) => const MainScreen(initialIndex: MainScreen.dealerTab),
               '/interests':          (_) => const InterestsScreen(),
               '/onboarding':         (_) => const OnboardingScreen(),
               '/merchant_stats':     (_) => const MerchantDashboard(),
               '/subscription':       (_) => const SubscriptionScreen(),
-              '/all_ads':            (_) => const AdsHubScreen(),
+              '/all_ads':            (_) => const MainScreen(initialIndex: MainScreen.adsHubTab),
+              '/ads_hub':            (_) => const MainScreen(initialIndex: MainScreen.adsHubTab),
               '/notifications':      (_) => const NotificationsScreen(),
               '/my_complaints':      (_) => const MyComplaintsScreen(),
               '/user_complaints':    (_) => const MyComplaintsScreen(),
@@ -260,7 +259,7 @@ class _MyAppState extends State<MyApp> {
               '/merchant_type':      (_) => const MerchantTypeScreen(),
               '/account_edit':       (_) => const AccountEditScreen(),
               '/complete_profile':   (_) => const CompleteProfileScreen(),
-              '/categories':         (_) => const CategoriesScreen(),
+              '/categories':         (_) => const MainScreen(initialIndex: MainScreen.categoriesTab),
               '/seeder':             (_) => const SeederScreen(),
               '/favorites':          (_) => const MainScreen(initialIndex: MainScreen.favoritesTab),
               '/offers':             (_) => const MainScreen(initialIndex: MainScreen.offersTab),

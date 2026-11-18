@@ -80,11 +80,11 @@ jobs:
           if [ -z "$SPLIT" ]; then SPLIT="$DEFAULT_SPLIT_ABI"; fi
           echo "Building APK with MODE=$MODE, SPLIT=$SPLIT"
           if [ "$MODE" = "debug" ]; then
-            flutter build apk --debug --no-tree-shake-icons 2>&1 | tee build_apk.log
+            flutter build apk --debug --dart-define=ENABLE_MOCK_MODE=true --no-tree-shake-icons 2>&1 | tee build_apk.log
           else
-            flutter build apk --release --no-tree-shake-icons 2>&1 | tee build_apk.log
+            flutter build apk --release --dart-define=ENABLE_MOCK_MODE=true --no-tree-shake-icons 2>&1 | tee build_apk.log
             if [ "$SPLIT" = "true" ]; then
-              flutter build apk --release --split-per-abi --no-tree-shake-icons 2>&1 | tee -a build_apk.log
+              flutter build apk --release --split-per-abi --dart-define=ENABLE_MOCK_MODE=true --no-tree-shake-icons 2>&1 | tee -a build_apk.log
             fi
           fi
 

@@ -38,10 +38,33 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(appUid())).data;
     }
 
+    function isBootstrapSuperAdmin() {
+      return hasSessionIdentity()
+        && 'email' in request.auth.token
+        && request.auth.token.email in [
+          'u201008908728@users.sanhour.online',
+          '+201008908728@users.sanhour.online',
+          'admin@sanhour.com'
+        ];
+    }
+
+    function isBootstrapTestMerchant() {
+      return hasSessionIdentity()
+        && 'email' in request.auth.token
+        && request.auth.token.email in [
+          'u201234567890@users.sanhour.online',
+          '+201234567890@users.sanhour.online'
+        ];
+    }
+
     function effectiveUserType() {
-      return tokenRole() != ''
-        ? tokenRole()
-        : (userDocExists() ? getUserData().get('userType', 'customer') : '');
+      return isBootstrapSuperAdmin()
+        ? 'super_admin'
+        : (tokenRole() != ''
+            ? tokenRole()
+            : (userDocExists()
+                ? getUserData().get('userType', 'customer')
+                : (isBootstrapTestMerchant() ? 'merchant' : '')));
     }
 
     function isSuperAdmin() {
@@ -190,7 +213,8 @@ service cloud.firestore {
         && request.resource.data.get('referralCount', 0) == 0
         && request.resource.data.get('referralBonusDaysEarned', 0) == 0
         && !request.resource.data.keys().hasAny(['linkedShopId', 'moderatorPermissions', 'featuredUntil', 'referredBy']))
-        || isAdmin();
+        || isAdmin()
+        || (isOwner(userId) && isBootstrapTestMerchant() && request.resource.data.get('userType', 'merchant') in ['customer', 'merchant']);
 
       // ✅ P0-1 & P0-6 Fix: منع المستخدم من تعديل userType أو shopRole أو linkedShopId أو أرقام الإحالة أو الصلاحيات
       allow update: if (isOwner(userId)

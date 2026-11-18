@@ -233,7 +233,7 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF18162B) : const Color(0xFFF8F7FF),
       appBar: widget.showAppBar
           ? AppBar(
               title: const Text(

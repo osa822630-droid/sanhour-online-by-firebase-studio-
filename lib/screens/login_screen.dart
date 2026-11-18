@@ -243,7 +243,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (value == null || value.trim().isEmpty) {
       return 'رقم الهاتف مطلوب';
     }
-    final normalized = AppConstants.normalizePhone(value);
+    final normalized = AppConstants.normalizePhoneToLocal(value);
     if (!RegExp(r'^01[0-9]{9}$').hasMatch(normalized)) {
       return 'أدخل رقم هاتف مصري صحيح (11 رقم يبدأ بـ 01)';
     }
@@ -268,7 +268,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.center,
-            colors: [Color(0xFF4527A0), Color(0xFF7B1FA2)],
+            colors: [Color(0xFF4527A0), Color(0xFF5E35B1)],
           ),
         ),
         child: SafeArea(
@@ -283,13 +283,30 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(14),
+                          width: 84,
+                          height: 84,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
+                            borderRadius: BorderRadius.circular(22),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.22),
+                                blurRadius: 16,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
                           ),
-                          child: const Icon(Icons.storefront,
-                              size: 48, color: Colors.white),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(22),
+                            child: Image.asset(
+                              'assets/images/app_icon.png',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                child: const Icon(Icons.storefront,
+                                    size: 48, color: Colors.white),
+                              ),
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 12),
                         const Text(
@@ -544,9 +561,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                     icon: const Icon(Icons.person_outline),
                                     label: const Text('تصفح كزائر'),
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: const Color(0xFF5E35B1),
-                                      side: const BorderSide(
-                                          color: Color(0xFF5E35B1)),
+                                      foregroundColor: Theme.of(context).brightness == Brightness.dark
+                                          ? const Color(0xFFD6BCFA)
+                                          : const Color(0xFF5E35B1),
+                                      side: BorderSide(
+                                          color: Theme.of(context).brightness == Brightness.dark
+                                              ? const Color(0xFF9F7AEA)
+                                              : const Color(0xFF5E35B1),
+                                          width: 1.5),
                                       shape: RoundedRectangleBorder(
                                           borderRadius:
                                               BorderRadius.circular(12)),

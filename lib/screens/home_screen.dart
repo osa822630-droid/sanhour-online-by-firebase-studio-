@@ -14,7 +14,6 @@ import '../widgets/ad_carousel.dart';
 import '../widgets/app_footer.dart';
 import '../widgets/seasonal_overlay.dart';
 import '../widgets/context_search_bar.dart';
-import '../screens/categories_screen.dart';
 import '../screens/main_screen.dart';
 import '../screens/advanced_search_screen.dart';
 import '../services/cache_service.dart';
@@ -209,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return SeasonalOverlay(
       child: Scaffold(
         backgroundColor:
-            isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+            isDark ? const Color(0xFF18162B) : const Color(0xFFF8F7FF),
         body: SafeArea(
           child: RefreshIndicator(
             onRefresh: _refreshData,
@@ -260,14 +259,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       floating: false,
                       expandedHeight: 110,
                       backgroundColor: isDark
-                          ? const Color(0xFF1A1A2E)
+                          ? const Color(0xFF211E3A)
                           : const Color(0xFF5E35B1),
                       automaticallyImplyLeading: false,
                       flexibleSpace: FlexibleSpaceBar(
                         collapseMode: CollapseMode.pin,
                         background: Container(
                           color: isDark
-                              ? const Color(0xFF1A1A2E)
+                              ? const Color(0xFF211E3A)
                               : const Color(0xFF5E35B1),
                         ),
                       ),
@@ -275,9 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           // هامبرغر
                           GestureDetector(
-                            onTap: () => (Scaffold.maybeOf(context) ??
-                                    MainScreen.scaffoldKey.currentState)
-                                ?.openDrawer(),
+                            onTap: () => MainScreen.openDrawer(),
                             child: Padding(
                               padding: const EdgeInsets.only(left: 4),
                               child: Column(
@@ -409,11 +406,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (provider.categories.isNotEmpty) ...[
                             _sectionHeader(
                               'استكشف الفئات',
-                              onViewAll: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const CategoriesScreen()),
-                              ),
+                              onViewAll: () =>
+                                  MainScreen.switchTab(MainScreen.categoriesTab),
                             ),
                             const CategoryListWidget(),
                             const SizedBox(height: 20),
@@ -548,7 +542,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         _sectionHeader(
           '🏷️ سنهور ديلر',
-          onViewAll: () => Navigator.pushNamed(context, '/dealer'),
+          onViewAll: () => MainScreen.switchTab(MainScreen.dealerTab),
         ),
         Container(
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -581,7 +575,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 14),
                   ElevatedButton(
-                    onPressed: () => Navigator.pushNamed(context, '/dealer'),
+                    onPressed: () => MainScreen.switchTab(MainScreen.dealerTab),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: const Color(0xFF5E35B1),
@@ -618,8 +612,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _sectionHeader(
               '💼 فرص عمل متاحة',
-              onViewAll: () => Navigator.pushNamed(context, '/ads_hub',
-                  arguments: {'tab': 1}),
+              onViewAll: () =>
+                  MainScreen.switchTab(MainScreen.adsHubTab, adsSubTab: 1),
             ),
             SizedBox(
               height: 100,
@@ -633,8 +627,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   final category = data['category'] as String? ?? '';
                   final location = data['location'] as String? ?? '';
                   return GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/ads_hub',
-                        arguments: {'tab': 1}),
+                    onTap: () =>
+                        MainScreen.switchTab(MainScreen.adsHubTab, adsSubTab: 1),
                     child: Container(
                       width: 200,
                       margin: const EdgeInsets.only(left: 12),
@@ -702,8 +696,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _sectionHeader(
               '🔧 محتاج حاجة تتعمل؟',
-              onViewAll: () => Navigator.pushNamed(context, '/ads_hub',
-                  arguments: {'tab': 2}),
+              onViewAll: () =>
+                  MainScreen.switchTab(MainScreen.adsHubTab, adsSubTab: 2),
             ),
             SizedBox(
               height: 110,
@@ -717,8 +711,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   final bidsCount = (data['bidsCount'] as int?) ?? 0;
                   final urgent = data['urgent'] as bool? ?? false;
                   return GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/ads_hub',
-                        arguments: {'tab': 2}),
+                    onTap: () =>
+                        MainScreen.switchTab(MainScreen.adsHubTab, adsSubTab: 2),
                     child: Container(
                       width: 200,
                       margin: const EdgeInsets.only(left: 12),
