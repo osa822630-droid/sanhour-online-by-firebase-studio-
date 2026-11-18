@@ -332,7 +332,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
           ),
-          Positioned(
+          const Positioned(
             left: 0,
             right: 0,
             bottom: 44,
@@ -340,7 +340,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: SizedBox(
                 width: 30,
                 height: 30,
-                child: const CircularProgressIndicator(
+                child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFC72C)),
                   strokeWidth: 2.8,
                 ),

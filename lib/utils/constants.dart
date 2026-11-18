@@ -104,6 +104,26 @@ class AppConstants {
   /// تطبيع رقم الهاتف لصيغة E.164 الموحدة (`+201xxxxxxxxx`)
   static String normalizePhoneToE164(String raw) => normalizePhone(raw);
 
+  /// تطبيع رقم الهاتف المصري للصيغة المحلية المكونة من 11 رقماً ()
+  static String normalizePhoneToLocal(String raw) {
+    final cleaned = arabicToEnglishDigits(raw);
+    final digits = cleaned.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return '';
+    if (digits.startsWith('0020') && digits.length >= 14) {
+      return '0${digits.substring(4)}';
+    }
+    if (digits.startsWith('20') && digits.length == 12) {
+      return '0${digits.substring(2)}';
+    }
+    if (digits.startsWith('01') && digits.length == 11) {
+      return digits;
+    }
+    if (digits.startsWith('1') && digits.length == 10) {
+      return '0$digits';
+    }
+    return digits;
+  }
+
   /// إرجاع صيغتي رقم الهاتف المحتملتين في Firestore (`+201...` و`01...`) للبحث المرن
   static List<String> phoneLookupCandidates(String raw) {
     final normalized = normalizePhone(raw);

@@ -104,6 +104,14 @@ void main() {
         AppConstants.normalizePhoneToE164('٠١٠٠٨٩٠٨٧٢٨'),
         equals('+201008908728'),
       );
+      expect(
+        AppConstants.normalizePhoneToLocal('+201008908728'),
+        equals('01008908728'),
+      );
+      expect(
+        AppConstants.normalizePhoneToLocal('٠١٠٠٨٩٠٨٧٢٨'),
+        equals('01008908728'),
+      );
       final candidates = AppConstants.phoneLookupCandidates('01008908728');
       expect(candidates, contains('+201008908728'));
       expect(candidates, contains('01008908728'));
