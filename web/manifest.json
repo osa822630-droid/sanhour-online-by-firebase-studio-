@@ -1,11 +1,13 @@
 {
-    "name": "myapp",
-    "short_name": "myapp",
+    "name": "سنهور أونلاين",
+    "short_name": "سنهور أونلاين",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0D0614",
+    "theme_color": "#5E35B1",
+    "description": "الدليل الرقمي الشامل للمحلات والعروض والخدمات والوظائف في سنهور القبلية",
+    "dir": "rtl",
+    "lang": "ar",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

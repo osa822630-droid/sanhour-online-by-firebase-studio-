@@ -73,8 +73,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
           p.oldPrice > 0 ? p.oldPrice.toStringAsFixed(0) : '';
       _descCtrl.text = p.description;
       _existingUrls = List.from(p.imageUrls);
-      // ✅ coverImageIndex = 0 دائماً عند التعديل لأن الـ service يضع الغلاف أولاً
-      _coverImageIndex = 0;
+      // ✅ الاحتفاظ بـ coverImageIndex الفعلي للمنتج عند التعديل
+      _coverImageIndex = p.coverImageIndex.clamp(
+          0, _existingUrls.isNotEmpty ? _existingUrls.length - 1 : 0);
       _colors.addAll(p.colors);
       _sizes.addAll(p.sizes);
       _selectedCategory = p.category;
@@ -127,12 +128,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
         'colors': _colors,
         'sizes': _sizes,
         'shopId': widget.shopId,
-        // ✅ تمرير الصور الموجودة والـ coverIndex للـ service
         'existingImages': _existingUrls,
         'coverImageIndex': _coverImageIndex,
       };
 
-      // ✅ نظام تقدم الرفع — يُحدِّث الواجهة مباشرةً مع كل دفعة بايتات
       void onProgress(int fileIndex, double fraction) {
         if (!mounted) return;
         setState(() => _imageProgress[fileIndex] = fraction);
@@ -158,14 +157,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
         content: Text(_isEditing ? '✅ تم تعديل المنتج' : '✅ تم إضافة المنتج'),
         backgroundColor: Colors.green,
       ));
-      // ✅ إصلاح: تأخير بسيط قبل الإغلاق حتى تظهر رسالة النجاح فعلياً للمستخدم
-      // بدلاً من أن تُدمَّر مع الشاشة فور إغلاقها
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
       navigator.pop(true);
     } catch (e) {
       if (!mounted) return;
-      // ✅ MediaUploadException يحمل رسالة عربية جاهزة للعرض مباشرة
       final msg = e is MediaUploadException
           ? e.userMessage
           : 'فشل الحفظ، تحقق من البيانات وحاول مجدداً';
@@ -184,9 +180,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
     final catNames = categories.isNotEmpty
         ? categories.map((c) => c.name).toList()
         : ['عام', 'مأكولات', 'مشروبات', 'ملابس', 'أجهزة', 'أخرى'];
-    if (!catNames.contains(_selectedCategory) && catNames.isNotEmpty) {
-      _selectedCategory = catNames.first;
-    }
+    final effectiveCategory = catNames.contains(_selectedCategory)
+        ? _selectedCategory
+        : catNames.first;
 
     return Scaffold(
       appBar: AppBar(
@@ -196,7 +192,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
       ),
       body: Form(
         key: _formKey,
-        // ✅ validation تظهر أثناء الكتابة لا عند الإرسال فقط
         autovalidateMode: AutovalidateMode.onUserInteraction,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -211,7 +206,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 ratio: ImageRatio.square,
                 maxImages: 6,
                 label: 'صور المنتج *',
-                // ✅ تقدم رفع كل صورة + قفل التفاعل أثناء الحفظ
                 uploadProgress: _isLoading ? _imageProgress : null,
                 isUploading: _isLoading,
                 onChanged: (state) {
@@ -230,7 +224,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   prefixIcon: Icon(Icons.label_outline),
                 ),
                 validator: (v) =>
-                    v!.trim().isEmpty ? 'مطلوب' : null,
+                    (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
               ),
               const SizedBox(height: 12),
 
@@ -245,7 +239,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       prefixIcon: Icon(Icons.sell_outlined),
                     ),
                     validator: (v) {
-                      if (v!.trim().isEmpty) return 'مطلوب';
+                      if (v == null || v.trim().isEmpty) return 'مطلوب';
                       if (double.tryParse(v.trim()) == null) {
                         return 'رقم غير صحيح';
                       }
@@ -269,20 +263,19 @@ class _AddProductScreenState extends State<AddProductScreen> {
               const SizedBox(height: 12),
 
               DropdownButtonFormField<String>(
-                // ✅ إصلاح API قديم: value مُهملة لصالح initialValue (Flutter 3.32+)
-                initialValue: catNames.contains(_selectedCategory)
-                    ? _selectedCategory
-                    : catNames.first,
+                initialValue: effectiveCategory,
                 decoration: const InputDecoration(
                   labelText: 'القسم',
                   prefixIcon: Icon(Icons.category_outlined),
                 ),
                 items: catNames
-                    .map((n) =>
-                        DropdownMenuItem(value: n, child: Text(n)))
+                    .map((n) => DropdownMenuItem(value: n, child: Text(n)))
                     .toList(),
-                onChanged: (v) =>
-                    setState(() => _selectedCategory = v!),
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() => _selectedCategory = v);
+                  }
+                },
               ),
               const SizedBox(height: 12),
 
@@ -312,7 +305,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ),
               const SizedBox(height: 28),
 
-              // ✅ شريط تقدم رفع الصور — يظهر فقط عند وجود صور جديدة قيد الرفع
               if (_isLoading && _newImageFiles.isNotEmpty) ...[
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
@@ -386,8 +378,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             labelText: label,
             prefixIcon: Icon(icon),
             suffixIcon: IconButton(
-              icon: const Icon(Icons.add_circle,
-                  color: Color(0xFF5E35B1)),
+              icon: const Icon(Icons.add_circle, color: Color(0xFF5E35B1)),
               onPressed: () {
                 final v = ctrl.text.trim();
                 if (v.isNotEmpty && !list.contains(v)) {
@@ -414,17 +405,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
             spacing: 6,
             children: list
                 .map((item) => Chip(
-                      label: Text(item,
-                          style: const TextStyle(fontSize: 12)),
-                      deleteIcon:
-                          const Icon(Icons.close, size: 14),
-                      backgroundColor: const Color(0xFF5E35B1)
-                          .withValues(alpha: 0.1),
+                      label: Text(item, style: const TextStyle(fontSize: 12)),
+                      deleteIcon: const Icon(Icons.close, size: 14),
+                      backgroundColor:
+                          const Color(0xFF5E35B1).withValues(alpha: 0.1),
                       side: BorderSide(
-                          color: const Color(0xFF5E35B1)
-                              .withValues(alpha: 0.3)),
-                      onDeleted: () =>
-                          setState(() => list.remove(item)),
+                          color:
+                              const Color(0xFF5E35B1).withValues(alpha: 0.3)),
+                      onDeleted: () => setState(() => list.remove(item)),
                     ))
                 .toList(),
           ),

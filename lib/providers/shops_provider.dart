@@ -1,23 +1,8 @@
 // lib/providers/shops_provider.dart
-//
-// ✅ Phase 2 Fix #19 — newProducts getter:
-//    كان يستخدم _products.reversed بدون ترتيب فعلي بـ createdAt.
-//    الإصلاح: ترتيب تنازلي صريح بـ createdAt مع null-safety.
-//
-// ✅ Phase 2 Fix #20 — notifyListeners المكرر:
-//    كانت _applyFilterAndSearch() تستدعي notifyListeners()، وكل دالة تستدعيها
-//    (fetchShops/fetchProducts/fetchOffers) تستدعيه أيضاً في finally → استدعاءان
-//    per fetch → rebuilds غير ضرورية.
-//    الإصلاح: حُذف notifyListeners() من _applyFilterAndSearch()؛
-//    تصبح دالة داخلية بحتة تُعدِّل _shops فقط.
-//
-// ✅ Phase 2 Fix #21 — Connectivity Auto-Refresh:
-//    يستخدم dart:io (مدمج — لا حاجة لـ package جديد).
-//    الـ ShopsProvider يكشف autoRefreshIfOnline() لأي شاشة تحتاجها.
-//
-// ✅ Phase 2 Fix #18 — ShopPage Pagination:
-//    يُستخدم ShopService.getShopsPage / getNextShopsPage للتنقل بين الصفحات.
+// ✅ ضمان انتظار جلب الإعلانات في getStartupAd() إذا كانت القائمة فارغة عند بدء التشغيل
+// ✅ استبعاد المحلات الموقوفة (isSuspended == true) من القوائم المعروضة في _applyFilterAndSearch()
 import 'dart:async';
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:sanhour_online/models/ad_model.dart';
@@ -28,12 +13,8 @@ import 'package:sanhour_online/models/shop.dart';
 import 'package:sanhour_online/services/api_service.dart';
 import 'package:sanhour_online/services/cache_service.dart';
 import 'package:sanhour_online/services/shop_service.dart';
-import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ✅ 3-07 Fix: ShopsProvider يراقب دورة حياة التطبيق.
-// عند رجوع التطبيق للـ foreground بعد غياب، يُراجع الاتصال تلقائياً.
-// يستخدم WidgetsBindingObserver المدمج — لا package جديد مطلوب.
 class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
   List<Shop> _shops = [];
   List<Shop> _allShops = [];
@@ -52,6 +33,7 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
   DocumentSnapshot? _lastShopDocument;
   bool _hasMoreShops = false;
   bool _isLoadingMore = false;
+  Future<void>? _adsFetchFuture;
 
   List<Shop> get shops => _shops;
   List<Product> get products => _products;
@@ -65,12 +47,11 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
   String? get error => _error;
   String? get searchQuery => _searchQuery;
   String? get selectedRegion => _selectedRegion;
-  // ✅ إصلاح: getter مفقود — كان يمنع الشاشات من قراءة الفئة الحالية
-  // المُختارة قبل تنفيذ عملية تحدّث تحافظ على الفلتر
   String? get selectedCategory => _selectedCategory;
 
   List<String> get availableRegions {
     final regions = _allShops
+        .where((s) => !s.isSuspended)
         .map((s) => s.location.trim())
         .where((l) => l.isNotEmpty)
         .toSet()
@@ -82,7 +63,7 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
   void filterByRegion(String? region) {
     _selectedRegion = (region == 'الكل') ? null : region;
     _applyFilterAndSearch();
-    notifyListeners(); // ← الاستدعاء الوحيد
+    notifyListeners();
   }
 
   List<String> get mainCategories {
@@ -119,7 +100,14 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
     return sorted.take(10).toList();
   }
 
-  List<Offer> get bestOffers => _allOffers.take(10).toList();
+  List<Offer> get bestOffers {
+    final active = _allOffers.where((o) => !o.isExpired && o.isActive).toList()
+      ..sort((a, b) {
+        final cmp = b.discount.compareTo(a.discount);
+        return cmp != 0 ? cmp : b.views.compareTo(a.views);
+      });
+    return active.take(10).toList();
+  }
 
   List<Shop> get newShops {
     final sorted = List<Shop>.from(_shops)
@@ -136,8 +124,6 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
     return matched.isEmpty ? bestShops : matched.take(10).toList();
   }
 
-  // ✅ Phase 2 Fix #19: ترتيب صريح بـ createdAt تنازلي
-  // reversed كان يعتمد على ترتيب جلب Firestore غير المضمون
   List<Product> get newProducts {
     final sorted = List<Product>.from(_products)
       ..sort((a, b) {
@@ -159,12 +145,10 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // ✅ Fix #59: إلغاء الـ debounce timer لمنع memory leak
     _searchDebounce?.cancel();
     super.dispose();
   }
 
-  // ✅ 3-07 Fix: يُشغَّل عند رجوع التطبيق للـ foreground
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -185,7 +169,15 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
 
   // ── Ads ──────────────────────────────────────────────────
 
-  Future<void> fetchAds() async {
+  Future<void> fetchAds() {
+    if (_adsFetchFuture != null) return _adsFetchFuture!;
+    _adsFetchFuture = _doFetchAds().whenComplete(() {
+      _adsFetchFuture = null;
+    });
+    return _adsFetchFuture!;
+  }
+
+  Future<void> _doFetchAds() async {
     try {
       _ads = await ApiService.getActiveAds();
       notifyListeners();
@@ -197,17 +189,29 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<AdModel?> getStartupAd() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      if (!(prefs.getBool('show_startup_ads') ?? true) || _ads.isEmpty) {
+      if (!(prefs.getBool('show_startup_ads') ?? true)) {
+        return null;
+      }
+      if (_ads.isEmpty) {
+        await fetchAds();
+      }
+      final splashAds = _ads
+          .where((ad) =>
+              ad.displayLocations.isEmpty ||
+              ad.displayLocations.contains('splash'))
+          .toList();
+      if (splashAds.isEmpty) {
         return null;
       }
 
       List<String> seenAds = prefs.getStringList('seen_ads_cycle') ?? [];
       List<AdModel> availableAds =
-          _ads.where((ad) => !seenAds.contains(ad.id)).toList();
+          splashAds.where((ad) => !seenAds.contains(ad.id)).toList();
 
       if (availableAds.isEmpty) {
+        seenAds = [];
         await prefs.setStringList('seen_ads_cycle', []);
-        availableAds = _ads;
+        availableAds = splashAds;
       }
 
       final selected = availableAds[Random().nextInt(availableAds.length)];
@@ -222,13 +226,12 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
 
   // ── Shops ─────────────────────────────────────────────────
 
-  // ✅ QA Fix #18: منع التكرار — لا تشغيل fetch جديد إذا كان هناك طلب جارٍ
   Future<void> fetchShops({String? category, bool refresh = false}) async {
     if (_isLoading) return;
-    // ✅ Fix #76: تحديث _selectedCategory قبل أي return مبكر
+    if (category != _selectedCategory) {
+      _selectedRegion = null;
+    }
     _selectedCategory = category;
-    // ✅ Fix #75: تصفير _selectedRegion عند تغيير الفئة
-    if (category != _selectedCategory) _selectedRegion = null;
     if (refresh) {
       _isLoading = true;
       notifyListeners();
@@ -240,24 +243,25 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
         if (cachedShops != null) {
           _allShops = cachedShops
               .map((item) => Shop.fromMap(item, item['id']))
+              .where((s) => !s.isSuspended)
               .toList();
           _applyFilterAndSearch();
           _isLoading = false;
-          notifyListeners(); // ← هنا: بعد التحديث النهائي
-          // Silent refresh في الخلفية
+          notifyListeners();
           ApiService.getShops(category: category).then((freshShops) {
-            _allShops = freshShops;
+            _allShops = freshShops.where((s) => !s.isSuspended).toList();
             _applyFilterAndSearch();
             CacheService().cacheShops(
                 _allShops.map((s) => s.toMapWithId()).toList(), category);
-            notifyListeners(); // ← هنا: بعد التحديث الصامت
+            notifyListeners();
           });
           return;
         }
       }
       _selectedCategory = category;
-      _allShops = await ApiService.getShops(
-          category: category, query: _searchQuery);
+      final fetched =
+          await ApiService.getShops(category: category, query: _searchQuery);
+      _allShops = fetched.where((s) => !s.isSuspended).toList();
       _applyFilterAndSearch();
       if (category != null) {
         CacheService().cacheShops(
@@ -267,11 +271,10 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
       _error = 'تعذّر تحميل المحلات. تحقق من اتصالك.';
     } finally {
       _isLoading = false;
-      notifyListeners(); // ✅ Fix #20: الاستدعاء الوحيد في finally
+      notifyListeners();
     }
   }
 
-  // ✅ Fix #18: تحميل الصفحة الأولى بـ ShopService.getShopsPage
   Future<void> fetchShopsPage({String? category, bool refresh = false}) async {
     if (_isLoading) return;
     _isLoading = true;
@@ -285,7 +288,7 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
     try {
       final page = await ShopService.getShopsPage(
           category: category, region: _selectedRegion);
-      _allShops = page.shops;
+      _allShops = page.shops.where((s) => !s.isSuspended).toList();
       _lastShopDocument = page.lastDocument;
       _hasMoreShops = page.hasMore;
       _applyFilterAndSearch();
@@ -297,7 +300,6 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  // ✅ Fix #18: تحميل الصفحة التالية
   Future<void> fetchMoreShops({String? category}) async {
     if (_isLoadingMore || !_hasMoreShops || _lastShopDocument == null) return;
     _isLoadingMore = true;
@@ -308,7 +310,7 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
           lastDoc: _lastShopDocument!,
           category: category,
           region: _selectedRegion);
-      _allShops.addAll(page.shops);
+      _allShops.addAll(page.shops.where((s) => !s.isSuspended));
       _lastShopDocument = page.lastDocument;
       _hasMoreShops = page.hasMore;
       _applyFilterAndSearch();
@@ -329,6 +331,7 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
         if (cached != null) {
           _products = cached
               .map((item) => Product.fromMap(item, item['id'] ?? ''))
+              .where((p) => p.isVisible && !p.isShopHidden)
               .toList();
           notifyListeners();
           return;
@@ -354,6 +357,7 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
         if (cached != null) {
           _allOffers = cached
               .map((item) => Offer.fromMap(item, item['id'] ?? ''))
+              .where((o) => o.isActive && !o.isShopHidden)
               .toList();
           notifyListeners();
           return;
@@ -418,7 +422,6 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
 
   // ── Search & Filter ───────────────────────────────────────
 
-  // ✅ QA Fix #P1: debounce 300ms لتقليل عمليات الـ rebuild أثناء الكتابة
   Timer? _searchDebounce;
 
   void search(String? query) {
@@ -430,9 +433,8 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
     });
   }
 
-  // ✅ Fix #20: حُذف notifyListeners() من هنا — تصبح pure internal helper
   void _applyFilterAndSearch() {
-    List<Shop> filtered = _allShops;
+    List<Shop> filtered = _allShops.where((s) => !s.isSuspended).toList();
     if (_searchQuery != null && _searchQuery!.isNotEmpty) {
       final lower = _searchQuery!.toLowerCase();
       filtered = filtered
@@ -451,7 +453,6 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
           .toList();
     }
     _shops = filtered;
-    // ✅ لا notifyListeners() هنا
   }
 
   // ── Favorites ─────────────────────────────────────────────
@@ -485,13 +486,8 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  // ── ✅ Phase 2 Fix #21: Connectivity Auto-Refresh ─────────
-  // يستخدم dart:io المدمج — لا حاجة لـ package إضافي.
-  // تُستدعى من AppLifecycleObserver أو عند ظهور الشاشة مجدداً.
-
   bool _lastKnownOnline = true;
 
-  // ✅ QA Fix #18: منع التشغيل المتعدد المتزامن
   Future<void> autoRefreshIfOnline() async {
     if (_isLoading) return;
     final online = await _checkConnectivity();
@@ -507,7 +503,6 @@ class ShopsProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  // ✅ Fix #108: استبدال _ping بـ settings/general الموجودة — تجنب permission-denied
   Future<bool> _checkConnectivity() async {
     try {
       await FirebaseFirestore.instance

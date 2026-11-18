@@ -1,5 +1,5 @@
 // lib/screens/service_requests_tab_screen.dart
-// ✅ تاب طلبات الخدمات: عرض + تقديم عروض + قبول + أرشيف التعاملات
+// ✅ تاب طلبات الخدمات: عرض + تقديم عروض + قبول + أرشيف التعاملات + فلاتر ترتيب فعالة
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/service_request_model.dart';
 import '../models/service_bid_model.dart';
 import '../providers/auth_provider.dart';
+import '../utils/constants.dart';
 import '../widgets/app_footer.dart';
 import '../widgets/context_search_bar.dart';
 import 'post_service_request_screen.dart';
@@ -22,14 +23,14 @@ class ServiceRequestsTabScreen extends StatefulWidget {
       _ServiceRequestsTabScreenState();
 }
 
-class _ServiceRequestsTabScreenState
-    extends State<ServiceRequestsTabScreen> {
+class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
   final _db = FirebaseFirestore.instance;
   StreamSubscription<QuerySnapshot>? _sub;
   List<ServiceRequestModel> _requests = [];
   bool _isLoading = true;
   String _searchQuery = '';
-  final Set<String> _selectedCategories = {}; // multi-select
+  String _sortBy = 'العاجل أولاً';
+  final Set<String> _selectedCategories = {};
 
   @override
   void initState() {
@@ -80,12 +81,25 @@ class _ServiceRequestsTabScreenState
               r.location.toLowerCase().contains(q))
           .toList();
     }
-    // العاجل أولاً
-    res.sort((a, b) {
-      if (a.urgent && !b.urgent) return -1;
-      if (!a.urgent && b.urgent) return 1;
-      return b.createdAt.compareTo(a.createdAt);
-    });
+    switch (_sortBy) {
+      case 'الأحدث':
+        res.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'الأقل عروضاً':
+        res.sort((a, b) {
+          final cmp = a.bidsCount.compareTo(b.bidsCount);
+          return cmp != 0 ? cmp : b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+      case 'العاجل أولاً':
+      default:
+        res.sort((a, b) {
+          if (a.urgent && !b.urgent) return -1;
+          if (!a.urgent && b.urgent) return 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+    }
     return res;
   }
 
@@ -101,7 +115,6 @@ class _ServiceRequestsTabScreenState
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // زر التسجيل كمزوّد خدمة
           if (!auth.isGuest)
             FloatingActionButton(
               heroTag: 'provider',
@@ -112,8 +125,7 @@ class _ServiceRequestsTabScreenState
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (_) =>
-                        const ProviderRegistrationScreen()),
+                    builder: (_) => const ProviderRegistrationScreen()),
               ),
               child: const Icon(Icons.engineering_outlined, size: 20),
             ),
@@ -121,9 +133,7 @@ class _ServiceRequestsTabScreenState
           FloatingActionButton.extended(
             heroTag: 'request',
             onPressed: () {
-              // ✅ Item #11: نفس حراسة نشر الوظيفة — user == null بيغطي الضيف
-              // وغير المسجّل، وبنوقفه قبل ما يفتح فورم مش هيقدر يبعته.
-              if (auth.user == null) {
+              if (auth.user == null || auth.isGuest) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                   content: Text('يجب تسجيل الدخول لطلب خدمة'),
                   backgroundColor: Colors.red,
@@ -145,7 +155,6 @@ class _ServiceRequestsTabScreenState
       ),
       body: Column(
         children: [
-          // ── شريط البحث ────────────────────────────────────────
           ContextSearchBar(
             hint: 'ابحث عن خدمة تحتاجها...',
             onSearch: (q) => setState(() => _searchQuery = q),
@@ -154,16 +163,19 @@ class _ServiceRequestsTabScreenState
               SearchFilter(
                 id: 'sort',
                 label: 'الترتيب',
-                options: ['الأحدث', 'العاجل أولاً', 'الأقل عروضاً'],
+                options: ['العاجل أولاً', 'الأحدث', 'الأقل عروضاً'],
+                defaultOption: _sortBy,
               ),
             ],
-            onFilterChanged: (_, __) {},
+            onFilterChanged: (id, val) {
+              if (id == 'sort') {
+                setState(() => _sortBy = val);
+              }
+            },
           ),
 
-          // ── فلتر الفئات (Multi-select) ─────────────────────
           _buildCategoryFilter(isDark),
 
-          // ── بانر طلباتي السابقة ────────────────────────────
           if (!auth.isGuest)
             GestureDetector(
               onTap: () => Navigator.push(
@@ -173,50 +185,45 @@ class _ServiceRequestsTabScreenState
               ),
               child: Container(
                 margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.teal.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: Colors.teal.withValues(alpha: 0.3)),
+                  border:
+                      Border.all(color: Colors.teal.withValues(alpha: 0.3)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.history, color: Colors.teal, size: 18),
-                  const SizedBox(width: 8),
-                  const Text('طلباتي وعروضي السابقة',
+                child: const Row(children: [
+                  Icon(Icons.history, color: Colors.teal, size: 18),
+                  SizedBox(width: 8),
+                  Text('طلباتي وعروضي السابقة',
                       style: TextStyle(
                           color: Colors.teal,
                           fontWeight: FontWeight.bold,
                           fontSize: 13)),
-                  const Spacer(),
-                  const Icon(Icons.arrow_back_ios,
-                      size: 13, color: Colors.teal),
+                  Spacer(),
+                  Icon(Icons.arrow_back_ios, size: 13, color: Colors.teal),
                 ]),
               ),
             ),
 
-          // ── النتائج ──────────────────────────────────────────
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : requests.isEmpty
                     ? _buildEmpty()
                     : ListView(
-                        padding:
-                            const EdgeInsets.fromLTRB(12, 8, 12, 80),
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
                         children: [
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Text(
                               '${requests.length} طلب مفتوح',
                               style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 12),
+                                  color: Colors.grey[500], fontSize: 12),
                             ),
                           ),
-                          ...requests.map(
-                              (r) => _buildRequestCard(r, isDark)),
+                          ...requests.map((r) => _buildRequestCard(r, isDark)),
                           const AppFooter(),
                         ],
                       ),
@@ -226,7 +233,6 @@ class _ServiceRequestsTabScreenState
     );
   }
 
-  // ── فلتر الفئات ───────────────────────────────────────────────────
   Widget _buildCategoryFilter(bool isDark) {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
@@ -235,8 +241,7 @@ class _ServiceRequestsTabScreenState
         child: ListView(
           scrollDirection: Axis.horizontal,
           children: ServiceRequestCategory.values.map((cat) {
-            final isSelected =
-                _selectedCategories.contains(cat.name);
+            final isSelected = _selectedCategories.contains(cat.name);
             return GestureDetector(
               onTap: () {
                 setState(() {
@@ -250,8 +255,8 @@ class _ServiceRequestsTabScreenState
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 margin: const EdgeInsets.only(left: 6),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? const Color(0xFF5E35B1)
@@ -259,16 +264,14 @@ class _ServiceRequestsTabScreenState
                   borderRadius: BorderRadius.circular(20),
                   border: isSelected
                       ? null
-                      : Border.all(
-                          color: Colors.grey.withValues(alpha: 0.3)),
+                      : Border.all(color: Colors.grey.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   ServiceRequestModel.categoryLabel(cat),
                   style: TextStyle(
                     fontSize: 11,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                     color: isSelected
                         ? Colors.white
                         : (isDark ? Colors.grey[300] : Colors.grey[700]),
@@ -282,32 +285,28 @@ class _ServiceRequestsTabScreenState
     );
   }
 
-  // ── بطاقة الطلب ───────────────────────────────────────────────────
   Widget _buildRequestCard(ServiceRequestModel req, bool isDark) {
     final auth = context.read<AuthProvider>();
     final isOwner = auth.user?.id == req.clientId;
-    final daysAgo =
-        DateTime.now().difference(req.createdAt).inDays;
+    final daysAgo = DateTime.now().difference(req.createdAt).inDays;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 2,
       color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── شريط العاجل ────────────────────────────────────
           if (req.urgent)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 14, vertical: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: const BoxDecoration(
                 color: Colors.red,
-                borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(14)),
+                borderRadius:
+                    BorderRadius.vertical(top: Radius.circular(14)),
               ),
               child: const Row(children: [
                 Icon(Icons.flash_on, color: Colors.white, size: 14),
@@ -344,8 +343,7 @@ class _ServiceRequestsTabScreenState
                   const Spacer(),
                   Text(
                     daysAgo == 0 ? 'اليوم' : 'منذ $daysAgo يوم',
-                    style: TextStyle(
-                        color: Colors.grey[500], fontSize: 11),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 11),
                   ),
                   if (isOwner) ...[
                     const SizedBox(width: 8),
@@ -364,7 +362,7 @@ class _ServiceRequestsTabScreenState
                 const SizedBox(height: 6),
                 Text(req.description,
                     style: TextStyle(
-                        color: Colors.grey[600],
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
                         fontSize: 13,
                         height: 1.5),
                     maxLines: 3,
@@ -372,53 +370,46 @@ class _ServiceRequestsTabScreenState
 
                 const SizedBox(height: 12),
                 Wrap(spacing: 8, runSpacing: 6, children: [
-                  _chip(Icons.location_on_outlined, req.location),
+                  _chip(Icons.location_on_outlined, req.location, isDark),
                   _chip(
                       Icons.attach_money,
                       req.suggestedPrice != null
                           ? 'مقترح: ${req.suggestedPrice!.toStringAsFixed(0)} جنيه'
-                          : req.priceNote),
-                  _chip(Icons.people_outline,
-                      '${req.bidsCount} عرض مقدّم'),
+                          : req.priceNote,
+                      isDark),
+                  _chip(Icons.people_outline, '${req.bidsCount} عرض مقدّم',
+                      isDark),
                 ]),
 
                 const SizedBox(height: 14),
 
-                // ── الأزرار ────────────────────────────────────
                 if (isOwner)
-                  // صاحب الطلب يعرض العروض
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () =>
-                          _showBids(context, req),
+                      onPressed: () => _showBids(context, req),
                       icon: const Icon(Icons.list_alt, size: 16),
-                      label: Text(
-                          'عرض العروض (${req.bidsCount})'),
+                      label: Text('عرض العروض (${req.bidsCount})'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF5E35B1),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                   )
                 else
-                  // مزوّد الخدمة يقدّم عرضاً
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () =>
-                          _showBidDialog(context, req),
+                      onPressed: () => _showBidDialog(context, req),
                       icon: const Icon(Icons.price_check, size: 16),
                       label: const Text('تقديم عرض سعر'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.teal,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                   ),
@@ -430,19 +421,21 @@ class _ServiceRequestsTabScreenState
     );
   }
 
-  Widget _chip(IconData icon, String label) => Container(
+  Widget _chip(IconData icon, String label, bool isDark) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: Colors.grey.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
-          border:
-              Border.all(color: Colors.grey.withValues(alpha: 0.25)),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 13, color: Colors.grey[600]),
+          Icon(icon,
+              size: 13, color: isDark ? Colors.grey[400] : Colors.grey[600]),
           const SizedBox(width: 4),
           Text(label,
-              style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.grey[300] : Colors.grey[700])),
         ]),
       );
 
@@ -452,8 +445,7 @@ class _ServiceRequestsTabScreenState
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.handyman_outlined,
-                  size: 80, color: Colors.grey[300]),
+              Icon(Icons.handyman_outlined, size: 80, color: Colors.grey[300]),
               const SizedBox(height: 16),
               const Text('لا توجد طلبات خدمات مفتوحة',
                   style: TextStyle(fontSize: 16, color: Colors.grey)),
@@ -467,142 +459,178 @@ class _ServiceRequestsTabScreenState
         ),
       );
 
-  // ── تقديم عرض ────────────────────────────────────────────────────
+  // ── تقديم عرض (مع منع تكرار العرض على نفس الطلب) ─────────────────
   Future<void> _showBidDialog(
       BuildContext context, ServiceRequestModel req) async {
     final auth = context.read<AuthProvider>();
-    if (auth.isGuest) {
+    final user = auth.user;
+    if (auth.isGuest || user == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('يجب تسجيل الدخول لتقديم عرض'),
         backgroundColor: Colors.red,
       ));
       return;
     }
+
+    // التحقق من عدم تقديم عرض سابق لنفس الطلب
+    try {
+      final existingBid = await _db
+          .collection('service_bids')
+          .where('requestId', isEqualTo: req.id)
+          .where('providerId', isEqualTo: user.id)
+          .limit(1)
+          .get();
+      if (existingBid.docs.isNotEmpty) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('لقد قدّمت عرضاً مسبقاً على هذا الطلب.'),
+          backgroundColor: Colors.orange,
+        ));
+        return;
+      }
+    } catch (_) {}
+
+    if (!context.mounted) return;
     final priceCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
+    bool isSubmitting = false;
 
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          top: 20,
-          left: 20,
-          right: 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('تقديم عرض سعر',
-                style: TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text('للطلب: ${req.title}',
-                style: const TextStyle(
-                    color: Colors.grey, fontSize: 13)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: priceCtrl,
-              keyboardType: TextInputType.number,
-              textDirection: TextDirection.ltr,
-              decoration: const InputDecoration(
-                labelText: 'سعرك المقترح (جنيه) *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.attach_money),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            top: 20,
+            left: 20,
+            right: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('تقديم عرض سعر',
+                  style:
+                      TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('للطلب: ${req.title}',
+                  style: const TextStyle(color: Colors.grey, fontSize: 13)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: priceCtrl,
+                keyboardType: TextInputType.number,
+                textDirection: TextDirection.ltr,
+                decoration: const InputDecoration(
+                  labelText: 'سعرك المقترح (جنيه) *',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.attach_money),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: noteCtrl,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'ملاحظة أو تفاصيل إضافية (اختياري)',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'ملاحظة أو تفاصيل إضافية (اختياري)',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: () async {
-                  if (priceCtrl.text.trim().isEmpty) return;
-                  final price =
-                      double.tryParse(priceCtrl.text.trim()) ?? 0;
-                  if (price <= 0) return;
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          if (priceCtrl.text.trim().isEmpty) return;
+                          final price =
+                              double.tryParse(priceCtrl.text.trim()) ?? 0;
+                          if (price <= 0) return;
 
-                  final user = auth.user!;
-                  final bid = ServiceBidModel(
-                    id: '',
-                    requestId: req.id,
-                    providerId: user.id,
-                    providerName: user.name,
-                    providerPhone: user.phone,
-                    offeredPrice: price,
-                    note: noteCtrl.text.trim(),
-                    status: BidStatus.pending,
-                    createdAt: DateTime.now(),
-                  );
+                          setSheetState(() => isSubmitting = true);
+                          try {
+                            final bid = ServiceBidModel(
+                              id: '',
+                              requestId: req.id,
+                              providerId: user.id,
+                              providerName: user.name,
+                              providerPhone: user.phone,
+                              offeredPrice: price,
+                              note: noteCtrl.text.trim(),
+                              status: BidStatus.pending,
+                              createdAt: DateTime.now(),
+                            );
 
-                  // ✅ Fix #15: معرّف العرض يُولَّد مسبقاً ويُكتب مع المستند في
-                  // كتابة واحدة (كان add بـ id فارغ ثم update للـ id: كتابتان،
-                  // والقواعد تشترط id == معرّف المستند ولا تسمح بالتعديل الثاني)
-                  final bidRef = _db.collection('service_bids').doc();
-                  await bidRef.set({...bid.toMap(), 'id': bidRef.id});
+                            final bidRef = _db.collection('service_bids').doc();
+                            await bidRef.set({...bid.toMap(), 'id': bidRef.id});
 
-                  // تحديث عدد العروض
-                  await _db.collection('service_requests').doc(req.id).update({
-                    'bidsCount': FieldValue.increment(1),
-                  });
+                            await _db
+                                .collection('service_requests')
+                                .doc(req.id)
+                                .update({
+                              'bidsCount': FieldValue.increment(1),
+                            });
 
-                  // إشعار لصاحب الطلب
-                  await _db.collection('notifications').add({
-                    'title': '💰 عرض جديد على طلبك!',
-                    'body': '${user.name} قدّم عرضاً بـ ${price.toStringAsFixed(0)} جنيه',
-                    'type': 'new_bid',
-                    'targetUserId': req.clientId,
-                    'fromUserId': user.id,
-                    'data': {
-                      'route': 'service_request:${req.id}',
-                      'channel': 'user_favorites',
-                    },
-                    'isRead': false,
-                    'createdAt': FieldValue.serverTimestamp(),
-                  });
+                            await _db.collection('notifications').add({
+                              'title': '💰 عرض جديد على طلبك!',
+                              'body':
+                                  '${user.name} قدّم عرضاً بـ ${price.toStringAsFixed(0)} جنيه',
+                              'type': 'new_bid',
+                              'targetUserId': req.clientId,
+                              'fromUserId': user.id,
+                              'data': {
+                                'route': 'service_request:${req.id}',
+                                'requestId': req.id,
+                                'channel': 'user_favorites',
+                              },
+                              'isRead': false,
+                              'createdAt': FieldValue.serverTimestamp(),
+                            });
 
-                  if (!ctx.mounted) return;
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('تم تقديم عرضك بنجاح ✅'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
-                    foregroundColor: Colors.white),
-                child: const Text('إرسال العرض',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 15)),
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('تم تقديم عرضك بنجاح ✅'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } catch (_) {
+                            if (ctx.mounted) {
+                              setSheetState(() => isSubmitting = false);
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
+                      : const Text('إرسال العرض',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-          ],
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
-    // ✅ Fix #69: dispose controllers بعد إغلاق الـ bottom sheet
     ).whenComplete(() {
       priceCtrl.dispose();
       noteCtrl.dispose();
     });
   }
 
-  // ── عرض قائمة العروض لصاحب الطلب ────────────────────────────────
   Future<void> _showBids(
       BuildContext context, ServiceRequestModel req) async {
     await Navigator.push(
@@ -641,9 +669,6 @@ class _ServiceRequestsTabScreenState
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// شاشة قائمة العروض لصاحب الطلب مع قبول / رفض
-// ══════════════════════════════════════════════════════════════════════════════
 class _BidsListScreen extends StatelessWidget {
   final ServiceRequestModel request;
   const _BidsListScreen({required this.request});
@@ -655,8 +680,8 @@ class _BidsListScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('عروض: ${request.title}',
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 15)),
+            style:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         backgroundColor: const Color(0xFF5E35B1),
         foregroundColor: Colors.white,
       ),
@@ -705,8 +730,7 @@ class _BidsListScreen extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -733,8 +757,7 @@ class _BidsListScreen extends StatelessWidget {
                   children: [
                     Text(bid.providerName,
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15)),
+                            fontWeight: FontWeight.bold, fontSize: 15)),
                     Text(
                       'عرض سعر: ${bid.offeredPrice.toStringAsFixed(0)} جنيه',
                       style: const TextStyle(
@@ -746,8 +769,8 @@ class _BidsListScreen extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -767,7 +790,6 @@ class _BidsListScreen extends StatelessWidget {
                       color: Colors.grey, fontSize: 13, height: 1.4)),
             ],
 
-            // معلومات التواصل (مرئية بعد القبول فقط لصاحب الطلب)
             if (bid.isAccepted) ...[
               const SizedBox(height: 10),
               Container(
@@ -790,8 +812,9 @@ class _BidsListScreen extends StatelessWidget {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
-                            final uri = Uri.parse(
-                                'tel:${bid.providerPhone}');
+                            final clean = AppConstants.normalizePhone(
+                                bid.providerPhone);
+                            final uri = Uri.parse('tel:$clean');
                             if (await canLaunchUrl(uri)) {
                               await launchUrl(uri);
                             }
@@ -800,9 +823,26 @@ class _BidsListScreen extends StatelessWidget {
                           label: Text(bid.providerPhone),
                           style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.green,
-                              side: const BorderSide(
-                                  color: Colors.green)),
+                              side: const BorderSide(color: Colors.green)),
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          final wa = AppConstants.normalizeWhatsAppPhone(
+                              bid.providerPhone);
+                          final uri = Uri.parse('https://wa.me/$wa');
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
+                          }
+                        },
+                        icon: const Icon(Icons.message, size: 15),
+                        label: const Text('واتساب'),
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF25D366),
+                            side: const BorderSide(
+                                color: Color(0xFF25D366))),
                       ),
                     ]),
                   ],
@@ -810,14 +850,12 @@ class _BidsListScreen extends StatelessWidget {
               ),
             ],
 
-            // أزرار القبول / الرفض
             if (bid.isPending) ...[
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () =>
-                        _rejectBid(context, bid, db),
+                    onPressed: () => _rejectBid(context, bid, db),
                     style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red,
                         side: const BorderSide(color: Colors.red)),
@@ -827,8 +865,7 @@ class _BidsListScreen extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () =>
-                        _acceptBid(context, bid, db),
+                    onPressed: () => _acceptBid(context, bid, db),
                     style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white),
@@ -848,23 +885,14 @@ class _BidsListScreen extends StatelessWidget {
     ServiceBidModel bid,
     FirebaseFirestore db,
   ) async {
-    // ✅ عند القبول:
-    // 1. تحديث حالة العرض → accepted
-    // 2. إخفاء الطلب عن العامة → status: accepted
-    // 3. رفض باقي العروض تلقائياً
-    // 4. إشعار لمزوّد الخدمة بالقبول
-
-    // ✅ Fix #14: هوية المرسل تُقرأ قبل أي await (بدل استخدام context بعده)
     final senderId = context.read<AuthProvider>().user?.id ?? '';
 
     final batch = db.batch();
 
-    // قبول هذا العرض
     batch.update(db.collection('service_bids').doc(bid.id), {
       'status': 'accepted',
     });
 
-    // إخفاء الطلب عن العامة
     batch.update(db.collection('service_requests').doc(bid.requestId), {
       'status': 'accepted',
       'acceptedBidId': bid.id,
@@ -872,7 +900,6 @@ class _BidsListScreen extends StatelessWidget {
 
     await batch.commit();
 
-    // رفض باقي العروض
     final others = await db
         .collection('service_bids')
         .where('requestId', isEqualTo: bid.requestId)
@@ -886,16 +913,15 @@ class _BidsListScreen extends StatelessWidget {
     }
     if (others.docs.isNotEmpty) await rejectBatch.commit();
 
-    // إشعار لمزوّد الخدمة المقبول
     await db.collection('notifications').add({
       'title': '🎉 تم قبول عرضك!',
-      'body':
-          'صاحب الطلب وافق على عرضك. تحقق من معلومات التواصل.',
+      'body': 'صاحب الطلب وافق على عرضك. تحقق من معلومات التواصل.',
       'type': 'bid_accepted',
       'targetUserId': bid.providerId,
       'fromUserId': senderId,
       'data': {
         'route': 'service_request:${bid.requestId}',
+        'requestId': bid.requestId,
         'channel': 'user_favorites',
       },
       'isRead': false,

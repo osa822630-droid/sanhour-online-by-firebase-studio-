@@ -95,7 +95,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
       for (final doc in prevAds.docs) {
         batch.update(doc.reference, {'isActive': false});
       }
-      batch.set(ref, job.toCreateMap());
+      batch.set(ref, job.toMap(isNew: true));
       await batch.commit();
 
       // ✅ Fix #30: تصحيح route في notification payload ليوجه لإعلانات الوظائف

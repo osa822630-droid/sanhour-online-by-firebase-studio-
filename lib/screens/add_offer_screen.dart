@@ -1,9 +1,10 @@
 // lib/screens/add_offer_screen.dart
 // ✅ نظام صور متعدد باستخدام MultiImagePickerWidget
-// ✅ coverImageIndex مُحفوظ ومُمرَّر للـ ProductService
+// ✅ coverImageIndex + newPrice + bundleDetails + giftDescription + دعم تكرار العرض
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../utils/app_theme.dart';
 import '../models/offer.dart';
 import '../models/product.dart';
 import '../services/api_service.dart';
@@ -13,7 +14,6 @@ import '../services/media_upload_service.dart';
 
 class AddOfferScreen extends StatefulWidget {
   final String shopId;
-  // ✅ اختياري للتوافق مع المستدعين القدامى — ProductService يستخدم mock ID كـ fallback
   final String? ownerId;
   final Offer? offerToEdit;
 
@@ -34,10 +34,11 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
   final _descCtrl = TextEditingController();
   final _discountCtrl = TextEditingController();
   final _newPriceCtrl = TextEditingController();
+  final _bundleDetailsCtrl = TextEditingController();
+  final _giftDescCtrl = TextEditingController();
 
   Product? _selectedProduct;
   List<Product> _products = [];
-  // ✅ Fix #116: تهيئة _expiryDate افتراضياً في كل الأحوال (ليست late بدون قيمة)
   DateTime _expiryDate = DateTime.now().add(const Duration(days: 30));
   bool _isLoading = false;
 
@@ -46,10 +47,8 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
   List<File> _newImageFiles = [];
   int _coverImageIndex = 0;
 
-  // ✅ نظام تقدم الرفع — المفتاح index ضمن _newImageFiles
   final Map<int, double> _imageProgress = {};
 
-  /// المتوسط الإجمالي لتقدم رفع كل الصور الجديدة (0.0–1.0)
   double get _overallImageProgress {
     if (_newImageFiles.isEmpty) return 0;
     double sum = 0;
@@ -59,24 +58,35 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
     return sum / _newImageFiles.length;
   }
 
-  bool get _isEditing => widget.offerToEdit != null;
+  // ✅ التعديل الحقيقي يشترط وجود معرّف غير فارغ، بينما تكرار العرض يمرر id فارغاً
+  bool get _isEditing =>
+      widget.offerToEdit != null && widget.offerToEdit!.id.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _loadProducts();
-    if (_isEditing) {
+    if (widget.offerToEdit != null) {
       final offer = widget.offerToEdit!;
       _offerType = offer.type;
       _titleCtrl.text = offer.title;
       _descCtrl.text = offer.description;
       _discountCtrl.text = offer.discount.toString();
+      if (offer.newPrice != null && offer.newPrice! > 0) {
+        _newPriceCtrl.text = offer.newPrice!.toStringAsFixed(0);
+      }
+      if (offer.bundleDetails != null) {
+        _bundleDetailsCtrl.text = offer.bundleDetails!;
+      }
+      if (offer.giftDescription != null) {
+        _giftDescCtrl.text = offer.giftDescription!;
+      }
       _expiryDate = offer.validUntil;
-      // ✅ تحميل الصور المحفوظة مسبقاً
       _existingUrls = List.from(offer.imageUrls);
       _coverImageIndex = offer.coverImageIndex;
     } else {
-      _expiryDate = DateTime.now().add(const Duration(days: 7));
+      final d = DateTime.now().add(const Duration(days: 7));
+      _expiryDate = DateTime(d.year, d.month, d.day, 23, 59, 59);
     }
   }
 
@@ -86,13 +96,15 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
     _descCtrl.dispose();
     _discountCtrl.dispose();
     _newPriceCtrl.dispose();
+    _bundleDetailsCtrl.dispose();
+    _giftDescCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _loadProducts() async {
     final list = await ApiService.getProducts(shopId: widget.shopId);
     Product? foundProduct;
-    if (_isEditing && widget.offerToEdit?.productId != null) {
+    if (widget.offerToEdit?.productId != null) {
       try {
         foundProduct =
             list.firstWhere((p) => p.id == widget.offerToEdit!.productId);
@@ -125,9 +137,9 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
       _imageProgress.clear();
     });
     try {
-      // ✅ Fix #205: التحقق من نطاق قيمة الخصم
       final discountVal = int.tryParse(_discountCtrl.text.trim()) ?? 0;
-      if (_offerType == 'discount' && (discountVal < 0 || discountVal > 100)) {
+      if (_offerType == 'discount' &&
+          (discountVal < 0 || discountVal > 100)) {
         setState(() => _isLoading = false);
         _snack('نسبة الخصم يجب أن تكون بين 0 و 100', Colors.red);
         return;
@@ -135,26 +147,33 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
 
       final data = <String, dynamic>{
         'shopId': widget.shopId,
-        'ownerId': widget.ownerId ?? 'mock_user',
+        'ownerId': widget.ownerId ?? '',
         'type': _offerType,
         'title': _titleCtrl.text.trim(),
         'description': _descCtrl.text.trim(),
         'discount': discountVal,
-        // ✅ Fix #162: استخدام Timestamp بدلاً من ISO String
-        'validUntil': Timestamp.fromDate(_expiryDate),
+        'validUntil': Timestamp.fromDate(DateTime(_expiryDate.year,
+            _expiryDate.month, _expiryDate.day, 23, 59, 59)),
         'isActive': true,
         'isVisible': true,
         'productId': _selectedProduct?.id,
         'existingImages': _existingUrls,
+        'bundleDetails': _bundleDetailsCtrl.text.trim().isNotEmpty
+            ? _bundleDetailsCtrl.text.trim()
+            : null,
+        'giftDescription': _giftDescCtrl.text.trim().isNotEmpty
+            ? _giftDescCtrl.text.trim()
+            : null,
       };
 
-      if (_offerType == 'price_drop' && _selectedProduct != null &&
+      if (_offerType == 'price_drop' &&
           _newPriceCtrl.text.trim().isNotEmpty) {
         data['newPrice'] = double.tryParse(_newPriceCtrl.text.trim()) ?? 0;
-        data['oldPrice'] = _selectedProduct!.price;
+        data['oldPrice'] = _selectedProduct?.price ??
+            widget.offerToEdit?.oldPrice ??
+            0;
       }
 
-      // ✅ نظام تقدم الرفع — يُحدِّث الواجهة مباشرةً مع كل دفعة بايتات
       void onProgress(int fileIndex, double fraction) {
         if (!mounted) return;
         setState(() => _imageProgress[fileIndex] = fraction);
@@ -178,9 +197,6 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
       }
 
       if (!mounted) return;
-      // ✅ إصلاح: كان الترتيب معكوساً (pop قبل showSnackBar) — الرسالة كانت
-      // تُعرض على Context شاشة على وشك الإزالة فلا تظهر للمستخدم أبداً.
-      // الآن: نعرض الرسالة أولاً، ننتظر لحظة ليراها المستخدم، ثم نغلق.
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(_isEditing ? '✅ تم تحديث العرض' : '✅ تم نشر العرض'),
         backgroundColor: Colors.green,
@@ -190,7 +206,6 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      // ✅ MediaUploadException يحمل رسالة عربية جاهزة للعرض مباشرة
       final msg = e is MediaUploadException
           ? e.userMessage
           : 'حدث خطأ، يُرجى المحاولة مرة أخرى';
@@ -201,19 +216,16 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
   }
 
   void _snack(String msg, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: color));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: color));
   }
 
-  // ── الـ UI ────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       appBar: AppBar(
-        title:
-            Text(_isEditing ? 'تعديل العرض' : 'إضافة عرض جديد'),
-        // ✅ Fix #206: استخدام لون الـ theme بدلاً من redAccent الثابت
+        title: Text(_isEditing ? 'تعديل العرض' : 'إضافة عرض جديد'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
@@ -222,29 +234,25 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ─── نوع العرض ──────────────────────────────────────
             const Text('نوع العرض:',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 10),
             Wrap(spacing: 8, children: [
-              _typeChip('generic', 'عرض عام', Icons.campaign),
-              _typeChip('discount', 'خصم ٪', Icons.percent),
-              _typeChip('price_drop', 'حرق سعر', Icons.trending_down),
-              _typeChip('bundle', 'تجميعة', Icons.inventory_2),
+              _typeChip('generic', 'عرض عام', Icons.campaign, isDark),
+              _typeChip('discount', 'خصم ٪', Icons.percent, isDark),
+              _typeChip('price_drop', 'حرق سعر', Icons.trending_down, isDark),
+              _typeChip('bundle', 'تجميعة', Icons.inventory_2, isDark),
             ]),
             const Divider(height: 30),
 
-            // ─── اختيار المنتج (للخصم / حرق السعر) ─────────────
-            if (_offerType == 'discount' ||
-                _offerType == 'price_drop') ...[
+            if (_offerType == 'discount' || _offerType == 'price_drop') ...[
               DropdownButtonFormField<Product>(
-                // ✅ إصلاح API قديم: value مُهملة لصالح initialValue (Flutter 3.32+)
                 initialValue: _selectedProduct,
                 decoration: const InputDecoration(
                     labelText: 'اختر المنتج', border: OutlineInputBorder()),
                 items: _products
-                    .map((p) =>
-                        DropdownMenuItem(value: p, child: Text(p.name)))
+                    .map(
+                        (p) => DropdownMenuItem(value: p, child: Text(p.name)))
                     .toList(),
                 onChanged: (val) {
                   setState(() {
@@ -263,7 +271,6 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
               const SizedBox(height: 16),
             ],
 
-            // ─── السعر الجديد (حرق السعر فقط) ──────────────────
             if (_offerType == 'price_drop') ...[
               TextFormField(
                 controller: _newPriceCtrl,
@@ -277,8 +284,8 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
                     final newP = double.tryParse(v) ?? 0;
                     final oldP = _selectedProduct!.price;
                     if (oldP > 0) {
-                      final pct = ((oldP - newP) / oldP * 100)
-                          .clamp(0.0, 100.0);
+                      final pct =
+                          ((oldP - newP) / oldP * 100).clamp(0.0, 100.0);
                       _discountCtrl.text = pct.toStringAsFixed(0);
                     }
                   }
@@ -287,7 +294,6 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
               const SizedBox(height: 16),
             ],
 
-            // ─── نسبة الخصم ──────────────────────────────────────
             if (_offerType != 'price_drop') ...[
               TextFormField(
                 controller: _discountCtrl,
@@ -300,40 +306,59 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
               const SizedBox(height: 16),
             ],
 
-            // ─── عنوان + وصف ─────────────────────────────────────
+            if (_offerType == 'bundle') ...[
+              TextFormField(
+                controller: _bundleDetailsCtrl,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                    labelText: 'مكونات التجميعة / الباقة',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.inventory_2_outlined)),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            TextFormField(
+              controller: _giftDescCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'هدية إضافية مع العرض (اختياري)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.card_giftcard_outlined)),
+            ),
+            const SizedBox(height: 16),
+
             TextFormField(
               controller: _titleCtrl,
               decoration: const InputDecoration(
-                  labelText: 'عنوان العرض *',
-                  border: OutlineInputBorder()),
+                  labelText: 'عنوان العرض *', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _descCtrl,
               maxLines: 3,
               decoration: const InputDecoration(
-                  labelText: 'تفاصيل العرض',
-                  border: OutlineInputBorder()),
+                  labelText: 'تفاصيل العرض', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 20),
 
-            // ─── تاريخ الانتهاء ───────────────────────────────────
             InkWell(
               onTap: () async {
                 final picked = await showDatePicker(
                   context: context,
                   firstDate: DateTime.now(),
-                  lastDate:
-                      DateTime.now().add(const Duration(days: 365)),
-                  initialDate: _expiryDate,
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                  initialDate: _expiryDate.isBefore(DateTime.now())
+                      ? DateTime.now()
+                      : _expiryDate,
                 );
                 if (picked != null && mounted) {
-                  setState(() => _expiryDate = picked);
+                  setState(() => _expiryDate = DateTime(
+                      picked.year, picked.month, picked.day, 23, 59, 59));
                 }
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
@@ -342,7 +367,7 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
                 child: Row(
                   children: [
                     const Icon(Icons.calendar_today,
-                        color: Colors.redAccent, size: 20),
+                        color: AppColors.primary, size: 20),
                     const SizedBox(width: 10),
                     const Text('تاريخ انتهاء العرض:'),
                     const Spacer(),
@@ -350,7 +375,7 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
                       '${_expiryDate.day}/${_expiryDate.month}/${_expiryDate.year}',
                       style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.redAccent),
+                          color: AppColors.primary),
                     ),
                   ],
                 ),
@@ -359,7 +384,6 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
 
             const SizedBox(height: 24),
 
-            // ─── ✅ صور متعددة مع اختيار الغلاف ─────────────────
             MultiImagePickerWidget(
               initialUrls: _existingUrls,
               initialFiles: _newImageFiles,
@@ -367,7 +391,6 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
               ratio: ImageRatio.square,
               maxImages: 6,
               label: 'صور العرض',
-              // ✅ تقدم رفع كل صورة + قفل التفاعل أثناء الحفظ
               uploadProgress: _isLoading ? _imageProgress : null,
               isUploading: _isLoading,
               onChanged: (state) {
@@ -379,7 +402,6 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
 
             const SizedBox(height: 16),
 
-            // ✅ شريط تقدم رفع الصور — يظهر فقط عند وجود صور جديدة قيد الرفع
             if (_isLoading && _newImageFiles.isNotEmpty) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
@@ -387,7 +409,7 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
                   value: _overallImageProgress,
                   minHeight: 8,
                   backgroundColor: Colors.grey.shade200,
-                  color: Colors.redAccent,
+                  color: AppColors.primary,
                 ),
               ),
               const SizedBox(height: 6),
@@ -396,7 +418,7 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
                   'جارٍ رفع الصور... ${(_overallImageProgress * 100).round()}%',
                   style: const TextStyle(
                       fontSize: 12,
-                      color: Colors.redAccent,
+                      color: AppColors.primary,
                       fontWeight: FontWeight.w600),
                 ),
               ),
@@ -405,7 +427,6 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
 
             const SizedBox(height: 14),
 
-            // ─── زر الحفظ ─────────────────────────────────────────
             SizedBox(
               height: 52,
               child: ElevatedButton.icon(
@@ -423,7 +444,7 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
                     style: const TextStyle(
                         fontSize: 17, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -438,21 +459,19 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
     );
   }
 
-  Widget _typeChip(String type, String label, IconData icon) {
+  Widget _typeChip(String type, String label, IconData icon, bool isDark) {
     final selected = _offerType == type;
+    final unselectedColor = isDark ? Colors.white70 : Colors.black87;
     return ChoiceChip(
       label: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon,
-            size: 15,
-            color: selected ? Colors.white : Colors.black87),
+        Icon(icon, size: 15, color: selected ? Colors.white : unselectedColor),
         const SizedBox(width: 4),
         Text(label),
       ]),
       selected: selected,
       onSelected: (_) => setState(() => _offerType = type),
-      selectedColor: Colors.redAccent,
-      labelStyle:
-          TextStyle(color: selected ? Colors.white : Colors.black87),
+      selectedColor: AppColors.primary,
+      labelStyle: TextStyle(color: selected ? Colors.white : unselectedColor),
     );
   }
 }

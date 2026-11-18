@@ -1,7 +1,7 @@
 // lib/models/ad_model.dart
 // ✅ إضافة دعم الصور المتعددة: imageUrls (List<String>) + coverImageIndex (int)
-// ✅ توافق خلفي كامل: getter imageUrl يعود بصورة الغلاف دائماً
-// ✅ fromMap() يقرأ imageUrls أو يُحوِّل imageUrl القديمة لقائمة تلقائياً
+// ✅ إضافة دعم إعلانات الفيديو الترويجية: videoUrl, mediaType, status, isPaid, costEGP
+// ✅ توحيد حقول التواريخ (createdAt / startDate و expiresAt / endDate) كـ Timestamp في toMap()
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/date_parser.dart';
 
@@ -12,13 +12,18 @@ class AdModel {
   final List<String> imageUrls;
   final int coverImageIndex;
 
+  // ✅ دعم إعلانات الفيديو الترويجية
+  final String? videoUrl;
+  final String mediaType;
+  final String? status;
+  final bool isPaid;
+  final double? costEGP;
+
   final String text;
   final String actionButtonText;
-  final String? targetType;
+  final String targetType;
   final String? targetId;
   final DateTime? expiresAt;
-  // ✅ Fix #33: تاريخ الإنشاء (قراءة فقط — الكتابة بتفضل serverTimestamp في
-  // toMap) بيتعرض في كارت الإعلان لواجهة المشتري بدل شارة نشط/منتهي.
   final DateTime? createdAt;
   final bool isActive;
   final int clickCount;
@@ -30,6 +35,11 @@ class AdModel {
     required this.id,
     this.imageUrls = const [],
     this.coverImageIndex = 0,
+    this.videoUrl,
+    this.mediaType = 'image',
+    this.status,
+    this.isPaid = true,
+    this.costEGP,
     this.text = '',
     this.actionButtonText = 'اذهب للتفاصيل',
     this.targetType = 'none',
@@ -43,47 +53,60 @@ class AdModel {
     this.displayLocations = const ['home', 'splash', 'ads_screen'],
   });
 
+  bool get isVideo =>
+      mediaType == 'video' || (videoUrl != null && videoUrl!.isNotEmpty);
+
+  // ✅ التوافق مع الحقول التاريخية startDate / endDate
+  DateTime get startDate => createdAt ?? DateTime.now();
+  DateTime? get endDate => expiresAt;
+
   // ✅ Getter للتوافق مع الكود القديم الذي يقرأ ad.imageUrl مباشرة
-  String get imageUrl {
+  String? get imageUrl {
     if (imageUrls.isEmpty) return '';
     final idx = coverImageIndex.clamp(0, imageUrls.length - 1);
     return imageUrls[idx];
   }
 
   factory AdModel.fromMap(Map<String, dynamic> map, String id) {
-    // قراءة imageUrls مع التوافق الخلفي
     List<String> parsedImageUrls = [];
     final rawImageUrls = map['imageUrls'];
-    if (rawImageUrls != null) {
-      parsedImageUrls = List<String>.from(rawImageUrls as List);
+    if (rawImageUrls != null && rawImageUrls is List) {
+      parsedImageUrls = List<String>.from(rawImageUrls);
     }
     if (parsedImageUrls.isEmpty) {
       final legacyUrl = map['imageUrl'] as String? ?? '';
       if (legacyUrl.isNotEmpty) parsedImageUrls = [legacyUrl];
     }
 
-    final int rawCover = (map['coverImageIndex'] as int? ?? 0);
+    final int rawCover = (map['coverImageIndex'] as num?)?.toInt() ?? 0;
     final int parsedCoverIndex = parsedImageUrls.isEmpty
         ? 0
         : rawCover.clamp(0, parsedImageUrls.length - 1);
+
+    final rawCreated = map['createdAt'] ?? map['startDate'];
+    final rawExpires = map['expiresAt'] ?? map['endDate'];
 
     return AdModel(
       id: id,
       imageUrls: parsedImageUrls,
       coverImageIndex: parsedCoverIndex,
-      text: map['text'] ?? '',
+      videoUrl: map['videoUrl'] as String?,
+      mediaType: (map['mediaType'] as String?) ??
+          ((map['videoUrl'] != null && (map['videoUrl'] as String).isNotEmpty)
+              ? 'video'
+              : 'image'),
+      status: map['status'] as String?,
+      isPaid: map['isPaid'] as bool? ?? true,
+      costEGP: (map['costEGP'] as num?)?.toDouble(),
+      text: (map['text'] ?? map['description'] ?? '').toString(),
       actionButtonText: map['actionButtonText'] ?? 'اذهب للتفاصيل',
-      targetType: map['targetType'] ?? 'none',
-      targetId: map['targetId'],
-      expiresAt: map['expiresAt'] != null
-          ? (map['expiresAt'] as Timestamp).toDate()
-          : null,
-      createdAt: map['createdAt'] != null
-          ? DateParser.parse(map['createdAt'])
-          : null,
+      targetType: (map['targetType'] as String?) ?? 'none',
+      targetId: map['targetId'] as String?,
+      expiresAt: rawExpires != null ? DateParser.parse(rawExpires) : null,
+      createdAt: rawCreated != null ? DateParser.parse(rawCreated) : null,
       isActive: map['isActive'] ?? true,
-      clickCount: map['clickCount'] ?? 0,
-      shopId: map['shopId'],
+      clickCount: (map['clickCount'] as num?)?.toInt() ?? 0,
+      shopId: map['shopId'] as String?,
       isMainActive: map['isMainActive'] ?? false,
       displayLocations: List<String>.from(
           map['displayLocations'] ?? ['home', 'splash', 'ads_screen']),
@@ -91,22 +114,34 @@ class AdModel {
   }
 
   Map<String, dynamic> toMap() {
+    final createdTs = createdAt != null
+        ? Timestamp.fromDate(createdAt!)
+        : FieldValue.serverTimestamp();
+    final expiresTs =
+        expiresAt != null ? Timestamp.fromDate(expiresAt!) : null;
     return {
+      'id': id,
       'imageUrls': imageUrls,
       'coverImageIndex': coverImageIndex,
-      // ✅ توافق خلفي: نحفظ imageUrl للأجزاء التي تقرأه مباشرة
-      'imageUrl': imageUrl,
+      'imageUrl': imageUrl ?? '',
+      if (videoUrl != null) 'videoUrl': videoUrl,
+      'mediaType': mediaType,
+      if (status != null) 'status': status,
+      'isPaid': isPaid,
+      if (costEGP != null) 'costEGP': costEGP,
       'text': text,
       'actionButtonText': actionButtonText,
       'targetType': targetType,
       'targetId': targetId,
-      'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : null,
+      'expiresAt': expiresTs,
+      'endDate': expiresTs,
       'isActive': isActive,
       'clickCount': clickCount,
       'shopId': shopId,
       'isMainActive': isMainActive,
       'displayLocations': displayLocations,
-      'createdAt': FieldValue.serverTimestamp(),
+      'createdAt': createdTs,
+      'startDate': createdTs,
     };
   }
 }

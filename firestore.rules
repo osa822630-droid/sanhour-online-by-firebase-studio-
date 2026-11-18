@@ -5,74 +5,80 @@ service cloud.firestore {
     // ── Helper Functions ────────────────────────────────────────────────────
     function isAuth() { return request.auth != null; }
 
-    // ✅ Fix #13: هوية التطبيق مقابل هوية Firebase Auth.
-    // الدخول التجريبي (Mock Login) يستخدم جلسة Firebase مجهولة (anonymous)
-    // فقط لتلبية isAuth()، وهويّتها (request.auth.uid) عشوائية ولا تطابق
-    // معرّف مستخدم التطبيق (mock_admin / mock_merchant / mock_user ...).
-    // لذلك معرّف التطبيق (appUid) يُحسب هكذا:
-    //   • جلسة حقيقية (Phone Auth وغيرها): appUid == request.auth.uid.
-    //   • جلسة مجهولة (mock): appUid يُقرأ من وثيقة الربط
-    //     auth_sessions/{request.auth.uid} التي يكتبها AuthProvider عند الدخول.
-    // كل شروط الملكية والأدوار تمرّ عبر appUid() وليس request.auth.uid مباشرةً.
-    // ⚠️ وثيقة الربط يكتبها العميل نفسه (الدخول التجريبي بلا تحقق خادمي أصلاً)،
-    // فهذا مقبول فقط ما دام الـ mock في مرحلة الاختبار. قبل الإطلاق الرسمي مع
-    // Phone Auth: احذف فرع الجلسات المجهولة من appUid() وبلوك auth_sessions.
     function isAnonymousSession() {
       return request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
+
+    // ✅ Security Fix (P0): إلغاء الاعتماد على auth_sessions في الإنتاج لمنع انتحال هوية الأدمن أو التجار
     function appUid() {
-      return isAnonymousSession()
-        ? get(/databases/$(database)/documents/auth_sessions/$(request.auth.uid)).data.appUserId
-        : request.auth.uid;
+      return request.auth.uid;
     }
+
     function isOwner(uid) { return isAuth() && appUid() == uid; }
-    // ✅ Fix #17: جلسة بهوية معروفة (بدون اشتراط دور) = جلسة حقيقية، أو جلسة
-    // Mock مجهولة لها وثيقة ربط في auth_sessions. الجلسة المجهولة "العارية" لا.
+
     function hasSessionIdentity() {
-      return isAuth()
-        && (!isAnonymousSession()
-          || exists(/databases/$(database)/documents/auth_sessions/$(request.auth.uid)));
+      return isAuth() && !isAnonymousSession();
     }
+
+    function userDocExists() {
+      return isAuth() && exists(/databases/$(database)/documents/users/$(appUid()));
+    }
+
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(appUid())).data;
     }
+
     function isAdmin() {
-      return isAuth() && getUserData().userType in ['admin', 'super_admin'];
+      return userDocExists() && getUserData().userType in ['admin', 'super_admin'];
     }
+
     function isModerator() {
-      return isAuth() && getUserData().userType in ['admin', 'super_admin', 'moderator'];
+      return userDocExists() && getUserData().userType in ['admin', 'super_admin', 'moderator'];
     }
+
     function isMerchant() {
-      return isAuth() && getUserData().userType == 'merchant';
+      return userDocExists() && getUserData().userType == 'merchant';
     }
+
     function isShopOwner(shopId) {
       return isAuth() &&
         exists(/databases/$(database)/documents/shops/$(shopId)) &&
         get(/databases/$(database)/documents/shops/$(shopId)).data.ownerId == appUid();
     }
-    // ✅ Fix #15: بيانات طلب خدمة — لتحديد صاحب الطلب/حالته في قواعد service_bids
+
+    // ✅ دعم أعضاء فريق المتجر (partner / worker) المرتبطين عبر linkedShopId
+    function isShopTeamMember(shopId) {
+      return userDocExists() &&
+        getUserData().get('linkedShopId', '') == shopId &&
+        getUserData().get('shopRole', '') in ['owner', 'partner', 'worker'];
+    }
+
+    function canManageShopContent(shopId) {
+      return isShopOwner(shopId) || isShopTeamMember(shopId) || isModerator();
+    }
+
+    function canReplyToReview(revData) {
+      return ('shopId' in revData && revData.shopId is string && revData.shopId.size() > 0 && canManageShopContent(revData.shopId))
+        || canManageShopContent(revData.targetId)
+        || (revData.get('targetType', '') == 'product'
+            && exists(/databases/$(database)/documents/products/$(revData.targetId))
+            && canManageShopContent(get(/databases/$(database)/documents/products/$(revData.targetId)).data.shopId));
+    }
+
     function serviceRequestData(requestId) {
       return get(/databases/$(database)/documents/service_requests/$(requestId)).data;
     }
+
     function notDeleted() { return resource.data.isDeleted != true; }
     function notSuspended() { return resource.data.isSuspended != true; }
 
-    // ✅ Fix #20: عدّادات إحصائيات المحل اليومية (shops/{id}/daily_stats/{يوم}).
-    // StatsService يكتب لكل زائر بـ set(merge: true) و FieldValue.increment(1)،
-    // وفي كل كتابة عدّاد واحد فقط: views (ومعه date) أو phoneClicks أو whatsappClicks
-    // أو facebookClicks / instagramClicks / tiktokClicks / telegramClicks.
-    // request.resource.data هي القيمة النهائية بعد تطبيق الـ increment، فنقارنها
-    // بالقيمة الحالية + 1: لا يقدر أحد يكتب رقماً اعتباطياً، ولا يمسّ عدّاداً غير
-    // اللي يزيده، ولا يمسّ حقلاً خارج القائمة.
-    //   • statCreated(f): مستند اليوم لم يكن موجوداً → عدّاد واحد = 1 (+ date اختياري).
-    //   • statBumped(f): المستند موجود → العدّاد f زاد 1 بالضبط، و date يُضاف فقط
-    //     لو كان غايباً (مستند اتنشأ أول مرة بعدّاد ضغطات قبل أول زيارة).
     function statCreated(f) {
       return request.resource.data.keys().hasOnly([f, 'date'])
         && f in request.resource.data
         && request.resource.data[f] == 1
         && (!('date' in request.resource.data) || request.resource.data.date is timestamp);
     }
+
     function statBumped(f) {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       return (changed.hasOnly([f])
@@ -81,29 +87,71 @@ service cloud.firestore {
         && (!('date' in request.resource.data) || request.resource.data.date is timestamp);
     }
 
+    // ✅ Security Fix (P0): دوال التحقق الصارم من العدادات لمنع التلاعب بالمشاهدات والتقييمات والمفضلة
+    function isCounterIncrementedByOne(field) {
+      let prev = (field in resource.data && resource.data[field] is number) ? resource.data[field] : 0;
+      return request.resource.data[field] is number && request.resource.data[field] == prev + 1;
+    }
+
+    function isFavoriteDeltaOne() {
+      let prev = ('favoriteCount' in resource.data && resource.data.favoriteCount is number) ? resource.data.favoriteCount : 0;
+      let next = request.resource.data.favoriteCount;
+      return next is number && next >= 0 && (next == prev + 1 || next == prev - 1);
+    }
+
+    function isValidRatingUpdate() {
+      let prevCount = ('reviewCount' in resource.data && resource.data.reviewCount is number) ? resource.data.reviewCount : 0;
+      let nextCount = request.resource.data.reviewCount;
+      let nextRating = request.resource.data.rating;
+      return nextRating is number && nextRating >= 0 && nextRating <= 5
+        && nextCount is number && nextCount >= 0
+        && (nextCount == prevCount + 1 || nextCount == prevCount || nextCount == prevCount - 1);
+    }
+
+    function isValidShopMetricUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return (changed.hasOnly(['views']) && isCounterIncrementedByOne('views'))
+        || (changed.hasOnly(['phoneClicks']) && isCounterIncrementedByOne('phoneClicks'))
+        || (changed.hasOnly(['whatsappClicks']) && isCounterIncrementedByOne('whatsappClicks'))
+        || (changed.hasOnly(['facebookClicks']) && isCounterIncrementedByOne('facebookClicks'))
+        || (changed.hasOnly(['instagramClicks']) && isCounterIncrementedByOne('instagramClicks'))
+        || (changed.hasOnly(['tiktokClicks']) && isCounterIncrementedByOne('tiktokClicks'))
+        || (changed.hasOnly(['telegramClicks']) && isCounterIncrementedByOne('telegramClicks'))
+        || (changed.hasOnly(['uniqueVisitors']) && isCounterIncrementedByOne('uniqueVisitors'))
+        || (changed.hasOnly(['favoriteCount']) && isFavoriteDeltaOne())
+        || (changed.hasOnly(['rating', 'reviewCount']) && isValidRatingUpdate());
+    }
+
+    function isValidProductMetricUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return (changed.hasOnly(['views']) && isCounterIncrementedByOne('views'))
+        || (changed.hasOnly(['favoriteCount']) && isFavoriteDeltaOne())
+        || (changed.hasOnly(['rating', 'reviewCount']) && isValidRatingUpdate());
+    }
+
+    function isValidOfferMetricUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return (changed.hasOnly(['views']) && isCounterIncrementedByOne('views'))
+        || (changed.hasOnly(['favoriteCount']) && isFavoriteDeltaOne());
+    }
+
+    // ── Usernames (حجز أسماء المستخدمين الفريدة) ────────────────────────────
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if isAuth() && request.resource.data.uid == appUid();
+      allow update: if isAuth() && resource.data.uid == appUid() && request.resource.data.uid == appUid();
+      allow delete: if (isAuth() && resource.data.uid == appUid()) || isModerator();
+    }
+
     // ── Users ────────────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read: if isAuth();
-      // ✅ Fix #18: أولوية المعاملات — && أقوى من ||، فالصيغة القديمة كانت تُقرأ
-      //   (isOwner && بلا userType) || (userType in [customer, merchant])
-      // والفرع الثاني بلا أي فحص هوية (ولا حتى isAuth): أي طلب — بل وبلا جلسة
-      // Firebase أصلاً — كان يقدر ينشئ users/{أي معرّف} بـ userType: merchant.
-      // الآن الملكية شرط في الحالتين بالأقواس: صاحب الحساب وحده ينشئ مستنده
-      // (appUid() == userId)، وبلا حقل userType أو بنوع customer/merchant فقط.
-      // admin / moderator لا تُنشأ من العميل أبداً (users/mock_admin من الـ console).
-      allow create: if isOwner(userId)
+      allow get: if isAuth();
+      allow list: if isModerator() || (isAuth() && request.query.limit <= 25);
+      allow create: if (isOwner(userId)
         && (!request.resource.data.keys().hasAny(['userType'])
-          || request.resource.data.userType in ['customer', 'merchant']);
-      // ✅ Item #38: إدارة الفريق (TeamManagementScreen). صاحب المحل بيعدّل مستند
-      // *عضو تاني* (linkedShopId / shopRole / userType)، وده كان بيترفض دايماً: فرع
-      // المالك تحت بيمنع userType، وفرع الأدمن مش بيخص التاجر. الفتح ضيّق عن قصد:
-      //   • الحقول التلاتة دي بس (teamFieldsOnly)، ومش على مستندك إنت (!isOwner).
-      //   • المُنفِّذ تاجر حالي (isMerchant) وصاحب المحل المعني (isShopOwner)، فصاحب
-      //     محل اتنزّل لعميل بقرار أدمن مايقدرش يضيف فريق.
-      //   • الإضافة: العضو الحالي customer فقط ← merchant بدور partner/worker فقط
-      //     (يعني admin/moderator/تاجر تاني مستحيل يتأثّروا، ولا ينفع تمنح admin).
-      //   • الإزالة: عضو فعلي (partner/worker) في فريق محل أنت صاحبه ← customer؛
-      //     مالك المحل (shopRole == owner) مايتشالش من هنا.
+          || request.resource.data.userType in ['customer', 'merchant']))
+        || isAdmin();
+
       function teamFieldsOnly() {
         return request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['linkedShopId', 'shopRole', 'userType']);
@@ -130,12 +178,29 @@ service cloud.firestore {
           && request.resource.data.linkedShopId == null
           && request.resource.data.shopRole == 'owner';
       }
-      allow update: if isOwner(userId)
-        // ✅ Fix #135: منع self-escalation إلى admin/moderator
-        && !(request.resource.data.diff(resource.data).affectedKeys().hasAny(['userType']))
+      function isReferralRewardBump() {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        let prevCount = ('referralCount' in resource.data && resource.data.referralCount is number) ? resource.data.referralCount : 0;
+        let prevDays = ('referralBonusDaysEarned' in resource.data && resource.data.referralBonusDaysEarned is number) ? resource.data.referralBonusDaysEarned : 0;
+        return isAuth()
+          && !isOwner(userId)
+          && changed.hasOnly(['referralCount', 'referralBonusDaysEarned'])
+          && request.resource.data.referralCount == prevCount + 1
+          && request.resource.data.referralBonusDaysEarned == prevDays + 7;
+      }
+
+      allow update: if (isOwner(userId)
+          && !(request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'isSuspended',
+            'linkedShopId'
+          ]))
+          && (!('userType' in request.resource.data)
+            || request.resource.data.userType == resource.data.userType
+            || request.resource.data.userType in ['customer', 'merchant']))
         || isAdmin()
         || isTeamAdd()
-        || isTeamRemove();
+        || isTeamRemove()
+        || isReferralRewardBump();
       allow delete: if isOwner(userId) || isAdmin();
 
       // Favorites sub-collection
@@ -144,44 +209,32 @@ service cloud.firestore {
       }
     }
 
-    // ── Auth Sessions (ربط الجلسة المجهولة بهوية الـ mock) ─────────────────────
-    // ✅ Fix #13: وثيقة واحدة لكل جلسة Firebase مجهولة، معرّفها = request.auth.uid
-    // وفيها appUserId (معرّف مستخدم التطبيق). تُقرأ من دالة appUid() أعلاه.
-    // الجلسة تكتب/تقرأ/تحذف وثيقتها هي فقط، ولا أحد غيرها يقدر.
+    // ── Auth Sessions (مغلقة في الإنتاج لمنع انتحال الهوية) ─────────────────
     match /auth_sessions/{sessionId} {
-      allow read, delete: if isAuth() && request.auth.uid == sessionId;
-      allow create, update: if isAuth()
-        && isAnonymousSession()
-        && request.auth.uid == sessionId
-        && request.resource.data.keys().hasOnly(['appUserId', 'updatedAt'])
-        && request.resource.data.appUserId is string
-        && request.resource.data.appUserId.size() > 0
-        && request.resource.data.appUserId.size() <= 128;
+      allow read, write: if false;
     }
 
     // ── Shops ───────────────────────────────────────────────────────────────
     match /shops/{shopId} {
-      allow read: if resource.data.isSuspended != true || isModerator();
-      // ✅ Fix #23: الأدمن (admin/super_admin) يقدر ينشئ محل بإسمه من لوحة الأدمن
-      // (زر «إضافة محل جديد»)؛ كان isMerchant() لوحده بيرفضه حتى لو عدّى الفورم.
-      // الشرط ownerId == appUid() لسه شغّال → الأدمن مش بينشئ محل بإسم حد تاني.
-      allow create: if (isMerchant() || isAdmin())
-        // ✅ Fix #135: إضافة حقل id صريح مطابق لـ document id
-        && request.resource.data.ownerId == appUid()
-        && request.resource.data.id == shopId;
-      allow update: if isShopOwner(shopId)
-        // ✅ Fix #135: منع تغيير ownerId أو isSuspended من قِبَل التاجر
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId', 'isSuspended', 'isFeatured'])
-        || isModerator();
+      allow read: if resource.data.isSuspended != true || isModerator() || canManageShopContent(shopId);
+      allow create: if (isMerchant()
+          && request.resource.data.ownerId == appUid()
+          && request.resource.data.id == shopId)
+        || isAdmin();
+      allow update: if (isShopOwner(shopId)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['ownerId', 'isSuspended', 'isFeatured']))
+        || isModerator()
+        || (isAuth()
+          && resource.data.pendingOwnerPhone is string
+          && resource.data.pendingOwnerPhone.size() > 0
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerId', 'pendingOwnerPhone', 'updatedAt'])
+          && request.resource.data.ownerId == appUid()
+          && request.resource.data.pendingOwnerPhone == null)
+        || (isAuth() && isValidShopMetricUpdate());
       allow delete: if isAdmin();
 
-      // ✅ Fix #20: shops/{shopId}/daily_stats — إحصائيات يومية. قواعد الوثيقة الأم
-      // لا تنسحب على الـ subcollections، وكانت من غير match فكل كتابة/قراءة
-      // permission-denied. أي جلسة (زائر مسجّل) تزيد عدّاداً واحداً بمقدار 1
-      // (شوف statCreated/statBumped)؛ القراءة لصاحب المحل والمشرف فقط (لوحة
-      // التاجر)؛ الحذف للمشرف (تنظيف الـ Seeder والإدارة).
       match /daily_stats/{dateKey} {
-        allow read: if isShopOwner(shopId) || isModerator();
+        allow read: if canManageShopContent(shopId);
         allow create: if isAuth()
           && (statCreated('views') || statCreated('phoneClicks')
             || statCreated('whatsappClicks') || statCreated('facebookClicks')
@@ -195,13 +248,8 @@ service cloud.firestore {
         allow delete: if isModerator();
       }
 
-      // ✅ Fix #20: shops/{shopId}/subscription_history — سجل التجديدات. يكتبه
-      // SubscriptionService.renew() بعد نجاح الـ transaction (خارجه، "غير حرج")
-      // بإسم صاحب المحل (renewedBy == هويّته) وتاريخ الخادم؛ بعد كده للقراءة فقط
-      // (append-only زي admin_audit_log): صاحب المحل والمشرف يقروا، ولا تعديل
-      // ولا حذف.
       match /subscription_history/{entryId} {
-        allow read: if isShopOwner(shopId) || isModerator();
+        allow read: if canManageShopContent(shopId);
         allow create: if isShopOwner(shopId)
           && request.resource.data.keys().hasOnly(
               ['plan', 'price', 'startDate', 'endDate', 'renewedBy', 'activationCode', 'createdAt'])
@@ -213,55 +261,74 @@ service cloud.firestore {
 
     // ── Products ─────────────────────────────────────────────────────────────
     match /products/{productId} {
-      allow read: if resource.data.isVisible == true && resource.data.isShopHidden != true
+      allow read: if (resource.data.isVisible == true && resource.data.isShopHidden != true)
         || isModerator()
-        || (isAuth() && isShopOwner(resource.data.shopId));
-      allow create: if isAuth() && isShopOwner(request.resource.data.shopId)
-        && request.resource.data.id == productId;
-      allow update: if isAuth() && isShopOwner(resource.data.shopId)
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['shopId', 'isShopHidden'])
-        || isModerator();
-      allow delete: if isAuth() && isShopOwner(resource.data.shopId) || isModerator();
+        || canManageShopContent(resource.data.shopId);
+      allow create: if (canManageShopContent(request.resource.data.shopId)
+        && request.resource.data.id == productId)
+        || isAdmin();
+      allow update: if (canManageShopContent(resource.data.shopId)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['shopId', 'isShopHidden']))
+        || isModerator()
+        || (isAuth() && isValidProductMetricUpdate())
+        || (isAuth()
+          && isShopOwner(resource.data.shopId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isShopHidden', 'isVisible']));
+      allow delete: if canManageShopContent(resource.data.shopId);
     }
 
     // ── Offers ───────────────────────────────────────────────────────────────
     match /offers/{offerId} {
-      allow read: if resource.data.isActive == true && resource.data.isShopHidden != true
+      allow read: if (resource.data.isActive == true && resource.data.isShopHidden != true)
         || isModerator()
-        || (isAuth() && isShopOwner(resource.data.shopId));
-      allow create: if isAuth() && isShopOwner(request.resource.data.shopId)
-        && request.resource.data.id == offerId;
-      allow update: if isAuth() && isShopOwner(resource.data.shopId)
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['shopId', 'isShopHidden'])
-        || isModerator();
-      allow delete: if isAuth() && isShopOwner(resource.data.shopId) || isModerator();
+        || canManageShopContent(resource.data.shopId);
+      allow create: if (canManageShopContent(request.resource.data.shopId)
+        && request.resource.data.id == offerId)
+        || isAdmin();
+      allow update: if (canManageShopContent(resource.data.shopId)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['shopId', 'isShopHidden']))
+        || isModerator()
+        || (isAuth() && isValidOfferMetricUpdate())
+        || (isAuth()
+          && isShopOwner(resource.data.shopId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isShopHidden', 'isActive', 'isVisible']));
+      allow delete: if canManageShopContent(resource.data.shopId);
     }
 
     // ── Services ─────────────────────────────────────────────────────────────
     match /services/{serviceId} {
-      allow read: if resource.data.isVisible == true && resource.data.isShopHidden != true
+      allow read: if (resource.data.isVisible == true && resource.data.isShopHidden != true)
         || isModerator()
-        || (isAuth() && resource.data.ownerId == appUid());
+        || (isAuth() && resource.data.ownerId == appUid())
+        || ('shopId' in resource.data && canManageShopContent(resource.data.shopId));
       allow create: if isAuth()
-        && request.resource.data.ownerId == appUid()
+        && (request.resource.data.ownerId == appUid()
+          || ('shopId' in request.resource.data && canManageShopContent(request.resource.data.shopId)))
         && request.resource.data.id == serviceId;
-      allow update: if isAuth() && resource.data.ownerId == appUid()
+      allow update: if (isAuth() && resource.data.ownerId == appUid())
+        || ('shopId' in resource.data && canManageShopContent(resource.data.shopId))
         || isModerator();
-      allow delete: if isAuth() && resource.data.ownerId == appUid() || isModerator();
+      allow delete: if (isAuth() && resource.data.ownerId == appUid())
+        || ('shopId' in resource.data && canManageShopContent(resource.data.shopId))
+        || isModerator();
     }
 
     // ── Reviews ──────────────────────────────────────────────────────────────
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isAuth()
+      allow create: if (isAuth()
         && request.resource.data.userId == appUid()
-        // ✅ Fix #135: منع نشر تقييم لعنصر لا يوجد
         && request.resource.data.rating >= 1
-        && request.resource.data.rating <= 5;
-      allow update: if isAuth() && resource.data.userId == appUid()
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'targetId'])
+        && request.resource.data.rating <= 5)
+        || isAdmin();
+      // ✅ Security Fix (P0): قصر الرد على التقييمات بصاحب/فريق المحل الفعلي أو المشرف فقط
+      allow update: if (isAuth() && resource.data.userId == appUid()
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId', 'targetId']))
+        || (isAuth()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reply', 'repliedAt', 'hasReply'])
+          && canReplyToReview(resource.data))
         || isModerator();
-      allow delete: if isAuth() && resource.data.userId == appUid() || isModerator();
+      allow delete: if (isAuth() && resource.data.userId == appUid()) || isModerator();
     }
 
     // ── Categories ───────────────────────────────────────────────────────────
@@ -272,14 +339,10 @@ service cloud.firestore {
 
     // ── Activation Codes ─────────────────────────────────────────────────────
     match /activation_codes/{codeId} {
-      allow read: if isModerator()
+      allow get: if isModerator()
         || (isAuth() && resource.data.isUsed == false);
+      allow list: if isModerator();
       allow create, delete: if isModerator();
-      // ✅ Fix #16: كل أنواع الأكواد (shop_activation / shop_renewal /
-      // ad_activation / dealer_listing_fee) في هذا الـ collection، والاستهلاك
-      // يتم من حساب التاجر نفسه لا من المشرف: يحرق المستخدم كوداً غير مستخدم
-      // لنفسه فقط (isUsed false→true، usedBy == هويته) ويلمس حقول الحرق وحدها.
-      // أي تعديل آخر (تغيير الكود/نوعه/صلاحيته) للمشرف فقط.
       allow update: if isModerator()
         || (isAuth()
           && resource.data.isUsed == false
@@ -288,37 +351,52 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isUsed', 'usedBy', 'usedAt', 'shopId']));
     }
 
-    // ── Ads (إعلانات تجارية) ──────────────────────────────────────────────────
+    // ── Ads (إعلانات تجارية) ─────────────────────────────────────────────────
     match /ads/{adId} {
-      allow read: if resource.data.isActive == true || isModerator();
+      allow read: if resource.data.isActive == true
+        || isModerator()
+        || ('shopId' in resource.data && resource.data.shopId is string && canManageShopContent(resource.data.shopId));
       allow create: if isAuth()
-        && (isShopOwner(request.resource.data.shopId) || isModerator())
+        && (isModerator()
+          || ('shopId' in request.resource.data && request.resource.data.shopId is string && canManageShopContent(request.resource.data.shopId)))
         && request.resource.data.id == adId;
-      allow update, delete: if isAuth()
-        && isShopOwner(resource.data.shopId) || isModerator();
+      // ✅ Security Fix (P0): اشتراط زيادة clickCount بمقدار +1 فقط للزوار
+      allow update: if isModerator()
+        || ('shopId' in resource.data && resource.data.shopId is string && canManageShopContent(resource.data.shopId))
+        || (isAuth()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clickCount'])
+          && isCounterIncrementedByOne('clickCount'));
+      allow delete: if isModerator()
+        || ('shopId' in resource.data && resource.data.shopId is string && canManageShopContent(resource.data.shopId));
+    }
+
+    // ── Subscription Requests ────────────────────────────────────────────────
+    match /subscription_requests/{reqId} {
+      allow read: if isModerator() || (isAuth() && resource.data.userId == appUid());
+      allow create: if (isAuth() && request.resource.data.userId == appUid()) || isAdmin();
+      allow update, delete: if isModerator();
     }
 
     // ── Job Ads ───────────────────────────────────────────────────────────────
     match /job_ads/{adId} {
       allow read: if true;
-      allow create: if isAuth()
+      allow create: if (isAuth()
         && request.resource.data.posterId == appUid()
-        && request.resource.data.id == adId;
-      allow update, delete: if isAuth() && resource.data.posterId == appUid()
+        && request.resource.data.id == adId)
+        || isAdmin();
+      allow update, delete: if (isAuth() && resource.data.posterId == appUid())
         || isModerator();
     }
 
     // ── Service Requests ──────────────────────────────────────────────────────
     match /service_requests/{reqId} {
-      allow read: if true;
-      // ✅ Fix #15: صاحب الطلب هو clientId (الموديل/الشاشة/الـ Seeder يكتبون
-      // clientId؛ القواعد كانت تفحص posterId غير الموجود فيُرفض كل إنشاء/تعديل)
-      allow create: if isAuth()
+      allow read: if isAuth();
+      allow create: if (isAuth()
         && request.resource.data.clientId == appUid()
-        && request.resource.data.id == reqId;
+        && request.resource.data.id == reqId)
+        || isAdmin();
       allow update: if (isAuth() && resource.data.clientId == appUid())
         || isModerator()
-        // مقدّم عرض جديد يزيد العدّاد بمقدار 1 فقط (شاشة تقديم العرض تفعل ذلك)
         || (isAuth()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['bidsCount'])
           && request.resource.data.bidsCount == resource.data.bidsCount + 1);
@@ -327,20 +405,12 @@ service cloud.firestore {
     }
 
     // ── Service Bids (عروض الأسعار على طلبات الخدمة) ─────────────────────────
-    // ✅ Fix #15: شكل واحد في الأربعة (الشاشات / الـ Seeder / القواعد / الموديل):
-    // collection أعلى مستوى `service_bids` بحقلي requestId (الطلب) وproviderId
-    // (مقدّم العرض) — كما تكتب وتقرأ الشاشات وكما يعرّفه ServiceBidModel.
-    // كانت القواعد تحرس service_requests/{id}/bids بحقل bidderId (مسار وحقل لا
-    // يكتب فيهما أحد) والـ Seeder يكتب تحت service_requests/{id}/service_bids.
-    // صاحب الطلب = service_requests/{requestId}.clientId.
     match /service_bids/{bidId} {
-      // يقرأ العرض: مقدّمه أو صاحب الطلب أو المشرف (العرض فيه هاتف المزوّد)
       allow read: if isAuth() && (
         resource.data.providerId == appUid()
         || serviceRequestData(resource.data.requestId).clientId == appUid()
         || isModerator()
       );
-      // المزوّد يقدّم عرضاً معلّقاً بسعر موجب على طلب مفتوح ليس طلبه هو
       allow create: if isModerator()
         || (isAuth()
           && request.resource.data.keys().hasOnly(['id', 'requestId', 'providerId', 'providerName', 'providerPhone', 'offeredPrice', 'note', 'status', 'createdAt'])
@@ -353,30 +423,16 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/service_requests/$(request.resource.data.requestId))
           && serviceRequestData(request.resource.data.requestId).status == 'open'
           && serviceRequestData(request.resource.data.requestId).clientId != appUid());
-      // صاحب الطلب يقبل أو يرفض (حقل status فقط)
       allow update: if isAuth()
         && serviceRequestData(resource.data.requestId).clientId == appUid()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         && request.resource.data.status in ['accepted', 'rejected'];
-      // المزوّد يسحب عرضه
       allow delete: if (isAuth() && resource.data.providerId == appUid()) || isModerator();
     }
 
     // ── Notifications ─────────────────────────────────────────────────────────
-    // ✅ Fix #14: نظام الإشعارات = صندوقان بدور واضح لكل منهما (والصندوق الثالث
-    // user_notifications أُلغي — كان الـ Seeder فقط يكتبه ولا أحد يقرأه):
-    //   • notifications      → الصندوق الداخلي (يظهر في شاشة الإشعارات). كل مستند
-    //                          موجَّه لمستخدم واحد عبر targetUserId — نفس الحقل
-    //                          الذي تكتبه الشاشات وتفلتر به الواجهة (القواعد كانت
-    //                          تفحص userId فلا تطابق أي مستند فعلي).
-    //   • notification_queue → طابور FCM فقط (دفع خارجي عبر Cloud Function)،
-    //                          التطبيق لا يقرؤه أبداً.
-    // البث العام (all / merchants / customers) = Push فقط عبر notification_queue.
     match /notifications/{notifId} {
       allow read: if (isAuth() && resource.data.targetUserId == appUid()) || isModerator();
-      // أي مستخدم مسجّل يقدر يُشعر مستخدماً آخر (مشتري ← تاجر، تاجر ← عميل،
-      // دعوة قائمة...) بشرط: المرسل هو هو (fromUserId == appUid())، والشكل محدد،
-      // وisRead=false وcreatedAt=request.time (لا تزوير ولا تواريخ مزيفة).
       allow create: if isModerator()
         || (isAuth()
           && request.resource.data.keys().hasOnly(['title', 'body', 'type', 'targetUserId', 'fromUserId', 'data', 'isRead', 'createdAt'])
@@ -391,7 +447,6 @@ service cloud.firestore {
           && request.resource.data.type is string
           && request.resource.data.isRead == false
           && request.resource.data.createdAt == request.time);
-      // المستلم يغيّر حالة القراءة/الدعوة فقط
       allow update: if isAuth()
         && resource.data.targetUserId == appUid()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'inviteStatus']);
@@ -411,41 +466,37 @@ service cloud.firestore {
         || appUid() in resource.data.collaborators
         || resource.data.isPublic == true
       );
-      allow create: if isAuth() && request.resource.data.ownerId == appUid();
+      allow create: if (isAuth() && request.resource.data.ownerId == appUid()) || isAdmin();
       allow update: if isAuth() && (
         resource.data.ownerId == appUid()
         || appUid() in resource.data.collaborators
+        || (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['collaborators'])
+          && request.resource.data.collaborators is list
+          && request.resource.data.collaborators.hasAll(resource.data.collaborators)
+          && request.resource.data.collaborators.size() == resource.data.collaborators.size() + 1
+          && appUid() in request.resource.data.collaborators
+        )
       );
       allow delete: if isAuth() && resource.data.ownerId == appUid();
     }
 
     // ── Complaints ────────────────────────────────────────────────────────────
     match /complaints/{complaintId} {
-      allow read: if isAuth() && resource.data.userId == appUid() || isModerator();
-      allow create: if isAuth() && request.resource.data.userId == appUid();
+      allow read: if (isAuth() && resource.data.userId == appUid()) || isModerator();
+      allow create: if (isAuth() && request.resource.data.userId == appUid()) || isAdmin();
       allow update: if isModerator();
       allow delete: if isModerator();
     }
 
     // ── Dealer Listings (بيع المستعمل) ───────────────────────────────────────
-    // ✅ Fix #19: كانت هذه القاعدة مكتوبة قبل appUid() (إصلاح #13) فلم يكن ممكناً
-    // مطابقة sellerId بهوية الجلسة (الـ Mock يستخدم جلسة مجهولة عشوائية الـ uid)،
-    // فاكتفت بـ isAuth() — ومعناه أن أي مستخدم موثّق، حتى جلسة مجهولة عارية،
-    // يقدر يعدّل أو يحذف إعلان أي بائع. الآن الهوية متاحة عبر appUid() (الجلسة
-    // الحقيقية: request.auth.uid، والـ Mock: من auth_sessions/{uid}) فالملكية
-    // تُفرض هنا بدل الاعتماد على منطق التطبيق وحده:
-    //   • إنشاء: sellerId == هويّتك (لا نشر باسم غيرك — وإلا صار «المالك» الوهمي
-    //     هو من يملك التعديل والحذف) + عنوان غير فارغ.
-    //   • تعديل: صاحب الإعلان فقط دون تغيير sellerId (لا نقل ملكية)، أو المشرف.
-    //     (التطبيق يعدّل isActive فقط من تبويب "إعلاني" لصاحب الإعلان.)
-    //   • حذف: صاحب الإعلان أو المشرف.
-    // ✅ لا يُشترط id == listingId لأن التطبيق لا يكتب حقل id عند الإنشاء بـ .add().
     match /dealer_listings/{listingId} {
       allow read: if true;
-      allow create: if isAuth()
+      allow create: if (isAuth()
         && request.resource.data.sellerId == appUid()
         && request.resource.data.title is string
-        && request.resource.data.title.size() > 0;
+        && request.resource.data.title.size() > 0)
+        || isAdmin();
       allow update: if (isAuth()
           && resource.data.sellerId == appUid()
           && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['sellerId']))
@@ -460,47 +511,41 @@ service cloud.firestore {
       allow write: if isModerator();
     }
 
-    // ✅ Fix #17: settings مقروءة للعالم بالكامل (الزائر قبل أي تسجيل دخول)، وكان
-    // مفتاح Gemini داخل settings/general فيقرؤه أي أحد بلا حساب أصلاً. الأسرار
-    // الآن في settings_private/{docId} (مفتاح Gemini: settings_private/gemini
-    // بحقل apiKey): تُقرأ من جلسة بهوية معروفة فقط (حقيقية أو Mock مربوطة)
-    // ويكتبها المشرف. ⚠️ التطبيق يستدعي Gemini مباشرةً من الجهاز فالمفتاح يصل
-    // لكل مستخدم مسجّل — الحماية الكاملة تحتاج وسيط Cloud Function + تقييد
-    // المفتاح من Google Cloud Console (انظر ملاحظات changes-1.md).
+    // ✅ Security Fix (P0): قفل قراءة وكتابة settings_private على المشرفين فقط لحماية مفتاح Gemini
     match /settings_private/{docId} {
-      allow read: if hasSessionIdentity();
-      allow write: if isModerator();
+      allow read, write: if isModerator();
     }
 
     // ── Admin Audit Log ───────────────────────────────────────────────────────
     match /admin_audit_log/{logId} {
       allow read: if isModerator();
       allow create: if isModerator();
-      allow update, delete: if false; // سجل للقراءة فقط — لا حذف أبدًا
+      allow update, delete: if false;
     }
 
     // ── Service Providers ────────────────────────────────────────────────────
     match /service_providers/{providerId} {
       allow read: if true;
-      allow write: if isAuth() && appUid() == providerId || isModerator();
+      allow write: if (isAuth() && appUid() == providerId) || isModerator();
     }
 
     // ── Referrals ─────────────────────────────────────────────────────────────
+    // ✅ دعم referredId و newUserId للتوافق الكامل مع ReferralService
     match /referrals/{referralId} {
-      allow read: if isAuth() && (
+      allow read: if (isAuth() && (
         resource.data.referrerId == appUid()
-        || resource.data.referredId == appUid()
-      ) || isModerator();
-      allow create: if isAuth() && request.resource.data.referredId == appUid();
+        || resource.data.get('referredId', '') == appUid()
+        || resource.data.get('newUserId', '') == appUid()
+      )) || isModerator();
+      allow create: if isAuth() && (
+        request.resource.data.get('referredId', '') == appUid()
+        || request.resource.data.get('newUserId', '') == appUid()
+      );
       allow update: if isModerator();
       allow delete: if false;
     }
 
     // ── Share Analytics (نقرات روابط المشاركة) ─────────────────────────────────
-    // ✅ Fix #20: DeepLinkService.recordShareClick يضيف حدثاً لكل نقرة
-    // ({type, targetId, clickedAt, platform}). كانت الـ collection من غير match
-    // فكل كتابة permission-denied (والدالة بتبلع الخطأ فالتحليلات بتضيع بصمت).
-    // أي جلسة تسجّل حدثاً بالشكل ده بس؛ القراءة والتعديل والحذف للمشرف.
     match /share_analytics/{eventId} {
       allow create: if isAuth()
         && request.resource.data.keys().hasOnly(['type', 'targetId', 'clickedAt', 'platform'])
@@ -516,8 +561,6 @@ service cloud.firestore {
     }
 
     // ── Job Subscriptions (اشتراك إشعارات الوظائف) ─────────────────────────────
-    // ✅ Fix #20: مستند لكل مستخدم (id = معرّفه في التطبيق): {categories[], updatedAt}
-    // يكتبه job_ads_tab_screen عند تفعيل/إلغاء إشعارات فئة وظائف. صاحبه فقط.
     match /job_subscriptions/{userId} {
       allow read, delete: if isOwner(userId) || isModerator();
       allow create, update: if isOwner(userId)
@@ -528,8 +571,6 @@ service cloud.firestore {
     }
 
     // ── Provider Topic Subscriptions (اشتراك مزوّد الخدمة في مواضيع FCM) ─────────
-    // ✅ Fix #20: مستند لكل مزوّد خدمة (id = معرّفه): {userId, categories[],
-    // fcmTopics[], updatedAt} يكتبه تسجيل مزوّد الخدمة. صاحبه فقط.
     match /provider_topic_subscriptions/{userId} {
       allow read, delete: if isOwner(userId) || isModerator();
       allow create, update: if isOwner(userId)
@@ -543,13 +584,6 @@ service cloud.firestore {
     }
 
     // ── Collection Invites (دعوات القوائم المشتركة) ─────────────────────────────
-    // ✅ Fix #20: collection_detail_screen يضيف دعوة (الداعي)، و notifications_screen
-    // يقبلها/يرفضها (المدعو: تغيير status فقط). كانت من غير match فكل دعوة كانت
-    // بتفشل من أول خطوة (permission-denied) وما يوصلش إشعار ولا FCM.
-    //   • قراءة: المدعو أو الداعي أو المشرف.
-    //   • إنشاء: inviterId == هويّتك، status == 'pending'، وتاريخ الخادم.
-    //   • تعديل: المدعو فقط، status فقط إلى accepted/rejected.
-    //   • حذف: أي طرف في الدعوة أو المشرف.
     match /collection_invites/{inviteId} {
       allow read: if (isAuth()
           && (resource.data.inviteeId == appUid() || resource.data.inviterId == appUid()))

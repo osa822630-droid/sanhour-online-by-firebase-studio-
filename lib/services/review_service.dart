@@ -1,8 +1,6 @@
 // lib/services/review_service.dart
-// ✅ Fix #27: hasUserReviewed داخل transaction لمنع race condition
-// ✅ Fix #150: review.id يُعيَّن من docRef.id قبل الكتابة، fromFirestore يقرأ d.id
-// ✅ Fix #194: replyToReview يُضيف hasReply: true للاستعلام السريع
-// ✅ Fix #195: createdAt يُستخدم FieldValue.serverTimestamp() بدلاً من وقت الجهاز
+// ✅ حفظ shopId داخل وثيقة التقييم لتمكين صاحب المحل من الرد على تقييمات المنتجات والمحل بأمان
+// ✅ إرسال إشعار فوري لصاحب المحل عند إضافة تقييم جديد على محله أو أحد منتجاته
 import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/review_model.dart';
@@ -10,11 +8,7 @@ import '../models/review_model.dart';
 class ReviewService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // ✅ Fix #27: نقل hasUserReviewed داخل transaction لمنع race condition
-  // ✅ Fix #150: تعيين review.id من docRef.id صريحاً قبل الكتابة
-  // ✅ Fix #195: createdAt يُكتب كـ serverTimestamp
   static Future<void> addReview(Review review) async {
-    // فحص مسبق سريع (non-binding pre-check فقط)
     final alreadyReviewed =
         await hasUserReviewed(review.userId, review.targetId);
     if (alreadyReviewed) {
@@ -22,28 +16,18 @@ class ReviewService {
     }
 
     final reviewRef = _firestore.collection('reviews').doc();
+    String? resolvedShopId = review.shopId;
+    String? ownerIdToNotify;
+    String targetDisplayName = review.targetName ?? 'متجرك';
 
     await _firestore.runTransaction((transaction) async {
-      // ✅ Fix #21: فحص "تقييم واحد لكل مستخدم" كان بيتعمل بـ query عادي جوه الـ
-      // transaction *قبل* أي transaction.get، فمكنش جزء من قراءاتها — وكمان قراءة
-      // وثيقة الهدف كانت بتحصل بعده: تقييمين متزامنين من نفس المستخدم (ضغطتين
-      // سريعتين أو جهازين) كان الاتنين يعدّوا الفحص ويتكتبوا.
-      // الـ SDK ما بيدعمش query جوه transaction ولا وثيقة بمعرّف عشوائي نقدر نعمل
-      // لها tx.get، فنستخدم وثيقة الهدف (المحل/المنتج) كنقطة تسلسل: كل تقييم جديد
-      // بيكتب فيها (rating / reviewCount)، فأي تقييمين متزامنين على نفس الهدف
-      // بيتعارضوا عليها؛ اللي يخسر بيتعاد تلقائياً ويلاقي تقييم الأول بالفعل.
-      // الشرط الوحيد: القراءة (1) تسبق الفحص (2) — لو الفحص سبقها، ممكن الطلب
-      // التاني يقرأ الهدف بعد ما الأول يخلص ومنكتشفش تعارض.
-      // (حالة هامشية: لو وثيقة الهدف نفسها مش موجودة مفيش كتابة عليها يعني مفيش
-      // تسلسل — تقييم لعنصر محذوف، مش مسار طبيعي في التطبيق.)
-      //
-      // 1) القراءة: وثيقة الهدف أولاً
-      final collection = review.targetType == 'shop' ? 'shops' : 'products';
+      final collection = review.targetType == 'shop'
+          ? 'shops'
+          : (review.targetType == 'offer' ? 'offers' : 'products');
       final targetRef =
           _firestore.collection(collection).doc(review.targetId);
       final targetDoc = await transaction.get(targetRef);
 
-      // 2) الفحص: التقييم المكرر (بعد قراءة الهدف مش قبلها)
       final existingSnap = await _firestore
           .collection('reviews')
           .where('userId', isEqualTo: review.userId)
@@ -54,20 +38,32 @@ class ReviewService {
         throw Exception('لقد قيّمت هذا العنصر مسبقاً.');
       }
 
-      // 3) الكتابات (بعد كل القراءات)
-      // ✅ Fix #150: كتابة id صريح في الوثيقة
+      if (targetDoc.exists) {
+        final tData = targetDoc.data()!;
+        if (review.targetType == 'shop') {
+          resolvedShopId = review.targetId;
+          ownerIdToNotify = tData['ownerId'] as String?;
+          targetDisplayName = (tData['name'] as String?) ?? targetDisplayName;
+        } else {
+          resolvedShopId ??= tData['shopId'] as String?;
+          targetDisplayName =
+              (tData['name'] ?? tData['title'])?.toString() ?? targetDisplayName;
+        }
+      }
+
       final reviewMap = {
         ...review.toMap(),
         'id': reviewRef.id,
-        // ✅ Fix #195: serverTimestamp بدلاً من وقت الجهاز
+        if (resolvedShopId != null && resolvedShopId!.isNotEmpty)
+          'shopId': resolvedShopId,
         'createdAt': FieldValue.serverTimestamp(),
       };
       transaction.set(reviewRef, reviewMap);
 
       if (targetDoc.exists) {
         final data = targetDoc.data()!;
-        final currentRating = (data['rating'] ?? 0.0).toDouble();
-        final currentCount = (data['reviewCount'] ?? 0) as int;
+        final currentRating = (data['rating'] as num? ?? 0.0).toDouble();
+        final currentCount = (data['reviewCount'] as num? ?? 0).toInt();
 
         final newRating = double.parse(
           ((currentRating * currentCount + review.rating) / (currentCount + 1))
@@ -76,10 +72,65 @@ class ReviewService {
 
         transaction.update(targetRef, {
           'rating': newRating,
-          'reviewCount': FieldValue.increment(1),
+          'reviewCount': currentCount + 1,
         });
       }
     });
+
+    // ✅ إرسال إشعار لصاحب المحل عند إضافة تقييم جديد
+    try {
+      if (ownerIdToNotify == null &&
+          resolvedShopId != null &&
+          resolvedShopId!.isNotEmpty) {
+        final shopSnap =
+            await _firestore.collection('shops').doc(resolvedShopId).get();
+        ownerIdToNotify = shopSnap.data()?['ownerId'] as String?;
+      }
+      if (ownerIdToNotify != null &&
+          ownerIdToNotify!.isNotEmpty &&
+          ownerIdToNotify != review.userId) {
+        final reviewer = (review.userName != null && review.userName!.isNotEmpty)
+            ? review.userName!
+            : 'أحد العملاء';
+        final title = '⭐ تقييم جديد (${review.rating}/5) على "$targetDisplayName"';
+        final body = review.comment.isNotEmpty
+            ? '$reviewer: "${review.comment.length > 70 ? '${review.comment.substring(0, 70)}...' : review.comment}"'
+            : 'قام $reviewer بتقييم "$targetDisplayName" بـ ${review.rating} نجوم.';
+
+        await _firestore.collection('notifications').add({
+          'title': title,
+          'body': body,
+          'type': 'new_review',
+          'targetUserId': ownerIdToNotify,
+          'fromUserId': review.userId,
+          'data': {
+            'route': 'merchant_reviews',
+            'shopId': resolvedShopId ?? '',
+            'channel': 'merchant_reviews',
+          },
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        await _firestore.collection('notification_queue').add({
+          'title': title,
+          'body': body,
+          'targetUserId': ownerIdToNotify,
+          'data': {
+            'route': 'merchant_reviews',
+            'shopId': resolvedShopId ?? '',
+            'channel': 'merchant_reviews',
+          },
+          'status': 'pending',
+          'createdAt': FieldValue.serverTimestamp(),
+          'expiresAt': Timestamp.fromDate(
+              DateTime.now().add(const Duration(hours: 24))),
+        });
+      }
+    } catch (e) {
+      developer.log('Review notification error (non-critical): $e',
+          name: 'ReviewService');
+    }
   }
 
   static Future<List<Review>> getReviews(String targetId) async {
@@ -97,7 +148,6 @@ class ReviewService {
     }
   }
 
-  // ✅ Fix #194: إضافة hasReply: true للاستعلام السريع مستقبلاً
   static Future<void> replyToReview(String reviewId, String reply) async {
     await _firestore.collection('reviews').doc(reviewId).update({
       'reply': reply,
@@ -124,7 +174,15 @@ class ReviewService {
       int rating) async {
     await _firestore.runTransaction((transaction) async {
       final reviewRef = _firestore.collection('reviews').doc(reviewId);
-      final collection = targetType == 'shop' ? 'shops' : 'products';
+      final reviewDoc = await transaction.get(reviewRef);
+      if (!reviewDoc.exists) {
+        return;
+      }
+      final storedRating =
+          (reviewDoc.data()?['rating'] as num?)?.toInt() ?? rating;
+      final collection = targetType == 'shop'
+          ? 'shops'
+          : (targetType == 'offer' ? 'offers' : 'products');
       final targetRef =
           _firestore.collection(collection).doc(targetId);
       final targetDoc = await transaction.get(targetRef);
@@ -133,17 +191,17 @@ class ReviewService {
 
       if (targetDoc.exists) {
         final data = targetDoc.data()!;
-        final currentRating = (data['rating'] ?? 0.0).toDouble();
-        final currentCount = (data['reviewCount'] ?? 1) as int;
+        final currentRating = (data['rating'] as num? ?? 0.0).toDouble();
+        final currentCount = (data['reviewCount'] as num? ?? 1).toInt();
 
         if (currentCount > 1) {
           final newRating = double.parse(
-            ((currentRating * currentCount - rating) / (currentCount - 1))
+            ((currentRating * currentCount - storedRating) / (currentCount - 1))
                 .toStringAsFixed(1),
           );
           transaction.update(targetRef, {
             'rating': newRating,
-            'reviewCount': FieldValue.increment(-1),
+            'reviewCount': currentCount - 1,
           });
         } else {
           transaction.update(targetRef, {'rating': 0.0, 'reviewCount': 0});
@@ -152,5 +210,3 @@ class ReviewService {
     });
   }
 }
-
-

@@ -1,7 +1,7 @@
 // lib/screens/options_screen.dart
 // ✅ إضافة: دليل الاستخدام → يعود للـ OnboardingScreen
 // ✅ إضافة: شكاواي → MyComplaintsScreen
-// ✅ باقي الكود بدون تغيير
+// ✅ إخفاء منتجات وعروض المحلات المحذوفة مؤقتاً عند الحذف الناعم للحساب
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -16,6 +16,7 @@ import 'my_complaints_screen.dart';
 import 'login_screen.dart';
 import 'account_edit_screen.dart';
 import 'onboarding_screen.dart';
+import 'interests_screen.dart';
 import '../widgets/gemini_chat_button.dart';
 import '../services/gemini_service.dart';
 
@@ -51,9 +52,6 @@ class _OptionsScreenState extends State<OptionsScreen> {
 
   Future<void> _performSoftDelete(
       BuildContext dialogContext, app_auth.AuthProvider authProvider) async {
-    // ✅ Item #37: هوية التطبيق (mock user id) مش uid جلسة Firebase المجهولة؛
-    // مستند users/{id} و shops.ownerId بيتخزّنوا بمعرّف المستخدم الفعلي، فاستخدام
-    // currentUser.uid كان بيستهدف مستند غلط (والحذف مبيتمّش).
     final userId = authProvider.user?.id;
     if (userId == null || userId.isEmpty) return;
 
@@ -61,36 +59,64 @@ class _OptionsScreenState extends State<OptionsScreen> {
 
     try {
       final firestore = FirebaseFirestore.instance;
-      final batch = firestore.batch();
       final deletionDate = DateTime.now().add(const Duration(days: 15));
 
-      batch.update(firestore.collection('users').doc(userId), {
-        'isDeleted': true,
-        'scheduledForDeletionAt': Timestamp.fromDate(deletionDate),
-        'isActive': false,
-      });
+      final ops = <void Function(WriteBatch)>[
+        (b) => b.update(firestore.collection('users').doc(userId), {
+              'isDeleted': true,
+              'scheduledForDeletionAt': Timestamp.fromDate(deletionDate),
+              'isActive': false,
+            }),
+      ];
 
       if (authProvider.userRole == app_auth.UserRole.merchant) {
         final shopsQ = await firestore
             .collection('shops')
             .where('ownerId', isEqualTo: userId)
             .get();
-        for (final doc in shopsQ.docs) {
-          batch.update(doc.reference, {
-            'isActive': false,
-            'hiddenByDeletion': true,
-          });
+        for (final shopDoc in shopsQ.docs) {
+          ops.add((b) => b.update(shopDoc.reference, {
+                'isActive': false,
+                'isSuspended': true,
+                'hiddenByDeletion': true,
+              }));
+          final prodsQ = await firestore
+              .collection('products')
+              .where('shopId', isEqualTo: shopDoc.id)
+              .get();
+          for (final prodDoc in prodsQ.docs) {
+            ops.add((b) => b.update(prodDoc.reference, {
+                  'isShopHidden': true,
+                }));
+          }
+          final offersQ = await firestore
+              .collection('offers')
+              .where('shopId', isEqualTo: shopDoc.id)
+              .get();
+          for (final offerDoc in offersQ.docs) {
+            ops.add((b) => b.update(offerDoc.reference, {
+                  'isShopHidden': true,
+                }));
+          }
         }
       }
 
-      await batch.commit();
-      // dialogContext سياق مختلف عن State.context: حارس mounted بتاع الـ State لوحده
-      // مش كفاية له (use_build_context_synchronously)، فنفحص الاتنين.
+      for (int i = 0; i < ops.length; i += 450) {
+        final batch = firestore.batch();
+        final chunk = ops.sublist(i, (i + 450).clamp(0, ops.length));
+        for (final op in chunk) {
+          op(batch);
+        }
+        await batch.commit();
+      }
+
       if (!mounted || !dialogContext.mounted) return;
       Navigator.of(dialogContext).pop();
       await authProvider.logout();
       if (!mounted) return;
-      if (context.mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+      if (context.mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+      }
     } catch (e) {
       if (!mounted || !dialogContext.mounted) return;
       Navigator.of(dialogContext).pop();
@@ -113,7 +139,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
       appBar: AppBar(
         title: const Text('الإعدادات والخيارات',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: const Color(0xFF5E35B1),
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
@@ -134,19 +160,23 @@ class _OptionsScreenState extends State<OptionsScreen> {
                     child: _dashBtn(
                       icon: Icons.admin_panel_settings,
                       label: 'لوحة الإدارة',
-                      onTap: () => Navigator.push(context,
+                      onTap: () => Navigator.push(
+                          context,
                           MaterialPageRoute(
                               builder: (_) => const AdminDashboard())),
                     ),
                   ),
-                if (authProvider.userRole == app_auth.UserRole.admin)
+                if (authProvider.userRole == app_auth.UserRole.admin &&
+                    authProvider.userRole == app_auth.UserRole.merchant)
                   const SizedBox(width: 12),
-                if (authProvider.userRole == app_auth.UserRole.merchant)
+                if (authProvider.userRole == app_auth.UserRole.merchant ||
+                    authProvider.userRole == app_auth.UserRole.admin)
                   Expanded(
                     child: _dashBtn(
                       icon: Icons.store,
                       label: 'لوحة التاجر',
-                      onTap: () => Navigator.push(context,
+                      onTap: () => Navigator.push(
+                          context,
                           MaterialPageRoute(
                               builder: (_) => const MerchantDashboard())),
                     ),
@@ -168,7 +198,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
               ),
               value: isDark,
               onChanged: (_) => themeProvider.toggleTheme(),
-              activeThumbColor: Colors.deepPurple,
+              activeThumbColor: const Color(0xFF5E35B1),
             ),
             const Divider(height: 1),
             SwitchListTile(
@@ -176,23 +206,41 @@ class _OptionsScreenState extends State<OptionsScreen> {
                   style: TextStyle(fontWeight: FontWeight.bold)),
               subtitle: const Text('عرض أحدث العروض عند بدء التطبيق',
                   style: TextStyle(fontSize: 12)),
-              secondary: const Icon(Icons.campaign, color: Colors.deepPurple),
+              secondary:
+                  const Icon(Icons.campaign, color: Color(0xFF5E35B1)),
               value: _showStartupAds,
               onChanged: _toggleAdsPreference,
-              activeThumbColor: Colors.deepPurple,
+              activeThumbColor: const Color(0xFF5E35B1),
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.interests_outlined,
+                  color: Color(0xFF5E35B1)),
+              title: const Text('تعديل اهتماماتي',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('اختر الفئات المفضلة لقسم اخترنا لك',
+                  style: TextStyle(fontSize: 12)),
+              trailing: const Icon(Icons.arrow_forward_ios,
+                  size: 14, color: Colors.grey),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const InterestsScreen(fromSettings: true),
+                ),
+              ),
             ),
           ]),
 
           // ── الدعم والمساعدة ──────────────────────────────────
           _sectionTitle('الدعم والمساعدة'),
           _card([
-            // ✅ دليل الاستخدام → OnboardingScreen
             ListTile(
               leading: const Icon(Icons.auto_stories_outlined,
-                  color: Colors.deepPurple),
+                  color: Color(0xFF5E35B1)),
               title: const Text('دليل الاستخدام',
                   style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('تعرّف على مميزات التطبيق وكيفية استخدامه',
+              subtitle: const Text(
+                  'تعرّف على مميزات التطبيق وكيفية استخدامه',
                   style: TextStyle(fontSize: 12)),
               trailing: const Icon(Icons.arrow_forward_ios,
                   size: 14, color: Colors.grey),
@@ -204,15 +252,12 @@ class _OptionsScreenState extends State<OptionsScreen> {
               ),
             ),
             const Divider(height: 1),
-            // Gemini
             ListTile(
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [
-                    Color(0xFF4527A0),
-                    Color(0xFF7B1FA2)
-                  ]),
+                  gradient: const LinearGradient(
+                      colors: [Color(0xFF4527A0), Color(0xFF7B1FA2)]),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.auto_awesome,
@@ -246,30 +291,31 @@ class _OptionsScreenState extends State<OptionsScreen> {
               },
             ),
             const Divider(height: 1),
-            // الإبلاغ عن مشكلة
             ListTile(
-              leading: const Icon(Icons.report_problem, color: Colors.orange),
+              leading:
+                  const Icon(Icons.report_problem, color: Colors.orange),
               title: const Text('إرسال شكوى أو اقتراح'),
               subtitle: const Text('واجهت مشكلة؟ أخبرنا لنصلحها',
                   style: TextStyle(fontSize: 12)),
               trailing: const Icon(Icons.arrow_forward_ios,
                   size: 14, color: Colors.grey),
-              onTap: () => Navigator.push(context,
+              onTap: () => Navigator.push(
+                  context,
                   MaterialPageRoute(
                       builder: (_) => const ReportProblemScreen())),
             ),
-            // ✅ متابعة الشكاوى السابقة
             if (!authProvider.isGuest) ...[
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.inbox_outlined,
-                    color: Colors.deepPurple),
+                    color: Color(0xFF5E35B1)),
                 title: const Text('شكاواي واقتراحاتي'),
                 subtitle: const Text('تتبع ردود الإدارة على رسائلك',
                     style: TextStyle(fontSize: 12)),
                 trailing: const Icon(Icons.arrow_forward_ios,
                     size: 14, color: Colors.grey),
-                onTap: () => Navigator.push(context,
+                onTap: () => Navigator.push(
+                    context,
                     MaterialPageRoute(
                         builder: (_) => const MyComplaintsScreen())),
               ),
@@ -281,8 +327,8 @@ class _OptionsScreenState extends State<OptionsScreen> {
           _card([
             _infoTile('من نحن', Icons.people_outline, 'aboutUs'),
             const Divider(height: 1),
-            _infoTile(
-                'الشروط والأحكام', Icons.description_outlined, 'termsAndConditions'),
+            _infoTile('الشروط والأحكام', Icons.description_outlined,
+                'termsAndConditions'),
             const Divider(height: 1),
             _infoTile(
                 'سياسة الخصوصية', Icons.privacy_tip_outlined, 'privacyPolicy'),
@@ -293,14 +339,15 @@ class _OptionsScreenState extends State<OptionsScreen> {
           _card([
             if (!authProvider.isGuest) ...[
               ListTile(
-                leading: const Icon(Icons.edit_outlined,
-                    color: Colors.deepPurple),
+                leading:
+                    const Icon(Icons.edit_outlined, color: Color(0xFF5E35B1)),
                 title: const Text('تعديل الحساب'),
                 subtitle: const Text('الاسم، الصورة، اسم المستخدم',
                     style: TextStyle(fontSize: 12)),
                 trailing: const Icon(Icons.arrow_forward_ios,
                     size: 14, color: Colors.grey),
-                onTap: () => Navigator.push(context,
+                onTap: () => Navigator.push(
+                    context,
                     MaterialPageRoute(
                         builder: (_) => const AccountEditScreen())),
               ),
@@ -312,8 +359,8 @@ class _OptionsScreenState extends State<OptionsScreen> {
               ),
               const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.delete_forever,
-                    color: Colors.grey),
+                leading:
+                    const Icon(Icons.delete_forever, color: Colors.grey),
                 title: const Text('حذف الحساب',
                     style: TextStyle(color: Colors.red)),
                 subtitle: const Text('يُحذف نهائياً بعد 15 يوماً',
@@ -323,7 +370,8 @@ class _OptionsScreenState extends State<OptionsScreen> {
               ),
             ] else
               ListTile(
-                leading: const Icon(Icons.login, color: Colors.deepPurple),
+                leading:
+                    const Icon(Icons.login, color: Color(0xFF5E35B1)),
                 title: const Text('تسجيل الدخول / إنشاء حساب'),
                 onTap: () => Navigator.pushAndRemoveUntil(
                     context,
@@ -355,8 +403,6 @@ class _OptionsScreenState extends State<OptionsScreen> {
     );
   }
 
-  // ── مساعدات UI ────────────────────────────────────────────────────
-
   Widget _sectionTitle(String t) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
         child: Text(t,
@@ -380,27 +426,28 @@ class _OptionsScreenState extends State<OptionsScreen> {
       required VoidCallback onTap}) {
     return Card(
       elevation: 3,
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding:
-              const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.deepPurple, size: 22),
+              Icon(icon, color: const Color(0xFF5E35B1), size: 22),
               const SizedBox(width: 8),
-              Text(label,
-                  style: const TextStyle(
-                      color: Colors.deepPurple,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14)),
+              Flexible(
+                child: Text(label,
+                    style: const TextStyle(
+                        color: Color(0xFF5E35B1),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14),
+                    overflow: TextOverflow.ellipsis),
+              ),
               const SizedBox(width: 4),
               const Icon(Icons.arrow_forward_ios,
-                  size: 14, color: Colors.deepPurple),
+                  size: 14, color: Color(0xFF5E35B1)),
             ],
           ),
         ),
@@ -408,9 +455,8 @@ class _OptionsScreenState extends State<OptionsScreen> {
     );
   }
 
-  Widget _infoTile(String label, IconData icon, String fieldKey) =>
-      ListTile(
-        leading: Icon(icon, color: Colors.deepPurple),
+  Widget _infoTile(String label, IconData icon, String fieldKey) => ListTile(
+        leading: Icon(icon, color: const Color(0xFF5E35B1)),
         title: Text(label),
         trailing: const Icon(Icons.arrow_forward_ios,
             size: 14, color: Colors.grey),
@@ -431,13 +477,13 @@ class _OptionsScreenState extends State<OptionsScreen> {
     if (auth.isGuest) {
       return Card(
         margin: const EdgeInsets.all(16),
-        color: Colors.deepPurple.withValues(alpha: 0.08),
+        color: const Color(0xFF5E35B1).withValues(alpha: 0.08),
         elevation: 2,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: ListTile(
           leading: const CircleAvatar(
-            backgroundColor: Colors.deepPurple,
+            backgroundColor: Color(0xFF5E35B1),
             child: Icon(Icons.person_off, color: Colors.white),
           ),
           title: const Text('أنت تتصفح كضيف',
@@ -445,7 +491,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
           subtitle: const Text('سجّل دخولك للاستفادة من كل المميزات'),
           trailing: ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
+                backgroundColor: const Color(0xFF5E35B1),
                 foregroundColor: Colors.white),
             onPressed: () => Navigator.pushAndRemoveUntil(
                 context,
@@ -478,22 +524,19 @@ class _OptionsScreenState extends State<OptionsScreen> {
     return Card(
       margin: const EdgeInsets.all(16),
       elevation: 3,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(children: [
           GestureDetector(
             onTap: () => Navigator.push(context,
-                MaterialPageRoute(
-                    builder: (_) => const AccountEditScreen())),
+                MaterialPageRoute(builder: (_) => const AccountEditScreen())),
             child: CircleAvatar(
               radius: 30,
-              backgroundColor: Colors.deepPurple,
-              backgroundImage:
-                  (photoUrl?.isNotEmpty == true)
-                      ? NetworkImage(photoUrl!)
-                      : null,
+              backgroundColor: const Color(0xFF5E35B1),
+              backgroundImage: (photoUrl?.isNotEmpty == true)
+                  ? NetworkImage(photoUrl!)
+                  : null,
               child: (photoUrl == null || photoUrl.isEmpty)
                   ? Text(
                       auth.user?.name.isNotEmpty == true
@@ -518,19 +561,19 @@ class _OptionsScreenState extends State<OptionsScreen> {
                     style: const TextStyle(color: Colors.grey)),
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.deepPurple.withValues(alpha: 0.1),
+                    color: const Color(0xFF5E35B1).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(roleIcon, size: 12, color: Colors.deepPurple),
+                    Icon(roleIcon, size: 12, color: const Color(0xFF5E35B1)),
                     const SizedBox(width: 4),
                     Text(roleLabel,
                         style: const TextStyle(
                             fontSize: 11,
-                            color: Colors.deepPurple,
+                            color: Color(0xFF5E35B1),
                             fontWeight: FontWeight.bold)),
                   ]),
                 ),
@@ -539,10 +582,9 @@ class _OptionsScreenState extends State<OptionsScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.edit_outlined,
-                color: Colors.deepPurple, size: 20),
+                color: Color(0xFF5E35B1), size: 20),
             onPressed: () => Navigator.push(context,
-                MaterialPageRoute(
-                    builder: (_) => const AccountEditScreen())),
+                MaterialPageRoute(builder: (_) => const AccountEditScreen())),
           ),
         ]),
       ),
@@ -562,12 +604,10 @@ class _OptionsScreenState extends State<OptionsScreen> {
               child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white),
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
               Navigator.pop(ctx);
               await auth.logout();
-              // context هنا باراميتر الدالة (مش State.context) فحارسه context.mounted
               if (!context.mounted) return;
               Navigator.pushNamedAndRemoveUntil(
                   context, '/login', (_) => false);
@@ -606,8 +646,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
               child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white),
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: _isDeleting
                 ? null
                 : () => _performSoftDelete(ctx, auth),
@@ -625,9 +664,6 @@ class _OptionsScreenState extends State<OptionsScreen> {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// شاشة النص من Firestore (من نحن / شروط / خصوصية)
-// ════════════════════════════════════════════════════════════════════
 class _FirestoreTextScreen extends StatelessWidget {
   final String title;
   final String fieldKey;
@@ -657,8 +693,8 @@ class _FirestoreTextScreen extends StatelessWidget {
       backgroundColor:
           isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
       appBar: AppBar(
-        title: Text(title,
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+        title:
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF5E35B1),
         foregroundColor: Colors.white,
         centerTitle: true,
@@ -721,9 +757,8 @@ class _FirestoreTextScreen extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 15,
                         height: 1.8,
-                        color: isDark
-                            ? Colors.grey[300]
-                            : Colors.grey[800])),
+                        color:
+                            isDark ? Colors.grey[300] : Colors.grey[800])),
               ),
             ]),
           );

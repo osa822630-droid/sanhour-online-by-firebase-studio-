@@ -17,9 +17,9 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Product> _allProducts = [];
-  List<Product> _pinnedProducts = []; // أول 10 منتجات
+  List<Product> _pinnedProducts = [];
   List<Product> _restProducts = [];
-  List<String> _productLists = []; // قوائم المنتجات الداخلية
+  List<String> _productLists = [];
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -52,24 +52,30 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
         return Product.fromMap(data, d.id);
       }).toList();
 
-      final pinned = products.where((p) => p.sortOrder > 0).toList()
-        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-      final rest = products.where((p) => p.sortOrder == 0).toList();
-
-      // اجمع كل أسماء القوائم الموجودة
-      final lists = products
-          .map((p) => p.listName.trim())
-          .where((l) => l.isNotEmpty)
-          .toSet()
+      // ✅ توحيد معيار المنتجات المثبتة (< 999) والمنتجات غير المثبتة (>= 999 أو <= 0)
+      final pinned = products
+          .where((p) =>
+              p.sortOrder != null && p.sortOrder! > 0 && p.sortOrder! < 999)
           .toList()
-        ..sort();
+        ..sort((a, b) => (a.sortOrder ?? 999).compareTo(b.sortOrder ?? 999));
+      final rest = products
+          .where((p) =>
+              p.sortOrder == null || p.sortOrder! <= 0 || p.sortOrder! >= 999)
+          .toList();
+
+      final existingLists = products
+          .map((p) => (p.listName ?? '').trim())
+          .where((l) => l.isNotEmpty)
+          .toSet();
+      existingLists.addAll(_productLists);
+      final sortedLists = existingLists.toList()..sort();
 
       if (mounted) {
         setState(() {
           _allProducts = products;
           _pinnedProducts = pinned;
           _restProducts = rest;
-          _productLists = lists;
+          _productLists = sortedLists;
           _isLoading = false;
         });
       }
@@ -82,31 +88,40 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
   Future<void> _saveOrder() async {
     setState(() => _isSaving = true);
     try {
-      final batch = FirebaseFirestore.instance.batch();
-
-      // حفظ ترتيب أول 10
+      final allOps = <MapEntry<DocumentReference, int>>[];
       for (int i = 0; i < _pinnedProducts.length; i++) {
-        final ref = FirebaseFirestore.instance
-            .collection('products')
-            .doc(_pinnedProducts[i].id);
-        batch.update(ref, {'sortOrder': i + 1});
+        allOps.add(MapEntry(
+          FirebaseFirestore.instance
+              .collection('products')
+              .doc(_pinnedProducts[i].id),
+          i + 1,
+        ));
       }
-      // إعادة تصفير ترتيب الباقي
       for (final p in _restProducts) {
-        final ref = FirebaseFirestore.instance.collection('products').doc(p.id);
-        batch.update(ref, {'sortOrder': 0});
+        allOps.add(MapEntry(
+          FirebaseFirestore.instance.collection('products').doc(p.id),
+          999,
+        ));
       }
 
-      await batch.commit();
+      for (int i = 0; i < allOps.length; i += 450) {
+        final batch = FirebaseFirestore.instance.batch();
+        final chunk = allOps.sublist(i, (i + 450).clamp(0, allOps.length));
+        for (final entry in chunk) {
+          batch.update(entry.key, {'sortOrder': entry.value});
+        }
+        await batch.commit();
+      }
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ تم حفظ ترتيب المنتجات'),
-              backgroundColor: Colors.green));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('✅ تم حفظ ترتيب المنتجات'),
+          backgroundColor: Colors.green));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('حدث خطأ، حاول مجدداً'),
-              backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('حدث خطأ، حاول مجدداً'),
+          backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -148,14 +163,19 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
         foregroundColor: Colors.white,
         actions: [
           if (_isSaving)
-            const Padding(padding: EdgeInsets.all(14),
-                child: SizedBox(width: 20, height: 20,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)))
+            const Padding(
+                padding: EdgeInsets.all(14),
+                child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2)))
           else
             TextButton.icon(
               onPressed: _saveOrder,
               icon: const Icon(Icons.save, color: Colors.white),
-              label: const Text('حفظ', style: TextStyle(color: Colors.white)),
+              label:
+                  const Text('حفظ', style: TextStyle(color: Colors.white)),
             ),
         ],
         bottom: TabBar(
@@ -178,36 +198,36 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
     );
   }
 
-  // ─── تبويب الترتيب ───────────────────────────────────────
   Widget _buildOrderTab() {
     return Column(children: [
-      // شرح
       Container(
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: const Color(0xFF5E35B1).withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF5E35B1).withValues(alpha: 0.2)),
+          border: Border.all(
+              color: const Color(0xFF5E35B1).withValues(alpha: 0.2)),
         ),
         child: const Row(children: [
           Icon(Icons.info_outline, color: Color(0xFF5E35B1), size: 18),
           SizedBox(width: 8),
-          Expanded(child: Text(
-            'اسحب المنتجات لترتيبها. أول 10 تظهر في صفحتك.',
+          Expanded(
+              child: Text(
+            'اسحب المنتجات لترتيبها. أول 10 تظهر مثبتة في مقدمة صفحتك.',
             style: TextStyle(fontSize: 13, color: Color(0xFF5E35B1)),
           )),
         ]),
       ),
 
-      // المنتجات المثبّتة
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         child: Row(children: [
           const Icon(Icons.push_pin, size: 16, color: Colors.orange),
           const SizedBox(width: 6),
           Text('المنتجات المميزة (${_pinnedProducts.length}/10)',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         ]),
       ),
       if (_pinnedProducts.isEmpty)
@@ -222,8 +242,6 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
           child: ReorderableListView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: _pinnedProducts.length,
-            // onReorderItem بيدّينا newIndex معدّل لحذف العنصر من oldIndex بالفعل
-            // (onReorder القديم كان محتاج `if (newIndex > oldIndex) newIndex--`)
             onReorderItem: (oldIndex, newIndex) {
               setState(() {
                 final item = _pinnedProducts.removeAt(oldIndex);
@@ -236,15 +254,18 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
                 key: ValueKey(p.id),
                 leading: CircleAvatar(
                   backgroundColor: const Color(0xFF5E35B1),
-                  child: Text('${i + 1}', style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text('${i + 1}',
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
                 title: Text(p.name, style: const TextStyle(fontSize: 14)),
-                subtitle: Text('${p.price} ج', style: const TextStyle(fontSize: 12)),
+                subtitle:
+                    Text('${p.price} ج', style: const TextStyle(fontSize: 12)),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.drag_handle, color: Colors.grey),
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: Colors.red, size: 20),
+                    icon: const Icon(Icons.remove_circle_outline,
+                        color: Colors.red, size: 20),
                     onPressed: () => _unpin(p),
                   ),
                 ]),
@@ -255,14 +276,15 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
 
       const Divider(),
 
-      // بقية المنتجات
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
         child: Row(children: [
           const Icon(Icons.list_alt, size: 16, color: Colors.grey),
           const SizedBox(width: 6),
           Text('بقية المنتجات (${_restProducts.length})',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14,
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
                   color: Colors.grey)),
         ]),
       ),
@@ -273,9 +295,11 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
           itemBuilder: (_, i) {
             final p = _restProducts[i];
             return ListTile(
-              leading: const Icon(Icons.inventory_2_outlined, color: Colors.grey),
+              leading:
+                  const Icon(Icons.inventory_2_outlined, color: Colors.grey),
               title: Text(p.name, style: const TextStyle(fontSize: 14)),
-              subtitle: Text('${p.price} ج', style: const TextStyle(fontSize: 12)),
+              subtitle:
+                  Text('${p.price} ج', style: const TextStyle(fontSize: 12)),
               trailing: IconButton(
                 icon: const Icon(Icons.add_circle_outline,
                     color: Color(0xFF5E35B1)),
@@ -288,29 +312,30 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
     ]);
   }
 
-  // ─── تبويب القوائم ─────────────────────────────────────────
   Widget _buildListsTab() {
     final groups = <String, List<Product>>{};
     for (final p in _allProducts) {
-      final key = p.listName.isEmpty ? 'بدون قائمة' : p.listName;
+      final lName = (p.listName ?? '').trim();
+      final key = lName.isEmpty ? 'بدون قائمة' : lName;
       groups.putIfAbsent(key, () => []).add(p);
     }
 
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        // إضافة قائمة جديدة
         Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: ListTile(
-            leading: const Icon(Icons.add_box_outlined, color: Color(0xFF5E35B1)),
+            leading:
+                const Icon(Icons.add_box_outlined, color: Color(0xFF5E35B1)),
             title: const Text('إنشاء قائمة جديدة'),
             onTap: _showNewListDialog,
           ),
         ),
         const SizedBox(height: 8),
-        // عرض كل مجموعة
-        ...groups.entries.map((entry) => _buildGroupCard(entry.key, entry.value)),
+        ...groups.entries
+            .map((entry) => _buildGroupCard(entry.key, entry.value)),
       ],
     );
   }
@@ -335,19 +360,24 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
           Text('${products.length} منتج',
               style: TextStyle(color: Colors.grey[500], fontSize: 12)),
         ]),
-        children: products.map((p) => ListTile(
-          dense: true,
-          title: Text(p.name, style: const TextStyle(fontSize: 13)),
-          subtitle: Text('${p.price} ج', style: const TextStyle(fontSize: 11)),
-          trailing: PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, size: 18),
-            onSelected: (val) => _showMoveToListDialog(p, val),
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'move', child: Text('نقل لقائمة أخرى')),
-              const PopupMenuItem(value: 'remove', child: Text('إزالة من القائمة')),
-            ],
-          ),
-        )).toList(),
+        children: products
+            .map((p) => ListTile(
+                  dense: true,
+                  title: Text(p.name, style: const TextStyle(fontSize: 13)),
+                  subtitle: Text('${p.price} ج',
+                      style: const TextStyle(fontSize: 11)),
+                  trailing: PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, size: 18),
+                    onSelected: (val) => _showMoveToListDialog(p, val),
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                          value: 'move', child: Text('نقل لقائمة أخرى')),
+                      const PopupMenuItem(
+                          value: 'remove', child: Text('إزالة من القائمة')),
+                    ],
+                  ),
+                ))
+            .toList(),
       ),
     );
   }
@@ -356,7 +386,7 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
     final ctrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('اسم القائمة الجديدة'),
         content: TextField(
           controller: ctrl,
@@ -365,22 +395,31 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
               hintText: 'مثال: وجبات رئيسية', border: OutlineInputBorder()),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5E35B1)),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5E35B1)),
             onPressed: () {
-              if (ctrl.text.trim().isNotEmpty) {
-                setState(() => _productLists.add(ctrl.text.trim()));
-                Navigator.pop(context);
+              final name = ctrl.text.trim();
+              if (name.isNotEmpty) {
+                setState(() {
+                  if (!_productLists.contains(name)) {
+                    _productLists.add(name);
+                  }
+                });
+                Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('تم إنشاء قائمة "${ctrl.text.trim()}"')));
+                    SnackBar(content: Text('تم إنشاء قائمة "$name"')));
               }
             },
-            child: const Text('إنشاء', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('إنشاء', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
-    );
+    ).whenComplete(() => ctrl.dispose());
   }
 
   void _showMoveToListDialog(Product p, String action) {
@@ -393,13 +432,15 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
       context: context,
       builder: (_) => SimpleDialog(
         title: Text('نقل "${p.name}" إلى'),
-        children: lists.map((l) => SimpleDialogOption(
-          onPressed: () {
-            Navigator.pop(context);
-            _saveListName(p, l == 'بدون قائمة' ? '' : l);
-          },
-          child: Text(l),
-        )).toList(),
+        children: lists
+            .map((l) => SimpleDialogOption(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _saveListName(p, l == 'بدون قائمة' ? '' : l);
+                  },
+                  child: Text(l),
+                ))
+            .toList(),
       ),
     );
   }

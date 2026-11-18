@@ -5,163 +5,194 @@ service firebase.storage {
     // ── Helpers ──────────────────────────────────────────────────────────────
     function isAuth() { return request.auth != null; }
 
-    // ✅ Fix #17: إغلاق Storage أمام الجلسة المجهولة "العارية".
-    // قبل الإصلاح كان isAuth() وحده يكفي — والجلسة المجهولة مجانية لأي أحد معه
-    // مفتاح المشروع العام — لرفع أو مسح صور أي محل أو منتج. الآن كل رفع/حذف
-    // يمرّ بهوية التطبيق ودورها، بنفس منطق appUid() في firestore.rules:
-    //   • جلسة حقيقية (Phone Auth وغيرها): الهوية = request.auth.uid.
-    //   • جلسة Mock (مجهولة): الهوية من وثيقة الربط auth_sessions/{uid}؛ وبدون
-    //     ربط تفشل كل الفحوص (الجلسة المجهولة العارية لا ترفع ولا تمسح شيئاً).
-    //   • الدور (merchant / admin ...) يُقرأ من users/{الهوية}.userType.
-    // ⚠️ وثيقة الربط يكتبها العميل نفسه (الدخول التجريبي بلا تحقق خادمي)، فهذا
-    // مقبول في مرحلة الاختبار فقط. قبل الإطلاق الرسمي مع Phone Auth: اجعل
-    // allowMockSessions() ترجع false فتُغلَق Storage كلياً أمام أي جلسة مجهولة.
-    // ملاحظة نشر: اعتماد Storage Rules على Firestore يحتاج منح دور
-    // "Firebase Rules Firestore Service Agent" (يعرضه firebase deploy مرة واحدة).
-    // كل قاعدة أدناه تستدعي firestore.get/exists مرتين على الأكثر (حدّ Storage).
-    function allowMockSessions() { return true; }
+    // ✅ Security Fix (P0): إغلاق الجلسات المجهولة ومنع انتحال الهوية عبر auth_sessions في الإنتاج
+    function allowMockSessions() { return false; }
+
     function isAnonymousSession() {
       return request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
+
     function sessionAllowed() {
       return isAuth() && (!isAnonymousSession() || allowMockSessions());
     }
+
     function appUid() {
-      return isAnonymousSession()
-        ? firestore.get(/databases/(default)/documents/auth_sessions/$(request.auth.uid)).data.appUserId
-        : request.auth.uid;
+      return request.auth.uid;
     }
-    // جلسة بهوية معروفة (بدون اشتراط دور): حقيقية، أو Mock مربوطة
+
     function hasIdentity() {
-      return sessionAllowed()
-        && (!isAnonymousSession()
-          || firestore.exists(/databases/(default)/documents/auth_sessions/$(request.auth.uid)));
+      return sessionAllowed();
     }
+
     function isOwner(uid) { return sessionAllowed() && appUid() == uid; }
-    // تاجر أو مشرف: لرفع/مسح وسائط المحلات والمنتجات والعروض والإعلانات
+
+    function isStaff() {
+      return sessionAllowed()
+        && firestore.get(/databases/(default)/documents/users/$(appUid())).data.userType in ['admin', 'super_admin', 'moderator'];
+    }
+
     function isMerchantOrStaff() {
       return sessionAllowed()
         && firestore.get(/databases/(default)/documents/users/$(appUid())).data.userType in ['merchant', 'admin', 'super_admin', 'moderator'];
     }
+
+    function canManageShopStorage(shopId) {
+      return sessionAllowed() && (
+        isStaff()
+        || (firestore.exists(/databases/(default)/documents/shops/$(shopId))
+            && firestore.get(/databases/(default)/documents/shops/$(shopId)).data.ownerId == appUid())
+      );
+    }
+
+    // ✅ التحقق من ملكية الملف عبر customMetadata.ownerId عند الحذف أو الاستبدال، مع السماح للإدارة
+    function isFileOwnerOrStaff() {
+      return hasIdentity() && (
+        (resource != null && resource.metadata != null && 'ownerId' in resource.metadata && resource.metadata.ownerId == appUid())
+        || isStaff()
+      );
+    }
+
+    function canWriteMerchantAsset() {
+      return isMerchantOrStaff() && (
+        resource == null
+        || (resource.metadata != null && 'ownerId' in resource.metadata && resource.metadata.ownerId == appUid())
+        || isStaff()
+      );
+    }
+
+    function canDeleteMerchantAsset() {
+      return isMerchantOrStaff() && (
+        resource == null
+        || resource.metadata == null
+        || !('ownerId' in resource.metadata)
+        || resource.metadata.ownerId == appUid()
+        || isStaff()
+      );
+    }
+
     function isImage() {
       return request.resource.contentType.matches('image/.*');
     }
+
     function isVideo() {
       return request.resource.contentType.matches('video/.*');
     }
-    // ✅ Fix #137: حد أقصى 10MB للصور، 100MB للفيديو — يطابق حدود
-    // MediaUploadService.maxImageBytes / maxVideoBytes تماماً
+
     function maxImageSize() { return request.resource.size < 10 * 1024 * 1024; }
     function maxVideoSize() { return request.resource.size < 100 * 1024 * 1024; }
     function maxAvatarSize() { return request.resource.size < 3 * 1024 * 1024; }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // ✅ إصلاح جوهري (مشكلة #3 — كراش رفع الصور): كل المسارات أدناه أُعيدت
-    // كتابتها لتطابق بالضبط المسارات المسطّحة الفعلية التي يكتب إليها
-    // MediaUploadService في الكود — وليس بنية متداخلة افتراضية
-    // (folder/{ownerId}/file) لم تكن موجودة في الكود من الأساس. كانت هذه
-    // الفجوة تعني أن كل رفعة تقريباً تُرفَض فوراً بخطأ storage/unauthorized
-    // من الخادم وتسقط على قاعدة الرفض الشاملة في نهاية الملف، بصرف النظر
-    // عن أي إصلاح تم في طبقة Dart (معالجة الأخطاء، شريط التقدم، ...).
-    //
-    // ✅ Fix #17: هوية Mock Auth تُحَلّ عبر appUid() أعلاه (انظر firestore.rules)
-    // بدل الاكتفاء بـ isAuth(). المسارات المسطّحة (بلا معرّف مستخدم في المسار)
-    // تُحرَس بالدور (تاجر/مشرف، أو أي هوية معروفة)، والمسارات التي فيها معرّف
-    // المستخدم (users/{userId}، complaint_attachments/{userId}) تُحرَس بالملكية.
-    // تقييد الحذف بصاحب الملف نفسه في المسارات المسطّحة (بند 45) يحتاج حفظ
-    // معرّف المالك كـ custom metadata عند الرفع — وليس ضمن هذا البند.
-    // ══════════════════════════════════════════════════════════════════════
-
-    // ── صورة الملف الشخصي — يطابق account_edit_screen.dart: 'users/$userId' ──
+    // ── صورة الملف الشخصي ───────────────────────────────────────────────────
     match /users/{userId}/{allPaths=**} {
       allow read: if true;
       allow write: if isOwner(userId) && isImage() && maxAvatarSize();
-      allow delete: if isOwner(userId);
+      allow delete: if isOwner(userId) || isStaff();
     }
 
-    // ── شعار المحل — مسطّح، يطابق shop_service.dart: 'shop_logos' ───────────
+    // ── شعارات وأغلفة ووسائط المحل ──────────────────────────────────────────
+    match /shops/{allPaths=**} {
+      allow read: if true;
+      allow write: if canWriteMerchantAsset() && (isImage() || isVideo()) && maxVideoSize();
+      allow delete: if canDeleteMerchantAsset();
+    }
+
     match /shop_logos/{allPaths=**} {
       allow read: if true;
-      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
-      allow delete: if isMerchantOrStaff();
+      allow write: if canWriteMerchantAsset() && isImage() && maxImageSize();
+      allow delete: if canDeleteMerchantAsset();
     }
 
-    // ── غلاف المحل — مسطّح، يطابق shop_service.dart: 'shop_covers' ──────────
     match /shop_covers/{allPaths=**} {
       allow read: if true;
-      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
-      allow delete: if isMerchantOrStaff();
+      allow write: if canWriteMerchantAsset() && isImage() && maxImageSize();
+      allow delete: if canDeleteMerchantAsset();
     }
 
-    // ── صور معرض وسائط المحل — يطابق shop_service.dart: 'shop_media' ────────
     match /shop_media/{allPaths=**} {
       allow read: if true;
-      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
-      allow delete: if isMerchantOrStaff();
+      allow write: if canWriteMerchantAsset() && isImage() && maxImageSize();
+      allow delete: if canDeleteMerchantAsset();
     }
 
-    // ✅ إضافة مفقودة بالكامل: فيديوهات معرض وسائط المحل — يطابق
-    // shop_service.dart: 'shop_media_videos' — لم يكن لها أي قاعدة أصلاً
     match /shop_media_videos/{allPaths=**} {
       allow read: if true;
-      allow write: if isMerchantOrStaff() && isVideo() && maxVideoSize();
-      allow delete: if isMerchantOrStaff();
+      allow write: if canWriteMerchantAsset() && isVideo() && maxVideoSize();
+      allow delete: if canDeleteMerchantAsset();
     }
 
-    // ── صور المنتجات — الاسم مُصحَّح لصيغة الجمع 'products_images' ──────────
+    // ── صور المنتجات (products و products_images) ───────────────────────────
+    match /products/{allPaths=**} {
+      allow read: if true;
+      allow write: if canWriteMerchantAsset() && isImage() && maxImageSize();
+      allow delete: if canDeleteMerchantAsset();
+    }
+
     match /products_images/{allPaths=**} {
       allow read: if true;
-      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
-      allow delete: if isMerchantOrStaff();
+      allow write: if canWriteMerchantAsset() && isImage() && maxImageSize();
+      allow delete: if canDeleteMerchantAsset();
     }
 
-    // ── صور العروض — الاسم مُصحَّح لصيغة الجمع 'offers_images' ──────────────
+    // ── صور العروض (offers و offers_images) ─────────────────────────────────
+    match /offers/{allPaths=**} {
+      allow read: if true;
+      allow write: if canWriteMerchantAsset() && isImage() && maxImageSize();
+      allow delete: if canDeleteMerchantAsset();
+    }
+
     match /offers_images/{allPaths=**} {
       allow read: if true;
-      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
-      allow delete: if isMerchantOrStaff();
+      allow write: if canWriteMerchantAsset() && isImage() && maxImageSize();
+      allow delete: if canDeleteMerchantAsset();
     }
 
-    // ── صور الإعلانات التجارية — يطابق ad_service.dart: 'ad_images' ─────────
+    // ── صور وفيديوهات الإعلانات التجارية ────────────────────────────────────
     match /ad_images/{allPaths=**} {
       allow read: if true;
-      allow write: if isMerchantOrStaff() && isImage() && maxImageSize();
-      allow delete: if isMerchantOrStaff();
+      allow write: if canWriteMerchantAsset() && isImage() && maxImageSize();
+      allow delete: if canDeleteMerchantAsset();
     }
 
-    // ✅ إضافة مفقودة بالكامل: فيديوهات الإعلانات — يطابق ad_service.dart:
-    // 'ads/$shopId/pending' — المسار الوحيد المتداخل فعلياً بمعرّف المحل
     match /ads/{shopId}/pending/{allPaths=**} {
       allow read: if true;
-      allow write: if isMerchantOrStaff() && isVideo() && maxVideoSize();
-      allow delete: if isMerchantOrStaff();
+      allow write: if canManageShopStorage(shopId) && isVideo() && maxVideoSize();
+      allow delete: if canManageShopStorage(shopId);
     }
 
-    // ── صور التقييمات — الاسم مُصحَّح لصيغة الجمع 'reviews_images' ──────────
+    match /ads/{allPaths=**} {
+      allow read: if true;
+      allow write: if canWriteMerchantAsset() && (isImage() || isVideo()) && maxVideoSize();
+      allow delete: if canDeleteMerchantAsset();
+    }
+
+    // ── صور التقييمات (reviews و reviews_images) ────────────────────────────
+    match /reviews/{allPaths=**} {
+      allow read: if true;
+      allow write: if hasIdentity() && isImage() && maxImageSize();
+      allow delete: if isFileOwnerOrStaff();
+    }
+
     match /reviews_images/{allPaths=**} {
       allow read: if true;
       allow write: if hasIdentity() && isImage() && maxImageSize();
-      allow delete: if hasIdentity();
+      allow delete: if isFileOwnerOrStaff();
     }
 
-    // ── صور إعلانات سنهور ديلر — الاسم مُصحَّح 'dealer_listings' ────────────
-    // (وليس dealer_images كما كان سابقاً — يطابق sanhour_dealer_screen.dart)
+    // ── صور إعلانات سنهور ديلر ─────────────────────────────────────────────
     match /dealer_listings/{allPaths=**} {
       allow read: if true;
       allow write: if hasIdentity() && isImage() && maxImageSize();
-      allow delete: if hasIdentity();
+      allow delete: if isFileOwnerOrStaff();
     }
 
-    // ── مرفقات الشكاوى ────────────────────────────────────────────────────
-    // ✅ Fix #17: الرفع والحذف داخل مجلد صاحب الشكوى فقط (كان أي جلسة تكتب في
-    // مجلد أي مستخدم). شرط القراءة `|| true` يبقى كما هو — يعالجه بند 45.
+    // ── مرفقات الشكاوى ──────────────────────────────────────────────────────
     match /complaint_attachments/{userId}/{allPaths=**} {
-      allow read: if isAuth() && (request.auth.uid == userId || true);
+      allow read: if isOwner(userId) || isStaff();
       allow write: if isOwner(userId) && isImage() && maxImageSize();
-      allow delete: if isOwner(userId);
+      allow delete: if isOwner(userId) || isStaff();
     }
 
-    // ── Fallback: رفض كل شيء آخر ─────────────────────────────────────────────
+    // ── Fallback: رفض الكتابة في أي مسار غير معرّف ──────────────────────────
     match /{allPaths=**} {
       allow read: if true;
       allow write: if false;

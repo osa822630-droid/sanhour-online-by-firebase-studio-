@@ -7,7 +7,13 @@ import '../services/api_service.dart';
 import 'my_complaints_screen.dart';
 
 class ReportProblemScreen extends StatefulWidget {
-  const ReportProblemScreen({super.key});
+  final String? initialTitle;
+  final String? initialType;
+  const ReportProblemScreen({
+    super.key,
+    this.initialTitle,
+    this.initialType,
+  });
 
   @override
   State<ReportProblemScreen> createState() => _ReportProblemScreenState();
@@ -24,7 +30,10 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController();
+    if (widget.initialType != null && widget.initialType!.isNotEmpty) {
+      _type = widget.initialType!;
+    }
+    _titleController = TextEditingController(text: widget.initialTitle ?? '');
     _detailsController = TextEditingController();
   }
 

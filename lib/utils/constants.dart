@@ -1,44 +1,23 @@
-// lib_utils_constants.dart
+// lib/utils/constants.dart
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
 // =========================================================
-// 0. أعلام البناء (Build Flags) — ✅ إصلاح مشكلتَي #5 و#6
+// 0. أعلام البناء (Build Flags)
 // =========================================================
-// الداتا الوهمية (DatabaseSeeder) والحسابات الوهمية (Mock Login) كانتا
-// معطَّلتين بالكامل في أي بناء بخلاف kDebugMode — يعني `flutter build apk`
-// العادي (وهو release افتراضياً) كان يُعطِّلهما تماماً، رغم أن التطبيق ما
-// زال في مرحلة اختبار ولا يحتاج تسجيل دخول حقيقي بعد.
-//
-// الحل: علامة بناء صريحة إضافية (`--dart-define`) منفصلة تماماً عن نوع
-// البناء (debug/release) — تتيح لك بناء APK بمزايا الاختبار فعّالة حتى
-// لو كان "release" من ناحية التحسين والأداء:
-//
-//   flutter build apk --release --dart-define=ENABLE_MOCK_MODE=true
-//
-// وبناء عادي (بدون هذه المزايا، جاهز أقرب للإطلاق الفعلي):
-//
-//   flutter build apk --release
-//
-// ملاحظة: تبقى مزايا الاختبار مُفعَّلة تلقائياً دائماً أثناء `flutter run`
-// العادي (kDebugMode) دون الحاجة لأي علامة إضافية — هذا التغيير لا يكسر
-// سير العمل الحالي في وضع التطوير إطلاقاً.
 class BuildFlags {
   BuildFlags._();
 
   static const bool _explicitMockFlag =
       bool.fromEnvironment('ENABLE_MOCK_MODE', defaultValue: false);
 
-  /// ✅ true في: (أ) أي تشغيل Debug عادي (flutter run)، أو
-  /// (ب) أي بناء يحمل صراحةً --dart-define=ENABLE_MOCK_MODE=true
   static bool get mockModeEnabled => kDebugMode || _explicitMockFlag;
 }
 
 // =========================================================
-// 1. ثوابت التطبيق الرئيسية (App Info & Colors)
+// 1. ثوابت التطبيق الرئيسية وأدوات تطبيع الأرقام (AppConstants)
 // =========================================================
 class AppConstants {
-  // ✅ منع إنشاء نسخة من الكلاس (Optimization)
   AppConstants._();
 
   // معلومات التطبيق
@@ -67,7 +46,7 @@ class AppConstants {
 
   // ألوان الخلفية
   static const Color backgroundLight = Color(0xFFF5F5F5);
-  static const Color backgroundDark = Color(0xFF121212);
+  static const Color backgroundDark = Color(0xFF0E0E1A);
   static const Color cardColor = Color(0xFFFFFFFF);
   static const Color dialogBackground = Color(0xFFFFFFFF);
 
@@ -78,20 +57,62 @@ class AppConstants {
   static const Color rejectedColor = Color(0xFFF44336);
 
   // الروابط والشبكات
-  static const String baseUrl = 'https://api.sanhour.com';
-  static const String imageBaseUrl = 'https://images.sanhour.com';
-  static const String termsUrl = 'https://sanhour.com/terms';
-  static const String privacyUrl = 'https://sanhour.com/privacy';
-  static const String supportEmail = 'support@sanhour.com';
-  static const String supportPhone = '+20123456789';
+  static const String baseUrl = 'https://sanhour.online';
+  static const String imageBaseUrl = 'https://sanhour.online/images';
+  static const String termsUrl = 'https://sanhour.online/terms';
+  static const String privacyUrl = 'https://sanhour.online/privacy';
+  static const String supportEmail = 'support@sanhour.online';
+  static const String supportPhone = '+201000000000';
 
+  // Gemini AI
+  static const String geminiApiKey = '';
+  static const String geminiModel = 'gemini-2.5-flash';
+  static const String geminiBaseUrl =
+      'https://generativelanguage.googleapis.com/v1beta/models';
 
-  // ✅ Gemini AI
-  // ✅ Fix #127: لا placeholder ثابت في الكود — المفتاح يُحمَّل من Firestore فقط (settings/general.geminiApiKey)
-  // GeminiService.setApiKey() تُستدعى من AuthProvider بعد تسجيل الدخول
-  static const String geminiApiKey = ''; // فارغ عمداً — لا تضع API key هنا أبداً
-  static const String geminiModel = 'gemini-1.5-flash';
-  static const String geminiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
+  /// تطبيع رقم الهاتف المصري للصيغة الموحدة بـ Firestore (`+201xxxxxxxxx`)
+  static String normalizePhone(String raw) {
+    // تحويل الأرقام العربية الشرقية (٠-٩) إلى أرقام لاتينية (0-9)
+    const eastern = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    var cleaned = raw.trim();
+    for (int i = 0; i < eastern.length; i++) {
+      cleaned = cleaned.replaceAll(eastern[i], '$i');
+    }
+    final digits = cleaned.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) return '';
+    if (digits.startsWith('0020') && digits.length >= 14) {
+      return '+${digits.substring(2)}';
+    }
+    if (digits.startsWith('20') && digits.length == 12) {
+      return '+$digits';
+    }
+    if (digits.startsWith('01') && digits.length == 11) {
+      return '+2$digits';
+    }
+    if (digits.startsWith('1') && digits.length == 10) {
+      return '+20$digits';
+    }
+    return cleaned.startsWith('+') ? '+$digits' : '+2$digits';
+  }
+
+  /// إرجاع صيغتي رقم الهاتف المحتملتين في Firestore (`+201...` و`01...`) للبحث المرن
+  static List<String> phoneLookupCandidates(String raw) {
+    final normalized = normalizePhone(raw);
+    if (normalized.isEmpty) return const [];
+    final local = normalized.startsWith('+20')
+        ? '0${normalized.substring(3)}'
+        : normalized;
+    return {normalized, local, raw.trim()}.where((s) => s.isNotEmpty).toList();
+  }
+
+  /// تطبيع رقم الهاتف لروابط `https://wa.me/<digits>` (بدون `+` وبكود الدولة `20`)
+  static String normalizeWhatsAppPhone(String raw) {
+    final normalized = normalizePhone(raw);
+    if (normalized.startsWith('+')) {
+      return normalized.substring(1);
+    }
+    return normalized;
+  }
 
   // إعدادات التطبيق
   static const int itemsPerPage = 20;
@@ -123,12 +144,13 @@ class AppConstants {
   static const String contentTypeCategory = 'category';
 
   // إعدادات الوقت
-  static const int notificationCheckInterval = 300; // 5 دقائق
-  static const int autoRefreshInterval = 60000; // 1 دقيقة
-  static const int sessionTimeout = 3600000; // 1 ساعة
+  static const int notificationCheckInterval = 300;
+  static const int autoRefreshInterval = 60000;
+  static const int sessionTimeout = 3600000;
 
   // المفاتيح المحلية (Shared Preferences Keys)
   static const String keyAuthToken = 'auth_token';
+  static const String keyUserId = 'user_id';
   static const String keyUserData = 'user_data';
   static const String keyThemeMode = 'theme_mode';
   static const String keyLanguage = 'language';
@@ -194,26 +216,22 @@ class AppConstants {
 class DesignConstants {
   DesignConstants._();
 
-  // المسافات والحواف
   static const double paddingExtraSmall = 4.0;
   static const double paddingSmall = 8.0;
   static const double paddingMedium = 16.0;
   static const double paddingLarge = 24.0;
   static const double paddingExtraLarge = 32.0;
 
-  // أنصاف الأقطار
   static const double borderRadiusSmall = 8.0;
   static const double borderRadiusMedium = 12.0;
   static const double borderRadiusLarge = 16.0;
   static const double borderRadiusExtraLarge = 24.0;
 
-  // أحجام العناصر
   static const double iconSizeSmall = 16.0;
   static const double iconSizeMedium = 24.0;
   static const double iconSizeLarge = 32.0;
   static const double iconSizeExtraLarge = 48.0;
 
-  // ارتفاعات العناصر
   static const double buttonHeightSmall = 36.0;
   static const double buttonHeightMedium = 48.0;
   static const double buttonHeightLarge = 56.0;
@@ -221,14 +239,12 @@ class DesignConstants {
   static const double bottomBarHeight = 64.0;
   static const double inputFieldHeight = 56.0;
 
-  // عروض العناصر
   static const double buttonMinWidth = 88.0;
   static const double dialogWidth = 400.0;
   static const double sideMenuWidth = 280.0;
   static const double productImageSize = 120.0;
   static const double shopImageSize = 80.0;
 
-  // الظلال
   static const BoxShadow cardShadowSmall = BoxShadow(
     color: Color(0x1A000000),
     blurRadius: 4.0,
@@ -247,13 +263,11 @@ class DesignConstants {
     offset: Offset(0, 8),
   );
 
-  // مدة الحركات
   static const Duration animationDurationShort = Duration(milliseconds: 200);
   static const Duration animationDurationMedium = Duration(milliseconds: 300);
   static const Duration animationDurationLong = Duration(milliseconds: 500);
   static const Duration pageTransitionDuration = Duration(milliseconds: 300);
 
-  // منحنيات الحركات
   static const Curve standardCurve = Curves.easeInOut;
   static const Curve bounceCurve = Curves.bounceOut;
   static const Curve elasticCurve = Curves.elasticOut;
@@ -265,7 +279,6 @@ class DesignConstants {
 class ContentConstants {
   ContentConstants._();
 
-  // أيام الأسبوع
   static const Map<int, String> weekDays = {
     1: 'السبت',
     2: 'الأحد',
@@ -276,7 +289,6 @@ class ContentConstants {
     7: 'الجمعة',
   };
 
-  // أشهر السنة
   static const Map<int, String> months = {
     1: 'يناير',
     2: 'فبراير',
@@ -294,46 +306,6 @@ class ContentConstants {
 }
 
 // =========================================================
-// 4. ثوابت الشبكة (API Endpoints)
-// =========================================================
-class ApiConstants {
-  ApiConstants._();
-
-  static const String baseUrl = 'https://api.sanhour.com';
-
-  static const String login = '/auth/login';
-  static const String register = '/auth/register';
-  static const String logout = '/auth/logout';
-  static const String profile = '/auth/profile';
-
-  static const String shops = '/shops';
-  static const String shopsFeatured = '/shops/featured';
-  static const String shopsTop = '/shops/top';
-
-  static const String products = '/products';
-  static const String productsByShop = '/products/shop';
-  static const String productsTop = '/products/top';
-
-  static const String offers = '/offers';
-  static const String offersActive = '/offers/active';
-  static const String offersExpiring = '/offers/expiring';
-
-  static const String favorites = '/favorites';
-  static const String reviews = '/reviews';
-  static const String ratings = '/ratings';
-
-  static const String analytics = '/analytics';
-  static const String stats = '/stats';
-  static const String dashboard = '/dashboard';
-
-  static const String upload = '/upload';
-  static const String excel = '/excel';
-
-  static const String notifications = '/notifications';
-  static const String settings = '/settings';
-}
-
-// =========================================================
 // 5. ثوابت الإشعارات (Notifications)
 // =========================================================
 class NotificationConstants {
@@ -347,7 +319,7 @@ class NotificationConstants {
   static const Map<String, String> channels = {
     channelGeneral: 'إشعارات عامة',
     channelOffers: 'عروض وتخفيضات',
-    channelOrders: 'تحديثات الطلبات',
+    channelOrders: 'طلبات الخدمات والوظائف',
     channelSystem: 'إشعارات النظام',
   };
 

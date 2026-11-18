@@ -1,32 +1,56 @@
 // lib/services/stats_service.dart
 import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class StatsService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // ==========================================================
-  // 1. تسجيل الزيارات والتفاعل (Logging) - حقيقي
+  // 1. تسجيل الزيارات والتفاعل (Logging) - حقيقي ومعزول الأخطاء
   // ==========================================================
 
   static Future<void> logShopVisit(String shopId) async {
-    // ✅ QA Fix #19: FieldValue.increment بدلاً من Transaction لتجنب Firestore contention
-    // FieldValue.increment ذري تلقائياً — لا حاجة لـ transaction
     try {
       final today = DateTime.now();
       final dateKey = '${today.year}-${today.month}-${today.day}';
       final shopRef = _firestore.collection('shops').doc(shopId);
 
+      // ✅ Item #49: حساب uniqueVisitors الفعلي مرة واحدة لكل جهاز/مستخدم لكل محل
+      bool isFirstVisit = false;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final visited = prefs.getStringList('visited_shops_unique') ?? <String>[];
+        if (!visited.contains(shopId)) {
+          visited.add(shopId);
+          await prefs.setStringList('visited_shops_unique', visited);
+          isFirstVisit = true;
+        }
+      } catch (_) {}
+
+      final rootUpdate = <String, dynamic>{
+        'views': FieldValue.increment(1),
+        if (isFirstVisit) 'uniqueVisitors': FieldValue.increment(1),
+      };
+
       await Future.wait([
-        shopRef.update({'views': FieldValue.increment(1)}),
+        shopRef
+            .update(rootUpdate)
+            .catchError((Object e) {
+          developer.log('logShopVisit root counter error: $e',
+              name: 'StatsService');
+        }),
         shopRef.collection('daily_stats').doc(dateKey).set({
           'views': FieldValue.increment(1),
           'date': Timestamp.fromDate(
               DateTime(today.year, today.month, today.day)),
-        }, SetOptions(merge: true)),
+        }, SetOptions(merge: true)).catchError((Object e) {
+          developer.log('logShopVisit daily_stats error: $e',
+              name: 'StatsService');
+        }),
       ]);
     } catch (e) {
-      developer.log('logShopVisit error: \$e', name: 'StatsService');
+      developer.log('logShopVisit error: $e', name: 'StatsService');
     }
   }
 
@@ -61,14 +85,21 @@ class StatsService {
       final dateKey = '${today.year}-${today.month}-${today.day}';
       final shopRef = _firestore.collection('shops').doc(shopId);
 
-      // زيادة الإجمالي على المحل
-      await shopRef.update({'phoneClicks': FieldValue.increment(1)});
-
-      // تسجيل يومي تفصيلي
-      await shopRef
-          .collection('daily_stats')
-          .doc(dateKey)
-          .set({'phoneClicks': FieldValue.increment(1)}, SetOptions(merge: true));
+      await Future.wait([
+        shopRef
+            .update({'phoneClicks': FieldValue.increment(1)})
+            .catchError((Object e) {
+          developer.log('logPhoneClick root error: $e', name: 'StatsService');
+        }),
+        shopRef
+            .collection('daily_stats')
+            .doc(dateKey)
+            .set({'phoneClicks': FieldValue.increment(1), 'date': Timestamp.fromDate(DateTime(today.year, today.month, today.day))},
+                SetOptions(merge: true))
+            .catchError((Object e) {
+          developer.log('logPhoneClick daily error: $e', name: 'StatsService');
+        }),
+      ]);
     } catch (e) {
       developer.log('logPhoneClick error: $e', name: 'StatsService');
     }
@@ -80,12 +111,23 @@ class StatsService {
       final dateKey = '${today.year}-${today.month}-${today.day}';
       final shopRef = _firestore.collection('shops').doc(shopId);
 
-      await shopRef.update({'whatsappClicks': FieldValue.increment(1)});
-
-      await shopRef
-          .collection('daily_stats')
-          .doc(dateKey)
-          .set({'whatsappClicks': FieldValue.increment(1)}, SetOptions(merge: true));
+      await Future.wait([
+        shopRef
+            .update({'whatsappClicks': FieldValue.increment(1)})
+            .catchError((Object e) {
+          developer.log('logWhatsAppClick root error: $e',
+              name: 'StatsService');
+        }),
+        shopRef
+            .collection('daily_stats')
+            .doc(dateKey)
+            .set({'whatsappClicks': FieldValue.increment(1), 'date': Timestamp.fromDate(DateTime(today.year, today.month, today.day))},
+                SetOptions(merge: true))
+            .catchError((Object e) {
+          developer.log('logWhatsAppClick daily error: $e',
+              name: 'StatsService');
+        }),
+      ]);
     } catch (e) {
       developer.log('logWhatsAppClick error: $e', name: 'StatsService');
     }
@@ -99,11 +141,20 @@ class StatsService {
       final shopRef = _firestore.collection('shops').doc(shopId);
       final field = '${platform}Clicks';
 
-      await shopRef.update({field: FieldValue.increment(1)});
-      await shopRef
-          .collection('daily_stats')
-          .doc(dateKey)
-          .set({field: FieldValue.increment(1)}, SetOptions(merge: true));
+      await Future.wait([
+        shopRef
+            .update({field: FieldValue.increment(1)})
+            .catchError((Object e) {
+          developer.log('logSocialClick root error: $e', name: 'StatsService');
+        }),
+        shopRef
+            .collection('daily_stats')
+            .doc(dateKey)
+            .set({field: FieldValue.increment(1), 'date': Timestamp.fromDate(DateTime(today.year, today.month, today.day))}, SetOptions(merge: true))
+            .catchError((Object e) {
+          developer.log('logSocialClick daily error: $e', name: 'StatsService');
+        }),
+      ]);
     } catch (e) {
       developer.log('logSocialClick error: $e', name: 'StatsService');
     }
@@ -155,9 +206,12 @@ class StatsService {
 
       Map<String, int> dailyViewsMap = {};
       for (var doc in historySnapshot.docs) {
-        DateTime date = (doc['date'] as Timestamp).toDate();
-        String key = '${date.year}-${date.month}-${date.day}';
-        dailyViewsMap[key] = doc['views'] ?? 0;
+        final rawDate = doc.data()['date'];
+        if (rawDate is Timestamp) {
+          DateTime date = rawDate.toDate();
+          String key = '${date.year}-${date.month}-${date.day}';
+          dailyViewsMap[key] = doc.data()['views'] ?? 0;
+        }
       }
 
       String todayKey = '${now.year}-${now.month}-${now.day}';
@@ -223,7 +277,8 @@ class StatsService {
         },
       };
     } catch (e, s) {
-      developer.log("Stats Logic Error: $e", name: 'StatsService', error: e, stackTrace: s);
+      developer.log("Stats Logic Error: $e",
+          name: 'StatsService', error: e, stackTrace: s);
       return {};
     }
   }

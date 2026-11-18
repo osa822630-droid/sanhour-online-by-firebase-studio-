@@ -1,6 +1,8 @@
 // lib/services/gemini_service.dart
+// ✅ توجيه جميع طلبات الذكاء الاصطناعي عبر Cloud Function (askGemini) افتراضياً لحماية مفتاح API على السيرفر
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import '../utils/constants.dart';
 
@@ -20,13 +22,27 @@ class GeminiService {
   GeminiService._internal();
 
   String _apiKey = AppConstants.geminiApiKey;
-  // ✅ Fix #126: rate limiting — حد أدنى ثانيتان بين الطلبات
   DateTime? _lastRequestTime;
   static const Duration _minInterval = Duration(seconds: 2);
 
   void setApiKey(String key) => _apiKey = key;
 
-  // ✅ إرسال رسالة مع تاريخ المحادثة
+  Future<String?> _callCloudGemini(Map<String, dynamic> payload) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('askGemini');
+      final res = await callable.call({
+        'model': AppConstants.geminiModel,
+        'payload': payload,
+      });
+      final data = res.data as Map?;
+      final reply = data?['text']?.toString().trim() ?? '';
+      if (reply.isNotEmpty) return reply;
+    } catch (e) {
+      debugPrint('askGemini Cloud Function error: $e');
+    }
+    return null;
+  }
+
   Future<String> sendMessage({
     required String userMessage,
     required List<GeminiMessage> history,
@@ -34,12 +50,9 @@ class GeminiService {
     String? shopName,
     Map<String, dynamic>? context,
   }) async {
-    // ✅ Fix #129: guard against placeholder API key
-    if (_apiKey.isEmpty || _apiKey.contains('YOUR_GEMINI')) {
-      return 'جاري تحميل المساعد الذكي، يرجى المحاولة مجدداً...';
-    }
+    final bool hasLocalKey =
+        _apiKey.isNotEmpty && !_apiKey.contains('YOUR_GEMINI');
 
-    // ✅ Fix #126: client-side rate limiting
     final now = DateTime.now();
     if (_lastRequestTime != null &&
         now.difference(_lastRequestTime!) < _minInterval) {
@@ -48,53 +61,72 @@ class GeminiService {
     _lastRequestTime = now;
 
     try {
-      final systemPrompt = _buildSystemPrompt(userType, shopName: shopName, context: context);
+      final systemPrompt =
+          _buildSystemPrompt(userType, shopName: shopName, context: context);
 
-      // بناء محادثة بالتنسيق الصحيح
       final contents = <Map<String, dynamic>>[];
 
-      // إضافة التاريخ
       for (final msg in history.take(10)) {
         contents.add({
           'role': msg.isUser ? 'user' : 'model',
-          'parts': [{'text': msg.text}],
+          'parts': [
+            {'text': msg.text}
+          ],
         });
       }
 
-      // إضافة رسالة المستخدم الحالية
       contents.add({
         'role': 'user',
-        'parts': [{'text': userMessage}],
+        'parts': [
+          {'text': userMessage}
+        ],
       });
 
+      final requestPayload = {
+        'system_instruction': {
+          'parts': [
+            {'text': systemPrompt}
+          ]
+        },
+        'contents': contents,
+        'generationConfig': {
+          'temperature': 0.7,
+          'maxOutputTokens': 1024,
+          'topK': 40,
+          'topP': 0.95,
+        },
+        'safetySettings': [
+          {
+            'category': 'HARM_CATEGORY_HARASSMENT',
+            'threshold': 'BLOCK_MEDIUM_AND_ABOVE'
+          },
+          {
+            'category': 'HARM_CATEGORY_HATE_SPEECH',
+            'threshold': 'BLOCK_MEDIUM_AND_ABOVE'
+          },
+        ],
+      };
+
+      // ✅ المسار الأساسي الآمن: استدعاء Cloud Function askGemini دون الحاجة لمفتاح في جهاز المستخدم
+      final cloudReply = await _callCloudGemini(requestPayload);
+      if (cloudReply != null) {
+        return cloudReply;
+      }
+
+      if (!hasLocalKey) {
+        return 'خدمة المساعد الذكي غير متاحة حالياً، يرجى المحاولة لاحقاً.';
+      }
+
       final url =
-          // ✅ Phase 2 Missing Fix #2: API Key نُقل من URL query param لـ HTTP Header
-          // قبل الإصلاح: ?key=xxx → مرئي في كل network log (Charles/Fiddler/Wireshark)
-          // بعد الإصلاح: x-goog-api-key header → لا يظهر في الـ URL
           '${AppConstants.geminiBaseUrl}/${AppConstants.geminiModel}:generateContent';
 
       final response = await http.post(
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': _apiKey, // ✅ Header بدل URL query param
+          'x-goog-api-key': _apiKey,
         },
-        body: jsonEncode({
-          'system_instruction': {
-            'parts': [{'text': systemPrompt}]
-          },
-          'contents': contents,
-          'generationConfig': {
-            'temperature': 0.7,
-            'maxOutputTokens': 1024,
-            'topK': 40,
-            'topP': 0.95,
-          },
-          'safetySettings': [
-            {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
-            {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
-          ],
-        }),
+        body: jsonEncode(requestPayload),
       );
 
       if (response.statusCode == 200) {
@@ -112,7 +144,6 @@ class GeminiService {
     }
   }
 
-  // ✅ رد سريع (اقتراحات جاهزة)
   Future<List<String>> getQuickSuggestions(GeminiUserType userType) async {
     switch (userType) {
       case GeminiUserType.merchant:
@@ -139,18 +170,23 @@ class GeminiService {
     }
   }
 
-  /// ✅ بحث ذكي حقيقي: يُمرَّر له ملخص بيانات المحلات والمنتجات
   Future<String> smartSearch({
     required String query,
     required List<Map<String, dynamic>> shopsSnapshot,
     required List<Map<String, dynamic>> productsSnapshot,
     required GeminiUserType userType,
   }) async {
-    final shopsText = shopsSnapshot.take(30).map((s) =>
-        '- ${s['name']} (${s['category']}) تقييم:${s['rating']} موقع:${s['location']}').join('\n');
+    final shopsText = shopsSnapshot
+        .take(30)
+        .map((s) =>
+            '- ${s['name']} (${s['category']}) تقييم:${s['rating']} موقع:${s['location']}')
+        .join('\n');
 
-    final productsText = productsSnapshot.take(50).map((p) =>
-        '- ${p['name']} سعر:${p['price']}ج قسم:${p['category']} محل:${p['shopId']}').join('\n');
+    final productsText = productsSnapshot
+        .take(50)
+        .map((p) =>
+            '- ${p['name']} سعر:${p['price']}ج قسم:${p['category']} محل:${p['shopId']}')
+        .join('\n');
 
     final systemPrompt = '''أنت مساعد بحث ذكي في تطبيق "سنهور أونلاين".
 بناءً على البيانات التالية، أجب على طلب المستخدم بشكل مباشر ومفيد باللغة العربية.
@@ -165,28 +201,51 @@ $productsText
 قواعد: تجيب بالعربية — تذكر الأسماء والأسعار الحقيقية — لا تخترع بيانات غير موجودة.
 ''';
 
+    final requestPayload = {
+      'system_instruction': {
+        'parts': [
+          {'text': systemPrompt}
+        ]
+      },
+      'contents': [
+        {
+          'role': 'user',
+          'parts': [
+            {'text': query}
+          ]
+        }
+      ],
+      'generationConfig': {'maxOutputTokens': 600, 'temperature': 0.4},
+    };
+
     try {
+      final cloudReply = await _callCloudGemini(requestPayload);
+      if (cloudReply != null) {
+        return cloudReply;
+      }
+
+      final bool hasLocalKey =
+          _apiKey.isNotEmpty && !_apiKey.contains('YOUR_GEMINI');
+      if (!hasLocalKey) {
+        return 'لم أتمكن من الاتصال بالمساعد الذكي حالياً، جرّب البحث بالكلمات المفتاحية.';
+      }
+
       final url =
-          // ✅ smartSearch: API Key في Header أيضاً
           '${AppConstants.geminiBaseUrl}/${AppConstants.geminiModel}:generateContent';
 
       final response = await http.post(
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': _apiKey, // ✅ Header بدل URL query param
+          'x-goog-api-key': _apiKey,
         },
-        body: jsonEncode({
-          'system_instruction': {'parts': [{'text': systemPrompt}]},
-          'contents': [{'role': 'user', 'parts': [{'text': query}]}],
-          'generationConfig': {'maxOutputTokens': 600, 'temperature': 0.4},
-        }),
+        body: jsonEncode(requestPayload),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['candidates']?[0]?['content']?['parts']?[0]?['text']
-            ?? 'لم أجد نتائج مناسبة، جرّب البحث بكلمات أخرى.';
+        return data['candidates']?[0]?['content']?['parts']?[0]?['text'] ??
+            'لم أجد نتائج مناسبة، جرّب البحث بكلمات أخرى.';
       }
       return 'تعذّر الاتصال بالمساعد، حاول مجدداً.';
     } catch (e) {

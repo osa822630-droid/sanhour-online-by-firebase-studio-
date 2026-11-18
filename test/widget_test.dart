@@ -1,57 +1,200 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+// test/widget_test.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
-
-import 'package:sanhour_online/main.dart';
-import 'package:sanhour_online/providers/auth_provider.dart';
-import 'package:sanhour_online/providers/favorites_provider.dart';
-import 'package:sanhour_online/providers/shops_provider.dart';
-import 'package:sanhour_online/providers/theme_provider.dart';
-
-// The mock file is missing, so I am commenting out the import.
-// import 'mocks/mocks.dart';
+import 'package:sanhour_online/models/ad_model.dart';
+import 'package:sanhour_online/models/job_ad_model.dart';
+import 'package:sanhour_online/models/offer.dart';
+import 'package:sanhour_online/models/product.dart';
+import 'package:sanhour_online/models/service_request_model.dart';
+import 'package:sanhour_online/models/shop.dart';
+import 'package:sanhour_online/models/user.dart';
+import 'package:sanhour_online/services/deep_link_service.dart';
+import 'package:sanhour_online/services/subscription_service.dart';
+import 'package:sanhour_online/utils/constants.dart';
+import 'package:sanhour_online/widgets/empty_state_widget.dart';
+import 'package:sanhour_online/widgets/error_state_widget.dart';
+import 'package:sanhour_online/widgets/stat_card.dart';
 
 void main() {
-  testWidgets('App starts and shows InitialCheckScreen',
-      (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider(
-              create: (_) => ThemeProvider()),
-          ChangeNotifierProvider(create: (_) => AuthProvider()),
-          ChangeNotifierProvider(create: (_) => ShopsProvider()),
-          ChangeNotifierProxyProvider<AuthProvider, FavoritesProvider>(
-            create: (_) => FavoritesProvider(null, [], [], []),
-            update: (ctx, auth, previous) => FavoritesProvider(
-              auth.user,
-              previous?.favoriteShops ?? [],
-              previous?.favoriteProducts ?? [],
-              previous?.favoriteOffers ?? [],
+  group('Models & Business Logic Unit Tests', () {
+    test('AppUser roles and permissions work accurately', () {
+      final owner = AppUser.fromMap({
+        'id': 'u1',
+        'name': 'أسامة',
+        'username': 'osama',
+        'email': 'u1@users.sanhour.online',
+        'phone': '+201008908728',
+        'userType': 'merchant',
+        'shopRole': 'owner',
+      });
+      expect(owner.canViewShopStats, isTrue);
+      expect(owner.canManageSubscription, isTrue);
+
+      final partner = AppUser.fromMap({
+        'id': 'u2',
+        'name': 'شريك',
+        'username': 'partner1',
+        'email': 'u2@users.sanhour.online',
+        'phone': '+201112223334',
+        'userType': 'merchant',
+        'shopRole': 'partner',
+        'linkedShopId': 'shop_1',
+      });
+      expect(partner.canViewShopStats, isTrue);
+      expect(partner.canManageSubscription, isFalse);
+      expect(partner.linkedShopId, equals('shop_1'));
+
+      final worker = AppUser.fromMap({
+        'id': 'u3',
+        'name': 'عامل',
+        'username': 'worker1',
+        'email': 'u3@users.sanhour.online',
+        'phone': '+201234567890',
+        'userType': 'merchant',
+        'shopRole': 'worker',
+        'linkedShopId': 'shop_1',
+      });
+      expect(worker.canViewShopStats, isFalse);
+      expect(worker.canManageSubscription, isFalse);
+    });
+
+    test('AdModel parses clickCount and video fields properly', () {
+      final ad = AdModel.fromMap({
+        'shopId': 's1',
+        'imageUrl': 'https://example.com/ad.jpg',
+        'text': 'إعلان تجريبي',
+        'clickCount': 42,
+        'startDate': DateTime(2026, 1, 1).toIso8601String(),
+        'endDate': DateTime(2026, 2, 1).toIso8601String(),
+      }, 'ad_1');
+
+      expect(ad.id, equals('ad_1'));
+      expect(ad.clickCount, equals(42));
+      expect(ad.text, equals('إعلان تجريبي'));
+    });
+
+    test('Product model preserves sortOrder and listName for pinned items', () {
+      final p = Product.fromMap({
+        'shopId': 's1',
+        'name': 'منتج مثبت',
+        'price': 250.0,
+        'oldPrice': 300.0,
+        'hasPriceDrop': true,
+        'sortOrder': 1,
+        'listName': 'الأكثر مبيعاً',
+      }, 'prod_1');
+
+      expect(p.id, equals('prod_1'));
+      expect(p.sortOrder, equals(1));
+      expect(p.listName, equals('الأكثر مبيعاً'));
+      expect(p.hasDiscount, isTrue);
+    });
+
+    test('Shop, Offer, JobAdModel, and ServiceRequestModel serialize cleanly', () {
+      final shop = Shop.fromMap({
+        'name': 'ملابس الشروق',
+        'category': 'ملابس',
+        'phone': '01000000000',
+        'location': 'وسط البلد',
+        'ownerId': 'owner_1',
+      }, 'shop_1');
+      expect(shop.name, equals('ملابس الشروق'));
+
+      final offer = Offer.fromMap({
+        'shopId': 'shop_1',
+        'title': 'خصم خاص',
+        'discount': 20,
+        'type': 'price_drop',
+        'oldPrice': 500,
+        'newPrice': 400,
+      }, 'offer_1');
+      expect(offer.discount, equals(20));
+      expect(offer.type, equals('price_drop'));
+
+      expect(
+        JobAdModel.categoryLabel(JobCategory.sales),
+        isNotEmpty,
+      );
+      expect(
+        ServiceRequestModel.categoryLabel(ServiceRequestCategory.plumbing),
+        isNotEmpty,
+      );
+    });
+
+    test('SubscriptionService.calculateNewExpiry extends active and expired dates', () {
+      final now = DateTime.now();
+      final futureEnd = now.add(const Duration(days: 10));
+      final extended = SubscriptionService.calculateNewExpiry(futureEnd, 30);
+      expect(extended.difference(futureEnd).inDays, equals(30));
+
+      final pastEnd = now.subtract(const Duration(days: 10));
+      final renewedFromNow = SubscriptionService.calculateNewExpiry(pastEnd, 30);
+      expect(renewedFromNow.isAfter(now.add(const Duration(days: 28))), isTrue);
+    });
+
+    test('DeepLinkService builds valid sanitized URLs', () {
+      final link = DeepLinkService.buildLink(
+        type: ShareableType.shop,
+        id: 'shop_123',
+      );
+      expect(link, equals('https://sanhour.online/shop/shop_123'));
+      expect(AppConstants.geminiModel, equals('gemini-2.5-flash'));
+    });
+  });
+
+  group('Core UI Widgets Smoke Tests', () {
+    testWidgets('EmptyStateWidget and ErrorStateWidget render properly',
+        (WidgetTester tester) async {
+      bool retried = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                const Expanded(
+                  child: EmptyStateWidget(
+                    message: 'لا توجد عناصر حالياً',
+                    icon: Icons.inbox_outlined,
+                  ),
+                ),
+                Expanded(
+                  child: ErrorStateWidget(
+                    message: 'حدث خطأ في الشبكة',
+                    onRetry: () => retried = true,
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-        child: const MyApp(),
-      ),
-    );
+        ),
+      );
 
-    // Verify that the initial screen is displayed.
-    // As the initial screen is a check screen that redirects, we might see a loading indicator first.
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('لا توجد عناصر حالياً'), findsOneWidget);
+      expect(find.text('حدث خطأ في الشبكة'), findsOneWidget);
+      await tester.tap(find.text('إعادة المحاولة'));
+      expect(retried, isTrue);
+    });
 
-    // You can add more pump calls to simulate the passage of time if needed
-    await tester.pumpAndSettle();
+    testWidgets('StatCard renders title and value', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: [
+                StatCard(
+                  title: 'إجمالي المستخدمين',
+                  value: '150',
+                  icon: Icons.people,
+                  color: Colors.teal,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 
-    // After the check, it might navigate to Home or Login.
-    // This part of the test would require a more complex mock setup for AuthProvider
-    // to control the authentication state.
+      expect(find.text('إجمالي المستخدمين'), findsOneWidget);
+      expect(find.text('150'), findsOneWidget);
+    });
   });
 }

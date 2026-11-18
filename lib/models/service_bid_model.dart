@@ -1,5 +1,6 @@
 // lib/models/service_bid_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/date_parser.dart';
 
 enum BidStatus {
   pending,   // بانتظار الرد
@@ -42,10 +43,8 @@ class ServiceBidModel {
   }
 
   factory ServiceBidModel.fromMap(Map<String, dynamic> m) {
-    DateTime createdAt = DateTime.now();
-    if (m['createdAt'] is Timestamp) {
-      createdAt = (m['createdAt'] as Timestamp).toDate();
-    }
+    final DateTime createdAt =
+        m['createdAt'] != null ? DateParser.parse(m['createdAt']) : DateTime.now();
     return ServiceBidModel(
       id: m['id'] as String? ?? '',
       requestId: m['requestId'] as String? ?? '',
@@ -59,8 +58,8 @@ class ServiceBidModel {
     );
   }
 
-  Map<String, dynamic> toMap() => {
-    'id': id,
+  Map<String, dynamic> toMap({String? overrideId}) => {
+    'id': (overrideId != null && overrideId.isNotEmpty) ? overrideId : id,
     'requestId': requestId,
     'providerId': providerId,
     'providerName': providerName,

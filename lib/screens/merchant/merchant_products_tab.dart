@@ -24,7 +24,6 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
   String _selectedCategory = 'الكل';
   final TextEditingController _searchController = TextEditingController();
 
-  // ✅ QA Fix #05: استبدال FutureBuilder بتحميل يدوي مرة واحدة فقط
   List<Product>? _allProducts;
   bool _isLoading = false;
   String? _errorMessage;
@@ -37,11 +36,18 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
 
   Future<void> _loadProducts() async {
     if (!mounted) return;
-    setState(() { _isLoading = true; _errorMessage = null; });
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
-      final data = await ApiService.getProducts(shopId: widget.currentShop.id);
+      final data = await ApiService.getProducts(
+          shopId: widget.currentShop.id, includeHidden: true);
       if (mounted) {
-        setState(() { _allProducts = data; _isLoading = false; });
+        setState(() {
+          _allProducts = data;
+          _isLoading = false;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -61,31 +67,27 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      // AppBar يظهر فقط في وضع التحديد
       appBar: _isSelectionMode
           ? AppBar(
               title: Text('${_selectedProductIds.length} عنصر محدد'),
               backgroundColor: Colors.grey[800],
               leading: IconButton(
-                  icon: const Icon(Icons.close), onPressed: _exitSelectionMode),
+                  icon: const Icon(Icons.close),
+                  onPressed: _exitSelectionMode),
               actions: _buildSelectionActions(),
             )
           : null,
-
       body: Column(
         children: [
-          // 1. قسم الأدوات العلوية (يظهر فقط خارج وضع التحديد)
           if (!_isSelectionMode) ...[
-            _buildTopControls(),
+            _buildTopControls(isDark),
             const Divider(height: 1),
           ],
-
-          // 2. قائمة المنتجات
           Expanded(
             child: Builder(
               builder: (context) {
-                // ✅ QA Fix #05: استخدام الـ state المُخزَّن محلياً
                 if (_isLoading) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -94,7 +96,8 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(_errorMessage!, textAlign: TextAlign.center,
+                        Text(_errorMessage!,
+                            textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.red[700])),
                         const SizedBox(height: 12),
                         ElevatedButton.icon(
@@ -130,14 +133,16 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
                   );
                 }
 
-                return ListView.builder(
-                  padding:
-                      const EdgeInsets.only(bottom: 80), // مسافة للزر العائم
-                  itemCount: filteredList.length,
-                  itemBuilder: (context, index) {
-                    final product = filteredList[index];
-                    return _buildProductItem(product);
-                  },
+                return RefreshIndicator(
+                  onRefresh: _loadProducts,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 80),
+                    itemCount: filteredList.length,
+                    itemBuilder: (context, index) {
+                      final product = filteredList[index];
+                      return _buildProductItem(product, isDark);
+                    },
+                  ),
                 );
               },
             ),
@@ -147,22 +152,17 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
     );
   }
 
-  // --- Widgets ---
-
-  // شريط البحث وفلاتر الأقسام
-  Widget _buildTopControls() {
-    // استخراج الأقسام الموجودة فعلياً في المنتجات لتكوين الفلتر
+  Widget _buildTopControls(bool isDark) {
     Set<String> categories = {'الكل'};
     if (_allProducts != null) {
       categories.addAll(_allProducts!.map((p) => p.category).toSet());
     }
 
     return Container(
-      color: Colors.white,
+      color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 5),
       child: Column(
         children: [
-          // صف البحث وزر الإكسل
           Row(
             children: [
               Expanded(
@@ -181,13 +181,14 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
                               });
                             })
                         : null,
-                    contentPadding:
-                        const EdgeInsets.symmetric(vertical: 0, horizontal: 15),
+                    contentPadding: const EdgeInsets.symmetric(
+                        vertical: 0, horizontal: 15),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
                         borderSide: BorderSide.none),
                     filled: true,
-                    fillColor: Colors.grey[100],
+                    fillColor:
+                        isDark ? const Color(0xFF252538) : Colors.grey[100],
                   ),
                   onChanged: (val) => setState(() => _searchQuery = val),
                 ),
@@ -196,25 +197,33 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
               IconButton(
                 tooltip: 'رفع ملف إكسل',
                 icon: const Icon(Icons.file_upload, color: Colors.green),
-                onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) =>
-                            ExcelUploadScreen(shopId: widget.currentShop.id))),
+                onPressed: () async {
+                  await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => ExcelUploadScreen(
+                              shopId: widget.currentShop.id)));
+                  _loadProducts();
+                },
               ),
-              // ✅ زر ترتيب المنتجات
               IconButton(
                 tooltip: 'ترتيب أول 10 منتجات',
                 icon: const Icon(Icons.format_list_numbered,
                     color: Colors.deepOrange),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(
-                  builder: (_) => ProductOrderScreen(shop: widget.currentShop),
-                )),
+                onPressed: () async {
+                  await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ProductOrderScreen(shop: widget.currentShop),
+                      ));
+                  _loadProducts();
+                },
               ),
-              // ✅ زر إدارة الخدمات
               IconButton(
                 tooltip: 'إدارة الخدمات',
-                icon: const Icon(Icons.miscellaneous_services, color: Color(0xFF5E35B1)),
+                icon: const Icon(Icons.miscellaneous_services,
+                    color: Color(0xFF5E35B1)),
                 onPressed: () => _showServicesManager(),
               ),
             ],
@@ -222,7 +231,6 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
 
           const SizedBox(height: 10),
 
-          // شريط الأقسام (Chips)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -237,18 +245,22 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
                       setState(
                           () => _selectedCategory = selected ? cat : 'الكل');
                     },
-                    selectedColor: Color(0xFFEDE7F6),
+                    selectedColor: const Color(0xFF5E35B1),
                     labelStyle: TextStyle(
-                      color: isSelected ? Colors.green[900] : Colors.black87,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : Colors.black87),
                       fontWeight:
                           isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
-                    backgroundColor: Colors.grey[50],
+                    backgroundColor:
+                        isDark ? const Color(0xFF252538) : Colors.grey[50],
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                       side: BorderSide(
-                          color:
-                              isSelected ? Colors.green : Colors.grey.shade300),
+                          color: isSelected
+                              ? const Color(0xFF5E35B1)
+                              : Colors.grey.withValues(alpha: 0.3)),
                     ),
                   ),
                 );
@@ -260,16 +272,16 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
     );
   }
 
-  // كارت المنتج الواحد
-  Widget _buildProductItem(Product product) {
+  Widget _buildProductItem(Product product, bool isDark) {
     final isSelected = _selectedProductIds.contains(product.id);
-    // نفترض أن الموديل يحتوي على isVisible، لو مش موجود هيعتبره true
-    final bool isVisible = (product.toMap()['isVisible'] ?? true);
+    final bool isVisible = product.isVisible;
 
     return Card(
       color: isSelected
-          ? Colors.green[50]
-          : (isVisible ? Colors.white : Colors.grey[100]),
+          ? const Color(0xFF5E35B1).withValues(alpha: 0.15)
+          : (isVisible
+              ? (isDark ? const Color(0xFF1E1E2E) : Colors.white)
+              : (isDark ? const Color(0xFF151522) : Colors.grey[100])),
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       child: ListTile(
         onLongPress: () {
@@ -290,7 +302,6 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
             });
           }
         },
-        // الصورة (باهتة لو مخفي)
         leading: Opacity(
           opacity: isVisible ? 1.0 : 0.5,
           child: _isSelectionMode
@@ -311,44 +322,39 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
               : ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: CachedImage(
-                    imageUrl: product.imageUrls.isNotEmpty
-                        ? product.imageUrls.first
-                        : '',
+                    imageUrl: product.displayImageUrl,
                     width: 50,
                     height: 50,
                     fit: BoxFit.cover,
+                    fallbackIcon: Icons.shopping_bag_outlined,
                   ),
                 ),
         ),
-
-        // تفاصيل المنتج
         title: Text(
           product.name,
           style: TextStyle(
             fontWeight: FontWeight.bold,
             decoration: isVisible ? null : TextDecoration.lineThrough,
-            color: isVisible ? Colors.black : Colors.grey,
+            color: isVisible
+                ? (isDark ? Colors.white : Colors.black)
+                : Colors.grey,
           ),
         ),
         subtitle: Text('${product.price} ج.م • ${product.category}'),
-
-        // أزرار التحكم (تظهر فقط خارج وضع التحديد)
         trailing: !_isSelectionMode
             ? Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 1. زر الإخفاء/الإظهار (Toggle)
                   IconButton(
                     icon: Icon(
                       isVisible ? Icons.visibility : Icons.visibility_off,
                       color: isVisible ? Colors.green : Colors.grey,
                     ),
-                    tooltip: isVisible ? 'إخفاء المنتج مؤقتاً' : 'إظهار المنتج',
+                    tooltip:
+                        isVisible ? 'إخفاء المنتج مؤقتاً' : 'إظهار المنتج',
                     onPressed: () =>
                         _toggleProductVisibility(product, !isVisible),
                   ),
-
-                  // 2. زر التعديل
                   IconButton(
                     icon: const Icon(Icons.edit, color: Colors.blue),
                     onPressed: () async {
@@ -360,7 +366,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
                                     shopCategory: widget.currentShop.category,
                                     productToEdit: product,
                                   )));
-                      setState(() {}); // تحديث عند العودة
+                      await _loadProducts();
                     },
                   ),
                 ],
@@ -370,9 +376,6 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
     );
   }
 
-  // --- Logic ---
-
-  // دالة الفلترة
   List<Product> _applyFilters(List<Product> products) {
     return products.where((p) {
       final matchesSearch =
@@ -383,20 +386,12 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
     }).toList();
   }
 
-  // تبديل حالة الظهور
-  Future<void> _toggleProductVisibility(Product product, bool newStatus) async {
-    // تحديث الواجهة فوراً (Optimistic UI)
-    setState(() {
-      // تحديث مؤقت في القائمة المحلية لحد ما السيرفر يرد
-      // ملاحظة: هذا يتطلب أن يكون Product model قابل للتعديل أو نعيد تحميل البيانات
-      // هنا سنعتمد على إعادة البناء عند انتهاء الطلب
-    });
-
+  Future<void> _toggleProductVisibility(
+      Product product, bool newStatus) async {
     try {
       await ApiService.updateProduct(
           product.id, {'isVisible': newStatus}, null);
 
-      // إظهار رسالة صغيرة
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -405,12 +400,13 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
             duration: const Duration(seconds: 1),
           ),
         );
-        setState(() {}); // تحديث كامل للبيانات
+        await _loadProducts();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('حدث خطأ، يُرجى المحاولة مرة أخرى'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('حدث خطأ، يُرجى المحاولة مرة أخرى'),
+            backgroundColor: Colors.red));
       }
     }
   }
@@ -445,15 +441,17 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
         content: const Text('هل أنت متأكد؟ لا يمكن التراجع عن هذه العملية.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
               Navigator.pop(ctx);
-              await ApiService.bulkDeleteProducts(_selectedProductIds.toList());
+              await ApiService.bulkDeleteProducts(
+                  _selectedProductIds.toList());
               _exitSelectionMode();
-              setState(() {});
+              await _loadProducts();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('تم الحذف بنجاح')));
@@ -475,7 +473,8 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('اكتب اسم القسم الجديد (مثال: مشروبات، ملابس شتوية):'),
+            const Text(
+                'اكتب اسم القسم الجديد (مثال: مشروبات، ملابس شتوية):'),
             const SizedBox(height: 10),
             TextField(
               controller: categoryController,
@@ -488,15 +487,17 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () async {
-              if (categoryController.text.isEmpty) return;
+              if (categoryController.text.trim().isEmpty) return;
+              final newCat = categoryController.text.trim();
               Navigator.pop(ctx);
               await ApiService.bulkUpdateProductCategory(
-                  _selectedProductIds.toList(), categoryController.text);
+                  _selectedProductIds.toList(), newCat);
               _exitSelectionMode();
-              setState(() {});
+              await _loadProducts();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('تم النقل بنجاح')));
@@ -506,7 +507,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
           ),
         ],
       ),
-    );
+    ).whenComplete(() => categoryController.dispose());
   }
 
   void _showServicesManager() {
@@ -522,30 +523,42 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
       builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
         return Padding(
           padding: EdgeInsets.only(
-            top: 20, left: 16, right: 16,
+            top: 20,
+            left: 16,
+            right: 16,
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300],
+            Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey[300],
                     borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
             const Text('إدارة الخدمات',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            TextField(controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'اسم الخدمة *',
+            TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'اسم الخدمة *',
                     border: OutlineInputBorder())),
             const SizedBox(height: 10),
-            TextField(controller: descCtrl,
+            TextField(
+                controller: descCtrl,
                 maxLines: 2,
-                decoration: const InputDecoration(labelText: 'الوصف (اختياري)',
+                decoration: const InputDecoration(
+                    labelText: 'الوصف (اختياري)',
                     border: OutlineInputBorder())),
             const SizedBox(height: 10),
-            TextField(controller: priceCtrl,
+            TextField(
+                controller: priceCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'السعر (اختياري)',
-                    suffixText: 'ج', border: OutlineInputBorder())),
+                decoration: const InputDecoration(
+                    labelText: 'السعر (اختياري)',
+                    suffixText: 'ج',
+                    border: OutlineInputBorder())),
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -561,19 +574,24 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
                     'shopId': widget.currentShop.id,
                     'name': nameCtrl.text.trim(),
                     'description': descCtrl.text.trim(),
-                    'price': double.tryParse(priceCtrl.text) ?? 0,
+                    'price': double.tryParse(priceCtrl.text.trim()) ?? 0,
                   });
                   if (!ctx.mounted) return;
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(ctx).showSnackBar(
-                      const SnackBar(content: Text('✅ تمت إضافة الخدمة'),
-                          backgroundColor: Colors.green));
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('✅ تمت إضافة الخدمة'),
+                      backgroundColor: Colors.green));
                 },
               ),
             ),
           ]),
         );
       }),
-    );
+    ).whenComplete(() {
+      nameCtrl.dispose();
+      descCtrl.dispose();
+      priceCtrl.dispose();
+    });
   }
 }

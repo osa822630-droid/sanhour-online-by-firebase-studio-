@@ -1,7 +1,7 @@
 // lib/services/product_service.dart
-// ✅ Phase 1 Fix #03: نُقلت دوال Pagination (_pageSize, getProductsPage,
-// getNextProductsPage, generateSearchKeywords) إلى داخل كلاس ProductService
-// بعد أن كانت مكتوبة خارجه تماماً، مما كان يُسبب Compile Error كاملاً.
+// ✅ دعم includeHidden في getProducts و includeInactive في getOffers للوحة التاجر
+// ✅ إزالة محاولة حذف العروض المنتهية من حسابات الزوار والعملاء (التي كانت ترمي permission-denied)
+// ✅ استثناء 'الكل' في getTopProducts
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -19,18 +19,58 @@ class ProductService {
   // 1. المنتجات
   // ==========================================================
 
-  static Future<List<Product>> getProducts({String? shopId}) async {
+  static Future<bool> _canManageShop(String shopId, String uid) async {
+    final results = await Future.wait([
+      _firestore.collection('shops').doc(shopId).get(),
+      _firestore.collection('users').doc(uid).get(),
+    ]);
+    final shopDoc = results[0];
+    final userDoc = results[1];
+    if (!shopDoc.exists) return false;
+    if (shopDoc.data()?['ownerId'] == uid) return true;
+    final userData = userDoc.data() ?? {};
+    final role = userData['userType'];
+    if (role == 'admin' || role == 'super_admin' || role == 'moderator') {
+      return true;
+    }
+    final linkedShopId = userData['linkedShopId'];
+    final shopRole = userData['shopRole'];
+    return linkedShopId == shopId &&
+        ['owner', 'partner', 'worker'].contains(shopRole);
+  }
+
+  static Future<List<Product>> getProducts({
+    String? shopId,
+    bool includeHidden = false,
+    int limit = 150,
+  }) async {
     try {
       Query q = _firestore.collection('products');
       if (shopId != null) q = q.where('shopId', isEqualTo: shopId);
-      q = q
-          .where('isVisible', isEqualTo: true)
-          .where('isShopHidden', isEqualTo: false)
-          .orderBy('createdAt', descending: true);
-      final snap = await q.get();
-      return snap.docs
+      if (!includeHidden) {
+        q = q
+            .where('isVisible', isEqualTo: true)
+            .where('isShopHidden', isEqualTo: false);
+      }
+      q = q.orderBy('createdAt', descending: true);
+      final snap = await q.limit(limit).get();
+      final products = snap.docs
           .map((d) => Product.fromMap(d.data() as Map<String, dynamic>, d.id))
           .toList();
+
+      if (shopId != null) {
+        products.sort((a, b) {
+          final orderA = a.sortOrder;
+          final orderB = b.sortOrder;
+          if (orderA != null && orderB != null) {
+            return orderA.compareTo(orderB);
+          }
+          if (orderA != null) return -1;
+          if (orderB != null) return 1;
+          return 0;
+        });
+      }
+      return products;
     } catch (e, s) {
       developer.log('getProducts error: $e',
           name: 'ProductService', error: e, stackTrace: s);
@@ -45,7 +85,7 @@ class ProductService {
           .collection('products')
           .where('isVisible', isEqualTo: true)
           .orderBy('views', descending: true);
-      if (category != null && category != 'الكل') {
+      if (category != null && category.isNotEmpty && category != 'الكل') {
         q = q.where('category', isEqualTo: category);
       }
       final snap = await q.limit(limit).get();
@@ -62,37 +102,30 @@ class ProductService {
   static Future<void> addProduct(
     Map<String, dynamic> productData,
     List<File> images, {
-    // ✅ نظام تقدم الرفع: (index في images, fraction 0.0–1.0)
     void Function(int fileIndex, double fraction)? onImageProgress,
   }) async {
-    // QA Fix #03: دعم كلٍّ من Firebase Auth والـ Mock Auth
-    // ✅ mock_user كـ fallback لتجنب رفض عمليات الـ Mock Auth
     final firebaseUser = _auth.currentUser;
 
-    // ✅ Fix #13: التحقق من الـ ownership عبر uid فقط في الجلسات الحقيقية.
-    // الجلسة المجهولة (Mock Login) uid لها عشوائي ولا يساوي ownerId (معرّف
-    // مستخدم التطبيق)، فكان التاجر التجريبي يُرفَض هنا دائماً. في الجلسة
-    // المجهولة تفرض Firestore Rules الملكية عبر appUid() (الجلسة مربوطة
-    // بهوية المستخدم في auth_sessions).
     if (firebaseUser != null && !firebaseUser.isAnonymous) {
-      final shopDoc = await _firestore
-          .collection('shops')
-          .doc(productData['shopId'])
-          .get();
-      if (!shopDoc.exists || shopDoc.data()!['ownerId'] != firebaseUser.uid) {
+      final allowed = await _canManageShop(
+          productData['shopId'] as String, firebaseUser.uid);
+      if (!allowed) {
         throw Exception('غير مصرح لك بإضافة منتج لهذا المتجر');
       }
     }
 
-    // ✅ إصلاح الكراش: رفع آمن مع معالجة أخطاء عربية + تتبع تقدم لكل صورة
     final imageUrls = await _uploadImagesWithProgress(
         images, 'products_images', onImageProgress);
 
-    // ✅ استخراج coverImageIndex من data قبل الحفظ
     final int rawCover = (productData['coverImageIndex'] as int? ?? 0);
     final int validCover =
         imageUrls.isEmpty ? 0 : rawCover.clamp(0, imageUrls.length - 1);
     productData.remove('coverImageIndex');
+
+    final prodName = (productData['name'] as String? ?? '').trim();
+    final prodDesc = (productData['description'] as String? ?? '').trim();
+    final prodCat = (productData['category'] as String? ?? '').trim();
+    final keywords = generateSearchKeywords(prodName, prodDesc, prodCat);
 
     final docRef = _firestore.collection('products').doc();
     await docRef.set({
@@ -100,14 +133,13 @@ class ProductService {
       ...productData,
       'imageUrls': imageUrls,
       'coverImageIndex': validCover,
-      // ✅ توافق خلفي: imageUrl = صورة الغلاف
       'imageUrl': imageUrls.isEmpty ? '' : imageUrls[validCover],
+      'searchKeywords': keywords,
       'createdAt': FieldValue.serverTimestamp(),
       'rating': 0.0,
       'reviewCount': 0,
       'views': 0,
       'favoriteCount': 0,
-      'isFavorite': false,
       'isVisible': true,
       'isShopHidden': false,
     });
@@ -117,16 +149,13 @@ class ProductService {
     String productId,
     Map<String, dynamic> data,
     List<File>? newImages, {
-    // ✅ نظام تقدم الرفع: (index في newImages, fraction 0.0–1.0)
     void Function(int fileIndex, double fraction)? onImageProgress,
   }) async {
-    // QA Fix #03: لا نمنع Mock users من التعديل
     List<String> imageUrls =
         List<String>.from(data['existingImages'] ?? []);
     data.remove('existingImages');
 
     if (newImages != null && newImages.isNotEmpty) {
-      // ✅ إصلاح الكراش: رفع آمن مع معالجة أخطاء عربية + تتبع تقدم
       final newUrls = await _uploadImagesWithProgress(
           newImages, 'products_images', onImageProgress);
       imageUrls.addAll(newUrls);
@@ -136,9 +165,18 @@ class ProductService {
     final int validCover =
         imageUrls.isEmpty ? 0 : rawCover.clamp(0, imageUrls.length - 1);
 
+    if (data.containsKey('name') ||
+        data.containsKey('description') ||
+        data.containsKey('category')) {
+      final prodName = (data['name'] as String? ?? '').trim();
+      final prodDesc = (data['description'] as String? ?? '').trim();
+      final prodCat = (data['category'] as String? ?? '').trim();
+      data['searchKeywords'] =
+          generateSearchKeywords(prodName, prodDesc, prodCat);
+    }
     data['imageUrls'] = imageUrls;
     data['coverImageIndex'] = validCover;
-    data['imageUrl'] = imageUrls.isEmpty ? '' : imageUrls[validCover]; // توافق خلفي
+    data['imageUrl'] = imageUrls.isEmpty ? '' : imageUrls[validCover];
     data['updatedAt'] = FieldValue.serverTimestamp();
     await _firestore
         .collection('products')
@@ -147,7 +185,6 @@ class ProductService {
   }
 
   static Future<void> deleteProduct(String productId) async {
-    // ✅ QA Fix #03: تخطي Firebase Auth check للـ Mock users
     await _firestore.collection('products').doc(productId).delete();
   }
 
@@ -155,18 +192,42 @@ class ProductService {
   // 2. العروض
   // ==========================================================
 
-  static Future<List<Offer>> getOffers({String? shopId}) async {
+  static Future<List<Offer>> getOffers({
+    String? shopId,
+    bool includeInactive = false,
+    int limit = 150,
+  }) async {
     try {
-      Query q = _firestore
-          .collection('offers')
-          .where('isActive', isEqualTo: true)
-          .where('isShopHidden', isEqualTo: false);
-      if (shopId != null) q = q.where('shopId', isEqualTo: shopId);
-      final snap = await q.get();
-      return snap.docs
+      Query q = _firestore.collection('offers');
+      if (shopId != null) {
+        q = q.where('shopId', isEqualTo: shopId);
+      }
+      if (!includeInactive) {
+        q = q
+            .where('isActive', isEqualTo: true)
+            .where('isShopHidden', isEqualTo: false);
+      }
+      q = q.orderBy('createdAt', descending: true);
+      final snap = await q.limit(limit).get();
+      final all = snap.docs
           .map((d) =>
               Offer.fromMap(d.data() as Map<String, dynamic>, d.id))
           .toList();
+
+      final monthAgo = DateTime.now().subtract(const Duration(days: 30));
+
+      // ✅ تنظيف العروض التي مضى على انتهائها أكثر من 30 يوماً فقط عندما يفتح التاجر لوحته الخاصة (includeInactive == true)
+      if (shopId != null && includeInactive) {
+        final stale = all.where((o) => o.validUntil.isBefore(monthAgo)).toList();
+        for (final expiredOffer in stale) {
+          deleteOffer(expiredOffer.id).catchError((_) {});
+        }
+      }
+
+      if (shopId == null && !includeInactive) {
+        return all.where((o) => !o.isExpired).toList();
+      }
+      return all.where((o) => !o.validUntil.isBefore(monthAgo)).toList();
     } catch (e, s) {
       developer.log('getOffers error: $e',
           name: 'ProductService', error: e, stackTrace: s);
@@ -192,33 +253,22 @@ class ProductService {
     }
   }
 
-  // ✅ تحديث التوقيع لدعم صور متعددة + coverIndex
   static Future<void> addOffer(
       Map<String, dynamic> offerData,
       List<File> images, {
       int coverIndex = 0,
-      // ✅ نظام تقدم الرفع: (index في images, fraction 0.0–1.0)
       void Function(int fileIndex, double fraction)? onImageProgress,
       }) async {
-    // QA Fix #03: دعم كلٍّ من Firebase Auth والـ Mock Auth
-    // ✅ mock_user كـ fallback لتجنب رفض عمليات الـ Mock Auth
     final firebaseUser = _auth.currentUser;
 
-    // ✅ Fix #13: نفس منطق addProduct — فحص uid للجلسات الحقيقية فقط
-    // (الجلسة المجهولة تعتمد على Firestore Rules + appUid()).
     if (firebaseUser != null && !firebaseUser.isAnonymous) {
-      final shopDoc = await _firestore
-          .collection('shops')
-          .doc(offerData['shopId'])
-          .get();
-      if (!shopDoc.exists ||
-          shopDoc.data()!['ownerId'] != firebaseUser.uid) {
+      final allowed = await _canManageShop(
+          offerData['shopId'] as String, firebaseUser.uid);
+      if (!allowed) {
         throw Exception('غير مصرح لك بإضافة عرض لهذا المتجر');
       }
     }
 
-    // رفع الصور الجديدة
-    // ✅ إصلاح الكراش: رفع آمن مع معالجة أخطاء عربية + تتبع تقدم
     List<String> imageUrls = [];
     if (images.isNotEmpty) {
       imageUrls = await _uploadImagesWithProgress(
@@ -234,12 +284,17 @@ class ProductService {
         imageUrls.isEmpty ? 0 : coverIndex.clamp(0, imageUrls.length - 1);
     final String coverUrl = imageUrls.isEmpty ? '' : imageUrls[validCover];
 
-    // إزالة الحقول المؤقتة قبل الحفظ
     offerData.remove('imageUrls');
     offerData.remove('imageUrl');
     offerData.remove('existingImages');
 
     final docRef = _firestore.collection('offers').doc();
+
+    final offerTitle = (offerData['title'] as String? ?? '').trim();
+    final offerDesc = (offerData['description'] as String? ?? '').trim();
+    final offerType = (offerData['type'] as String? ?? '').trim();
+    final offerKeywords =
+        generateSearchKeywords(offerTitle, offerDesc, offerType);
 
     final offerMap = {
       'id': docRef.id,
@@ -247,14 +302,15 @@ class ProductService {
       'imageUrls': imageUrls,
       'coverImageIndex': validCover,
       'imageUrl': coverUrl,
+      'searchKeywords': offerKeywords,
       'createdAt': FieldValue.serverTimestamp(),
       'views': 0,
       'favoriteCount': 0,
-      'isFavorite': false,
+      'isActive': offerData['isActive'] ?? true,
+      'isVisible': offerData['isVisible'] ?? true,
       'isShopHidden': false,
     };
 
-    // ✅ Fix #21: إنشاء العرض + تحديث سعر المنتج في transaction ذرية واحدة
     if (offerData['type'] == 'price_drop' &&
         offerData['productId'] != null) {
       final productRef = _firestore
@@ -273,23 +329,19 @@ class ProductService {
     }
   }
 
-  // ✅ تحديث التوقيع لدعم صور متعددة + coverIndex
   static Future<void> updateOffer(
       String offerId,
       Map<String, dynamic> data,
       List<File> newImages, {
       int? coverIndex,
-      // ✅ نظام تقدم الرفع: (index في newImages, fraction 0.0–1.0)
       void Function(int fileIndex, double fraction)? onImageProgress,
       }) async {
-    // QA Fix #03: تخطي Firebase Auth check للـ Mock users
     final List<String> existingUrls =
         List<String>.from(data['existingImages'] ?? data['imageUrls'] ?? []);
     data.remove('existingImages');
     data.remove('imageUrls');
     data.remove('imageUrl');
 
-    // ✅ إصلاح الكراش: رفع آمن مع معالجة أخطاء عربية + تتبع تقدم
     List<String> uploadedUrls = [];
     if (newImages.isNotEmpty) {
       uploadedUrls = await _uploadImagesWithProgress(
@@ -301,14 +353,22 @@ class ProductService {
         allUrls.isEmpty ? 0 : (coverIndex ?? 0).clamp(0, allUrls.length - 1);
     final String coverUrl = allUrls.isEmpty ? '' : allUrls[validCover];
 
+    if (data.containsKey('title') ||
+        data.containsKey('description') ||
+        data.containsKey('type')) {
+      final offerTitle = (data['title'] as String? ?? '').trim();
+      final offerDesc = (data['description'] as String? ?? '').trim();
+      final offerType = (data['type'] as String? ?? '').trim();
+      data['searchKeywords'] =
+          generateSearchKeywords(offerTitle, offerDesc, offerType);
+    }
     data['imageUrls'] = allUrls;
     data['coverImageIndex'] = validCover;
-    data['imageUrl'] = coverUrl; // توافق خلفي
+    data['imageUrl'] = coverUrl;
     data['updatedAt'] = FieldValue.serverTimestamp();
     await _firestore.collection('offers').doc(offerId).update(data);
   }
 
-  // ✅ Fix #22: عند حذف عرض price_drop، نُرجع سعر المنتج الأصلي في transaction ذرية
   static Future<void> deleteOffer(String offerId) async {
     final offerRef = _firestore.collection('offers').doc(offerId);
     final offerDoc = await offerRef.get();
@@ -340,10 +400,6 @@ class ProductService {
   // 3. رفع الملفات
   // ==========================================================
 
-  /// ✅ إصلاح الكراش: تفويض كامل لـ MediaUploadService — تحقق من الحجم،
-  /// رسائل خطأ عربية، إعادة محاولة تلقائية لأخطاء الشبكة المؤقتة.
-  /// التوقيع القديم محفوظ للتوافق الخلفي مع كل المستدعين الحاليين.
-  /// [onProgress] اختياري — fraction من 0.0 إلى 1.0.
   static Future<String> uploadImage(
     File imageFile,
     String folderName, {
@@ -357,8 +413,6 @@ class ProductService {
     );
   }
 
-  /// ✅ رفع عدة صور مع تتبع تقدم كل صورة على حدة — index في القائمة
-  /// المُمرَّرة (وليس الفهرس المدمج في الواجهة).
   static Future<List<String>> _uploadImagesWithProgress(
     List<File> files,
     String folder,
@@ -378,7 +432,7 @@ class ProductService {
   }
 
   // ==========================================================
-  // 4. استيراد Excel — ✅ إصلاح Batch Bug
+  // 4. استيراد Excel
   // ==========================================================
 
   static Future<Map<String, dynamic>> importProductsExcel(
@@ -386,13 +440,16 @@ class ProductService {
     final user = _auth.currentUser;
     if (user == null) throw Exception('يجب تسجيل الدخول أولاً');
 
-    final shopDoc =
-        await _firestore.collection('shops').doc(shopId).get();
-    // ✅ Fix #13: مقارنة uid بـ ownerId للجلسات الحقيقية فقط؛ الجلسة المجهولة
-    // (Mock Login) تعتمد على Firestore Rules + appUid() لفرض الملكية.
-    if (!shopDoc.exists ||
-        (!user.isAnonymous && shopDoc.data()!['ownerId'] != user.uid)) {
-      throw Exception('غير مصرح لك باستيراد منتجات لهذا المتجر');
+    if (!user.isAnonymous) {
+      final allowed = await _canManageShop(shopId, user.uid);
+      if (!allowed) {
+        throw Exception('غير مصرح لك باستيراد منتجات لهذا المتجر');
+      }
+    } else {
+      final shopDoc = await _firestore.collection('shops').doc(shopId).get();
+      if (!shopDoc.exists) {
+        throw Exception('المتجر غير موجود');
+      }
     }
 
     try {
@@ -419,9 +476,7 @@ class ProductService {
               ? (row[3]?.value?.toString() ?? 'عام')
               : 'عام';
 
-          // ✅ توليد searchKeywords عند الاستيراد
-          final keywords =
-              generateSearchKeywords(name, desc, cat);
+          final keywords = generateSearchKeywords(name, desc, cat);
 
           final docRef = _firestore.collection('products').doc();
           batch.set(docRef, {
@@ -432,11 +487,11 @@ class ProductService {
             'description': desc,
             'category': cat,
             'imageUrls': <String>[],
+            'coverImageIndex': 0,
             'rating': 0.0,
             'reviewCount': 0,
             'views': 0,
             'favoriteCount': 0,
-            'isFavorite': false,
             'isVisible': true,
             'isShopHidden': false,
             'searchKeywords': keywords,
@@ -508,14 +563,11 @@ class ProductService {
   }
 
   // ==========================================================
-  // ✅ Phase 1 Fix #03 + Fix #06 (searchKeywords):
-  // Pagination — جلب المنتجات بشكل تدريجي (startAfterDocument)
-  // كانت هذه الدوال خارج الكلاس تماماً — تم نقلها للداخل.
+  // 6. Pagination
   // ==========================================================
 
   static const int _pageSize = 20;
 
-  /// يجلب أول صفحة من المنتجات
   static Future<ProductPageResult> getProductsPage({
     String? shopId,
     String? category,
@@ -550,7 +602,6 @@ class ProductService {
     }
   }
 
-  /// يجلب الصفحة التالية انطلاقاً من آخر وثيقة
   static Future<ProductPageResult> getNextProductsPage({
     required DocumentSnapshot lastDoc,
     String? shopId,
@@ -587,12 +638,10 @@ class ProductService {
     }
   }
 
-  /// ✅ توليد searchKeywords — Fix #52: حد أقصى 40 keyword لتجنب تضخم الوثيقة
   static List<String> generateSearchKeywords(
       String name, String description, String category) {
     final Set<String> keywords = {};
 
-    // أول 3 كلمات من الوصف فقط لتجنب bloat
     final descWords = description
         .split(RegExp(r'\s+'))
         .take(3)
@@ -609,13 +658,8 @@ class ProductService {
         keywords.add(word.substring(0, i));
       }
     }
-    // ✅ Fix #52: حد أقصى 40 keyword
     return keywords.take(40).toList();
   }
-
-  // =========================================================
-  // ✅ Phase 2 Fix #17b: جلب منتجات/عروض بـ whereIn — بدل جلب الكل
-  // =========================================================
 
   static Future<List<Product>> getProductsByIds(List<String> ids) async {
     if (ids.isEmpty) return [];
@@ -630,7 +674,7 @@ class ProductService {
         results.addAll(snap.docs.map(
             (d) => Product.fromMap(d.data(), d.id)));
       } catch (e) {
-        developer.log('getProductsByIds chunk error: \$e',
+        developer.log('getProductsByIds chunk error: $e',
             name: 'ProductService');
       }
     }
@@ -650,16 +694,14 @@ class ProductService {
         results.addAll(snap.docs
             .map((d) => Offer.fromMap(d.data(), d.id)));
       } catch (e) {
-        developer.log('getOffersByIds chunk error: \$e',
+        developer.log('getOffersByIds chunk error: $e',
             name: 'ProductService');
       }
     }
     return results;
   }
+}
 
-} // ← القفل الصحيح الوحيد لكلاس ProductService
-
-/// ✅ يمثّل نتيجة صفحة من المنتجات مع مؤشر التنقل للصفحة التالية
 class ProductPageResult {
   final List<Product> products;
   final DocumentSnapshot? lastDocument;

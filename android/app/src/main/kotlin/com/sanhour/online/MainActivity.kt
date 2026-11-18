@@ -1,4 +1,4 @@
-package com.example.sanhour_online
+package com.sanhour.online
 
 import io.flutter.embedding.android.FlutterActivity
 

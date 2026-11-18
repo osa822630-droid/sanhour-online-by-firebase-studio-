@@ -194,7 +194,7 @@ class AuthService {
 
   static Future<void> _updateItemFavoriteCount(
       String type, String itemId, int change) async {
-    final collection = type == 'shop'
+    final collection = (type == 'shop' || type == 'service')
         ? 'shops'
         : (type == 'product' ? 'products' : 'offers');
     try {

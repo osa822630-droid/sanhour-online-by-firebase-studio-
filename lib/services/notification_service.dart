@@ -1,17 +1,16 @@
 // lib/services/notification_service.dart
-// ✅ نظام إشعارات متكامل:
-//   - توجيه ذكي لكل أنواع المحتوى
-//   - إشعارات التاجر اليومية/الأسبوعية/الشهرية الساعة 10 مساءً
-//   - إشعار تلقائي لكل المستخدمين عند نشر إعلان جديد
-//   - إشعارات المفضلة (محل جديد / تغيير سعر / تحديث قائمة)
-//   - تذكيرات تجديد الاشتراك
+// ✅ إصلاح خطأ الترجمة الحرج (P0): استيراد shared_preferences و dart:convert
+// ✅ إصلاح قراءة user_id من SharedPreferences عند تجديد fcmToken
+// ✅ استخدام AndroidScheduleMode.inexactAllowWhileIdle لتجنب الحاجة لإذن SCHEDULE_EXACT_ALARM
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz_data;
 
@@ -47,7 +46,7 @@ class NotificationService {
     );
 
     await _notifications.initialize(
-      InitializationSettings(
+      const InitializationSettings(
           android: androidSettings, iOS: iosSettings),
       onDidReceiveNotificationResponse: (response) =>
           _handleNotificationTap(response.payload),
@@ -71,18 +70,40 @@ class NotificationService {
     final initial = await FirebaseMessaging.instance.getInitialMessage();
     if (initial != null) _handleFCMData(initial.data);
 
-    // ✅ Fix #5: الاستماع لتجديد الـ FCM token وتحديثه في Firestore تلقائياً
+    // ✅ الاستماع لتجديد الـ FCM token وتحديثه في Firestore تلقائياً
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
       try {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
+        final prefs = await SharedPreferences.getInstance();
+        String? targetUid = prefs.getString('user_id');
+        if (targetUid == null || targetUid.isEmpty) {
+          final rawUser = prefs.getString('user_data');
+          if (rawUser != null && rawUser.isNotEmpty) {
+            final decoded = jsonDecode(rawUser);
+            if (decoded is Map) {
+              targetUid = decoded['id'] as String?;
+            }
+          }
+        }
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if ((targetUid == null || targetUid.isEmpty) &&
+            currentUser != null &&
+            !currentUser.isAnonymous) {
+          targetUid = currentUser.uid;
+        }
+        if (targetUid != null &&
+            targetUid.isNotEmpty &&
+            targetUid != 'guest') {
           await FirebaseFirestore.instance
               .collection('users')
-              .doc(user.uid)
-              .update({'fcmToken': newToken, 'fcmTokenUpdatedAt': FieldValue.serverTimestamp()});
+              .doc(targetUid)
+              .update({
+            'fcmToken': newToken,
+            'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
+          });
         }
       } catch (e) {
-        developer.log('onTokenRefresh update error: $e', name: 'NotificationService');
+        developer.log('onTokenRefresh update error: $e',
+            name: 'NotificationService');
       }
     });
   }
@@ -153,8 +174,6 @@ class NotificationService {
         await FirebaseMessaging.instance.subscribeToTopic('admins');
         break;
       case 'merchant':
-        // ✅ Fix #48: التاجر يشترك في 'merchants' فقط — لا 'customers'
-        // لمنع وصول إشعارات العملاء (مثل إشعارات المحلات المفضلة) للتاجر
         await FirebaseMessaging.instance.subscribeToTopic('merchants');
         break;
       default:
@@ -191,7 +210,7 @@ class NotificationService {
       body: n.body ?? '',
       channelId: channelId,
       channelName: _channelLabel(channelId),
-      payload: message.data['route'],
+      payload: message.data['route']?.toString(),
     );
   }
 
@@ -199,6 +218,7 @@ class NotificationService {
     const map = {
       'merchant_stats': 'إحصائيات التاجر',
       'merchant_subscription': 'الاشتراكات',
+      'merchant_reviews': 'تقييمات المتجر',
       'user_favorites': 'تحديثات المفضلة',
       'user_price_drops': 'انخفاض الأسعار',
       'user_collections': 'قوائم المشتريات',
@@ -212,32 +232,25 @@ class NotificationService {
   // ════════════════════════════════════════════════════════════════════════
   // 4. التوجيه الذكي — يفتح الشاشة الصحيحة عند الضغط على الإشعار
   // ════════════════════════════════════════════════════════════════════════
-  //
-  // format: "route:id" — مثال: "shop_details:abc123"
-  // الشاشات المدعومة:
-  //   shop_details:id      → ShopDetailScreen
-  //   product_details:id   → DetailScreen (Product)
-  //   offer_details:id     → DetailScreen (Offer)
-  //   collection:id        → CollectionDetailScreen
-  //   notifications        → NotificationsScreen
-  //   all_ads              → AllAdsScreen
-  //   merchant_stats       → MerchantDashboard
-  //   subscription:shopId  → SubscriptionScreen
-  //   admin_complaints     → AdminDashboard
-  //   favorites            → MainScreen (tab 1)
-  //   offers               → MainScreen (tab 2)
 
   void _handleFCMData(Map<String, dynamic> data) {
-    final route = data['route'];
-    if (route == null) return;
-    _handleNotificationTap(route as String);
+    final rawRoute = data['route']?.toString();
+    if (rawRoute == null || rawRoute.isEmpty) return;
+    final targetId =
+        (data['targetId'] ?? data['shopId'] ?? data['requestId'])?.toString();
+    final combined = (!rawRoute.contains(':') &&
+            targetId != null &&
+            targetId.isNotEmpty)
+        ? '$rawRoute:$targetId'
+        : rawRoute;
+    _handleNotificationTap(combined);
   }
 
   void _handleNotificationTap(String? payload) {
-    if (payload == null) return;
+    if (payload == null || payload.isEmpty) return;
     final parts = payload.split(':');
     final route = parts[0].trim();
-    final id = parts.length > 1 ? parts[1].trim() : null;
+    final id = parts.length > 1 ? parts.sublist(1).join(':').trim() : null;
 
     Future.delayed(const Duration(milliseconds: 300), () {
       final nav = navigatorKey.currentState;
@@ -245,6 +258,7 @@ class NotificationService {
 
       switch (route) {
         case 'shop_details':
+        case 'shop_detail':
           if (id != null && id.isNotEmpty) {
             nav.pushNamed('/shop_detail', arguments: {'shopId': id});
           } else {
@@ -253,6 +267,7 @@ class NotificationService {
           break;
 
         case 'product_details':
+        case 'product_detail':
           if (id != null && id.isNotEmpty) {
             nav.pushNamed('/product_detail', arguments: {'productId': id});
           } else {
@@ -261,6 +276,7 @@ class NotificationService {
           break;
 
         case 'offer_details':
+        case 'offer_detail':
           if (id != null && id.isNotEmpty) {
             nav.pushNamed('/offer_detail', arguments: {'offerId': id});
           } else {
@@ -268,13 +284,27 @@ class NotificationService {
           }
           break;
 
-        // ✅ توجيه إشعارات الإعلانات
         case 'ad_details':
         case 'all_ads':
-          nav.pushNamed('/all_ads');
+          nav.pushNamed('/ads_hub', arguments: {'tab': 0});
           break;
 
-        // ✅ توجيه قوائم المفضلة
+        case 'job_ads':
+          nav.pushNamed('/ads_hub', arguments: {'tab': 1});
+          break;
+
+        case 'service_requests':
+        case 'service_request':
+        case 'new_bid':
+        case 'bid_accepted':
+          nav.pushNamed('/ads_hub',
+              arguments: {'tab': 2, if (id != null) 'requestId': id});
+          break;
+
+        case 'merchant':
+          nav.pushNamed('/merchant');
+          break;
+
         case 'collection':
           if (id != null && id.isNotEmpty) {
             nav.pushNamed('/collection_detail', arguments: {'collectionId': id});
@@ -291,7 +321,6 @@ class NotificationService {
           nav.pushNamed('/offers');
           break;
 
-        // ✅ توجيه شاشة الإشعارات
         case 'notifications':
           nav.pushNamed('/notifications');
           break;
@@ -314,7 +343,8 @@ class NotificationService {
           break;
 
         case 'user_complaints':
-          nav.pushNamed('/notifications');
+        case 'my_complaints':
+          nav.pushNamed('/my_complaints');
           break;
 
         default:
@@ -327,7 +357,6 @@ class NotificationService {
   // 5. إشعارات المستخدم (Client-side — تُطلق عند أحداث المفضلة)
   // ════════════════════════════════════════════════════════════════════════
 
-  /// إشعار عندما يضيف محل مفضّل عرضاً أو منتجاً أو خدمة جديدة
   Future<void> showFavoriteShopUpdate({
     required String shopName,
     required String itemTitle,
@@ -359,7 +388,6 @@ class NotificationService {
     );
   }
 
-  /// إشعار عند تغيير سعر منتج/عرض/خدمة مفضّلة
   Future<void> showPriceDropNotification({
     required String itemName,
     required String itemId,
@@ -367,7 +395,6 @@ class NotificationService {
     required double newPrice,
     String itemType = 'product',
   }) async {
-    // ✅ Fix #50: guard ضد division by zero عند oldPrice == 0
     if (oldPrice <= 0) return;
     final diff = ((oldPrice - newPrice) / oldPrice * 100).round();
     final routePrefix =
@@ -384,7 +411,6 @@ class NotificationService {
     );
   }
 
-  /// إشعار عند إضافة عنصر جديد لقائمة مشتركة
   Future<void> showCollectionUpdate({
     required String collectionName,
     required String collectionId,
@@ -401,7 +427,6 @@ class NotificationService {
     );
   }
 
-  /// ✅ إشعار تلقائي لكل المستخدمين عند نشر إعلان جديد
   Future<void> showNewAdNotification({
     required String adText,
     required String adId,
@@ -416,7 +441,6 @@ class NotificationService {
       payload: 'ad_details:$adId',
     );
 
-    // أيضاً نكتب للـ notification_queue لإرسال FCM للغائبين عبر Cloud Function
     await _writeToNotificationQueue(
       title: '📢 إعلان جديد في سنهور أونلاين',
       body: title.length > 60 ? '${title.substring(0, 60)}...' : title,
@@ -428,12 +452,8 @@ class NotificationService {
 
   // ════════════════════════════════════════════════════════════════════════
   // 6. إشعارات التاجر المجدولة
-  //    — يومية الساعة 10 مساءً
-  //    — أسبوعية الجمعة 10 مساءً
-  //    — شهرية آخر يوم في الشهر 10 مساءً
   // ════════════════════════════════════════════════════════════════════════
 
-  /// إشعار يومي بالإحصائيات — الساعة 22:00 كل يوم
   Future<void> scheduleDailyStats({required String shopName}) async {
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, 22);
@@ -453,7 +473,6 @@ class NotificationService {
     );
   }
 
-  /// إشعار أسبوعي — الجمعة 22:00
   Future<void> scheduleWeeklyStats({required String shopName}) async {
     await _scheduleRecurringNotification(
       id: 201,
@@ -467,7 +486,6 @@ class NotificationService {
     );
   }
 
-  /// إشعار شهري — آخر يوم في الشهر 22:00 (recurring)
   Future<void> scheduleMonthlyStats({required String shopName}) async {
     final now = tz.TZDateTime.now(tz.local);
     final lastDay = DateTime(now.year, now.month + 1, 0).day;
@@ -478,7 +496,6 @@ class NotificationService {
       scheduled = tz.TZDateTime(tz.local, next.year, next.month, next.day, 22);
     }
 
-    // ✅ Fix #47: _scheduleRecurringNotification بدلاً من one-shot
     await _scheduleRecurringNotification(
       id: 202,
       title: '📋 تقرير شهر $shopName',
@@ -495,7 +512,6 @@ class NotificationService {
   // 7. تذكيرات تجديد الاشتراك
   // ════════════════════════════════════════════════════════════════════════
 
-  /// يُجدول 3 تذكيرات: قبل 14 يوم، 7 أيام، 3 أيام من انتهاء الاشتراك
   Future<void> scheduleSubscriptionReminders({
     required DateTime expiryDate,
     required String shopId,
@@ -510,8 +526,7 @@ class NotificationService {
     for (final r in reminders) {
       final days = r['days'] as int;
       final id = r['id'] as int;
-      final reminderDate =
-          expiryDate.subtract(Duration(days: days));
+      final reminderDate = expiryDate.subtract(Duration(days: days));
       if (reminderDate.isBefore(DateTime.now())) continue;
 
       final tzDate = tz.TZDateTime.from(reminderDate, tz.local);
@@ -569,7 +584,6 @@ class NotificationService {
   // 9. كتابة الـ Notification Queue (لـ Cloud Functions)
   // ════════════════════════════════════════════════════════════════════════
 
-  /// يكتب طلب FCM في Firestore — Cloud Function تُرسله لمن لم يستقبله محلياً
   static Future<void> _writeToNotificationQueue({
     required String title,
     required String body,
@@ -589,7 +603,6 @@ class NotificationService {
         'data': {'route': route, 'channel': channel},
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
-        // ✅ Fix #54: TTL 24 ساعة — Cloud Function أو Firebase TTL policy تُنظِّفها
         'expiresAt': Timestamp.fromDate(
             DateTime.now().add(const Duration(hours: 24))),
       });
@@ -598,7 +611,6 @@ class NotificationService {
     }
   }
 
-  /// يُستخدم من `ad_service.dart` عند نشر إعلان جديد
   static Future<void> triggerNewAdNotification({
     required String adId,
     required String adText,
@@ -613,7 +625,6 @@ class NotificationService {
     );
   }
 
-  /// يُستخدم من `product_service.dart` عند إضافة منتج/عرض/خدمة
   static Future<void> triggerFavoriteShopUpdate({
     required String shopId,
     required String shopName,
@@ -639,13 +650,12 @@ class NotificationService {
     await _writeToNotificationQueue(
       title: '$emoji جديد في $shopName',
       body: '"$itemTitle" — الحق شوفه!',
-      topic: 'shop_favorites_$shopId', // Cloud Function ترسلها لمن اشترك
+      topic: 'shop_favorites_$shopId',
       route: route,
       channel: 'user_favorites',
     );
   }
 
-  /// يُستخدم عند اكتشاف تغيير سعر
   static Future<void> triggerPriceDrop({
     required String itemId,
     required String itemName,
@@ -653,6 +663,7 @@ class NotificationService {
     required double newPrice,
     required String itemType,
   }) async {
+    if (oldPrice <= 0) return;
     final diff = ((oldPrice - newPrice) / oldPrice * 100).round();
     final route =
         itemType == 'offer' ? 'offer_details:$itemId' : 'product_details:$itemId';
@@ -727,9 +738,7 @@ class NotificationService {
             importance: Importance.high, priority: Priority.high),
         iOS: const DarwinNotificationDetails(),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      // pubspec مثبّت flutter_local_notifications ^17 اللي بيشترط الباراميتر ده
-      // (اتشال من الكود في نسخة lib-2 بالغلط → missing_required_argument)
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       payload: payload,
@@ -757,7 +766,7 @@ class NotificationService {
             priority: Priority.defaultPriority),
         iOS: const DarwinNotificationDetails(),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: matchComponents,

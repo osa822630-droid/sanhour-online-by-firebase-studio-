@@ -1,5 +1,5 @@
 // lib/screens/tabs/admin_settings_tab.dart
-// ✅ إعادة كتابة كاملة — إزالة comment الـ placeholder وإصلاح كل الوظائف
+// ✅ إزالة المتغير الميت _isSeeding وعرض رسائل الخطأ عند فشل تفعيل/إلغاء التحديث الإجباري أو تحديث الثيم
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/database_seeder.dart';
@@ -25,7 +25,6 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
 
   bool _isKeyVisible = false;
   bool _isLoading = false;
-  final bool _isSeeding = false;
   bool _isCleaning = false;
   bool _isSendingNotif = false;
 
@@ -110,7 +109,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
       _showSnackBar('تم حفظ الإعدادات بنجاح ✅', Colors.green);
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar('حدث خطأ أثناء الحفظ', Colors.red);
+      _showSnackBar('حدث خطأ أثناء الحفظ: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -147,7 +146,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
           Colors.green);
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar('حدث خطأ أثناء الإرسال', Colors.red);
+      _showSnackBar('حدث خطأ أثناء الإرسال: $e', Colors.red);
     } finally {
       if (mounted) setState(() => _isSendingNotif = false);
     }
@@ -158,7 +157,10 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
       await ApiService.updateAppSettings({'season': season});
       if (!mounted) return;
       _showSnackBar('تم تفعيل ثيم "$season" بنجاح', Colors.deepPurple);
-    } catch (_) {}
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('تعذّر تحديث الثيم: $e', Colors.red);
+    }
   }
 
   Future<void> _sendForceUpdate() async {
@@ -177,7 +179,10 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
       if (!mounted) return;
       _showSnackBar('✅ تم تفعيل التحديث الإجباري',
           Colors.deepOrangeAccent);
-    } catch (_) {}
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('❌ فشل تفعيل التحديث الإجباري: $e', Colors.red);
+    }
   }
 
   Future<void> _disableForceUpdate() async {
@@ -188,13 +193,14 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
       });
       if (!mounted) return;
       _showSnackBar('✅ تم إلغاء التحديث الإجباري', Colors.green);
-    } catch (_) {}
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('❌ فشل إلغاء التحديث الإجباري: $e', Colors.red);
+    }
   }
 
   // ✅ يفتح SeederScreen الجديدة بدلاً من استدعاء DatabaseSeeder.seedDatabase() مباشرة
-  // — تُعرض التقدم لكل مرحلة مع نسبة مئوية وسجل تفاصيل
   Future<void> _seedDatabase() async {
-    // ✅ إصلاح مشكلة #5
     if (!BuildFlags.mockModeEnabled) {
       _showSnackBar('غير متاح في بيئة الإنتاج', Colors.orange);
       return;
@@ -367,7 +373,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                         'none';
                   }
                   return DropdownButtonFormField<String>(
-                    // ✅ إصلاح API قديم: value مُهملة لصالح initialValue (Flutter 3.32+)
+                    key: ValueKey(current),
                     initialValue: current,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
@@ -398,7 +404,6 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
             const SizedBox(height: 24),
 
             // ── نصوص التطبيق (من نحن / شروط / خصوصية) ───────────────
-            const SizedBox(height: 24),
             _sectionTitle(
                 'نصوص التطبيق',
                 'هذه النصوص تظهر للمستخدمين في الإعدادات',
@@ -599,22 +604,12 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton.icon(
-                  onPressed:
-                      _isSeeding || _isCleaning ? null : _seedDatabase,
-                  icon: _isSeeding
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.data_usage),
-                  label: Text(_isSeeding
-                      ? 'جارٍ إضافة البيانات...'
-                      : 'إضافة بيانات وهمية (Seed)'),
+                  onPressed: _isCleaning ? null : _seedDatabase,
+                  icon: const Icon(Icons.data_usage),
+                  label: const Text('إضافة بيانات وهمية (Seed)'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _isSeeding || _isCleaning
-                        ? Colors.grey
-                        : Colors.red[700],
+                    backgroundColor:
+                        _isCleaning ? Colors.grey : Colors.red[700],
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -624,8 +619,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton.icon(
-                  onPressed:
-                      _isSeeding || _isCleaning ? null : _cleanDatabase,
+                  onPressed: _isCleaning ? null : _cleanDatabase,
                   icon: _isCleaning
                       ? const SizedBox(
                           width: 18,
@@ -637,7 +631,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                       ? 'جارٍ تنظيف البيانات...'
                       : 'تنظيف قاعدة البيانات (Clean)'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _isSeeding || _isCleaning
+                    backgroundColor: _isCleaning
                         ? Colors.grey
                         : Colors.deepOrangeAccent,
                     foregroundColor: Colors.white,

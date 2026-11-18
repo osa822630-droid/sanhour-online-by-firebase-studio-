@@ -1,8 +1,13 @@
 // lib/screens/tabs/admin_categories_tab.dart
-// ✅ إصلاح التجميد: نقل TextEditingController خارج map() ومنع overflow
+// ✅ مزامنة الكاش في ShopsProvider بعد الإضافة أو التعديل أو الحذف
+// ✅ تحديث اسم الفئة تلقائياً في المحلات والمنتجات المرتبطة عند تغيير اسم الفئة الرئيسية
+// ✅ دعم الوضع الليلي (Dark Mode) بالكامل
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import '../../models/category_model.dart';
+import '../../providers/shops_provider.dart';
+import '../../services/api_service.dart';
 
 class AdminCategoriesTab extends StatefulWidget {
   const AdminCategoriesTab({super.key});
@@ -12,8 +17,9 @@ class AdminCategoriesTab extends StatefulWidget {
 }
 
 class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
-  bool _isLoading = true;
   List<CategoryModel> _categories = [];
+  bool _isLoading = true;
+  String? _errorMsg;
 
   @override
   void initState() {
@@ -23,17 +29,28 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
 
   Future<void> _loadCategories() async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMsg = null;
+    });
     try {
-      final cats = await ApiService.getCategories();
+      final list = await ApiService.getCategories();
       if (mounted) {
         setState(() {
-          _categories = cats;
+          _categories = list;
           _isLoading = false;
         });
+        // ✅ تحديث الكاش المشترك في ShopsProvider ليظهر التعديل فوراً في الرئيسية
+        context.read<ShopsProvider>().fetchCategories(refresh: true);
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      debugPrint('Error loading categories: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMsg = 'تعذّر تحميل الفئات. اضغط لإعادة المحاولة.';
+        });
+      }
     }
   }
 
@@ -41,136 +58,158 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0E0E1A) : Colors.grey[100],
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddEditDialog,
+        onPressed: () => _showAddEditDialog(),
         label: const Text('فئة جديدة'),
         icon: const Icon(Icons.add),
-        backgroundColor: Colors.deepPurple[900],
+        backgroundColor: const Color(0xFF5E35B1),
         foregroundColor: Colors.white,
       ),
-      body: _categories.isEmpty
-          ? _buildEmptyState()
-          : RefreshIndicator(
-              onRefresh: _loadCategories,
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                itemCount: _categories.length,
-                itemBuilder: (_, i) => _buildCategoryCard(_categories[i]),
-              ),
-            ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMsg != null
+              ? Center(
+                  child: GestureDetector(
+                    onTap: _loadCategories,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 60, color: Colors.red),
+                        const SizedBox(height: 12),
+                        Text(_errorMsg!,
+                            style: const TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                )
+              : _categories.isEmpty
+                  ? _buildEmptyState()
+                  : RefreshIndicator(
+                      onRefresh: _loadCategories,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                        itemCount: _categories.length,
+                        itemBuilder: (ctx, i) {
+                          final cat = _categories[i];
+                          return _buildCategoryCard(cat, isDark);
+                        },
+                      ),
+                    ),
     );
   }
 
-  Widget _buildCategoryCard(CategoryModel cat) {
+  Widget _buildCategoryCard(CategoryModel cat, bool isDark) {
+    final color = Color(cat.colorValue);
+    int totalSubSubs = 0;
+    for (final list in cat.subSubCategories.values) {
+      totalSubSubs += list.length;
+    }
+
     return Card(
-      elevation: 2,
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ExpansionTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Color(cat.colorValue).withValues(alpha: 0.2),
-            shape: BoxShape.circle,
+      elevation: 2,
+      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              CategoryModel.getIconData(cat.iconName),
+              color: color,
+              size: 24,
+            ),
           ),
-          child: Icon(CategoryModel.getIconData(cat.iconName),
-              color: Color(cat.colorValue)),
-        ),
-        title: Text(cat.name,
-            style:
-                const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        subtitle: Text(
-            '${cat.subCategories.length} قسم فرعي — ${cat.subSubCategories.values.fold<int>(0, (s, l) => s + l.length)} فرعي دقيق'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+          title: Text(
+            cat.name,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          subtitle: Text(
+            '${cat.subCategories.length} قسم فرعي • $totalSubSubs تصنيف دقيق',
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined,
+                    color: Colors.blue, size: 20),
+                tooltip: 'تعديل الفئة',
+                onPressed: () => _showAddEditDialog(category: cat),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline,
+                    color: Colors.red, size: 20),
+                tooltip: 'حذف الفئة',
+                onPressed: () => _confirmDelete(cat),
+              ),
+            ],
+          ),
+          childrenPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           children: [
-            IconButton(
-              icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-              tooltip: 'تعديل',
-              onPressed: () => _showAddEditDialog(category: cat),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: 'حذف',
-              onPressed: () => _confirmDelete(cat),
-            ),
+            if (cat.subCategories.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text('لا توجد أقسام فرعية',
+                    style: TextStyle(color: Colors.grey, fontSize: 12)),
+              )
+            else
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: cat.subCategories.map((sub) {
+                    final subSubs = cat.subSubCategories[sub] ?? [];
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            Border.all(color: color.withValues(alpha: 0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            sub,
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: color,
+                                fontSize: 12),
+                          ),
+                          if (subSubs.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              subSubs.join('، '),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: isDark
+                                      ? Colors.grey[400]
+                                      : Colors.grey[700]),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            const SizedBox(height: 8),
           ],
         ),
-        childrenPadding:
-            const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        children: [
-          if (cat.subCategories.isEmpty)
-            const Text('لا يوجد أقسام فرعية',
-                style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))
-          else
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: cat.subCategories.map((sub) {
-                final subSubs = cat.subSubCategories[sub] ?? [];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(children: [
-                        Icon(Icons.subdirectory_arrow_right,
-                            size: 16,
-                            color: Color(cat.colorValue)),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(sub,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14)),
-                        ),
-                      ]),
-                      if (subSubs.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
-                          children: subSubs
-                              .map((ss) => Container(
-                                    padding:
-                                        const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      border: Border.all(
-                                          color: Colors
-                                              .grey.shade300),
-                                      borderRadius:
-                                          BorderRadius.circular(
-                                              6),
-                                    ),
-                                    child: Text(ss,
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey)),
-                                  ))
-                              .toList(),
-                        ),
-                      ],
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
       ),
     );
   }
@@ -182,15 +221,15 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
         children: [
           Icon(Icons.category_outlined, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          const Text('لا توجد فئات حالياً',
-              style: TextStyle(fontSize: 18, color: Colors.grey)),
-          const SizedBox(height: 16),
+          const Text('لا توجد فئات مضافة بعد',
+              style: TextStyle(color: Colors.grey, fontSize: 16)),
+          const SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: _showAddEditDialog,
+            onPressed: () => _showAddEditDialog(),
             icon: const Icon(Icons.add),
-            label: const Text('أضف فئة'),
+            label: const Text('إضافة أول فئة'),
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple[900],
+                backgroundColor: const Color(0xFF5E35B1),
                 foregroundColor: Colors.white),
           ),
         ],
@@ -198,9 +237,6 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
     );
   }
 
-  // ── ديالوج الإضافة/التعديل ─────────────────────────────────────────────────
-  // ✅ الإصلاح الجوهري: استخدام Navigator.push لشاشة مستقلة بدلاً من AlertDialog
-  // يمنع overflow ومشكلة TextEditingController داخل map()
   void _showAddEditDialog({CategoryModel? category}) {
     Navigator.push(
       context,
@@ -228,8 +264,7 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white),
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
               Navigator.pop(ctx);
               await ApiService.deleteCategory(cat.id);
@@ -244,9 +279,6 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// شاشة تعديل/إضافة الفئة (fullscreen) — لا overflow، لا تجميد
-// ══════════════════════════════════════════════════════════════════════════════
 class _CategoryEditScreen extends StatefulWidget {
   final CategoryModel? category;
   final VoidCallback onSaved;
@@ -260,7 +292,6 @@ class _CategoryEditScreen extends StatefulWidget {
 class _CategoryEditScreenState extends State<_CategoryEditScreen> {
   final _nameCtrl = TextEditingController();
   final _subCatCtrl = TextEditingController();
-  // ✅ الإصلاح: مفتاح ثابت لكل subSub controller بدلاً من إنشائه داخل build()
   final Map<String, TextEditingController> _subSubCtrls = {};
 
   String _iconName = 'category';
@@ -270,10 +301,18 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
   bool _isSaving = false;
 
   final List<Color> _colors = [
-    Colors.blue, const Color(0xFFE53935), Colors.green,
-    Colors.deepOrange, Colors.purple, Colors.teal,
-    Colors.brown, Colors.pink, Colors.indigo,
-    Colors.cyan, Colors.amber, const Color(0xFF5E35B1),
+    Colors.blue,
+    const Color(0xFFE53935),
+    Colors.green,
+    Colors.deepOrange,
+    Colors.purple,
+    Colors.teal,
+    Colors.brown,
+    Colors.pink,
+    Colors.indigo,
+    Colors.cyan,
+    Colors.amber,
+    const Color(0xFF5E35B1),
   ];
 
   @override
@@ -289,7 +328,6 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
         _subSubCategories[k] = List.from(v);
       });
     }
-    // ✅ إنشاء controller واحد لكل sub فرعي عند التهيئة
     for (final sub in _subCategories) {
       _subSubCtrls[sub] = TextEditingController();
     }
@@ -311,7 +349,7 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
     setState(() {
       _subCategories.add(name);
       _subSubCategories[name] = [];
-      _subSubCtrls[name] = TextEditingController(); // ✅ مرة واحدة فقط
+      _subSubCtrls[name] = TextEditingController();
       _subCatCtrl.clear();
     });
   }
@@ -343,6 +381,26 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
     setState(() => _subSubCategories[parent]?.remove(ss));
   }
 
+  Future<void> _cascadeCategoryRename(String oldName, String newName) async {
+    if (oldName.isEmpty || newName.isEmpty || oldName == newName) return;
+    final firestore = FirebaseFirestore.instance;
+    for (final collectionName in const ['shops', 'products']) {
+      final snap = await firestore
+          .collection(collectionName)
+          .where('category', isEqualTo: oldName)
+          .get();
+      if (snap.docs.isEmpty) continue;
+      for (var i = 0; i < snap.docs.length; i += 400) {
+        final chunk = snap.docs.skip(i).take(400);
+        final batch = firestore.batch();
+        for (final doc in chunk) {
+          batch.update(doc.reference, {'category': newName});
+        }
+        await batch.commit();
+      }
+    }
+  }
+
   Future<void> _save() async {
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -352,9 +410,10 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
     }
     setState(() => _isSaving = true);
     try {
+      final newName = _nameCtrl.text.trim();
       final newCat = CategoryModel(
         id: widget.category?.id ?? '',
-        name: _nameCtrl.text.trim(),
+        name: newName,
         iconName: _iconName,
         colorValue: _selectedColor.toARGB32(),
         subCategories: _subCategories,
@@ -364,7 +423,11 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
       if (widget.category == null) {
         await ApiService.addCategory(newCat);
       } else {
+        final oldName = widget.category!.name;
         await ApiService.updateCategory(newCat);
+        if (oldName != newName) {
+          await _cascadeCategoryRename(oldName, newName);
+        }
       }
 
       if (!mounted) return;
@@ -394,7 +457,7 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
           isNew ? 'إضافة فئة جديدة' : 'تعديل "${widget.category!.name}"',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        backgroundColor: Colors.deepPurple[900],
+        backgroundColor: const Color(0xFF5E35B1),
         foregroundColor: Colors.white,
         actions: [
           TextButton(
@@ -412,9 +475,9 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── اسم الفئة ──────────────────────────────────────────────
           TextField(
             controller: _nameCtrl,
+            onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(
               labelText: 'اسم الفئة الرئيسية *',
               prefixIcon: Icon(Icons.label),
@@ -424,14 +487,14 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
 
           const SizedBox(height: 20),
 
-          // ── اختيار الأيقونة ──────────────────────────────────────
           const Text('الأيقونة:',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           const SizedBox(height: 8),
           Container(
             height: 180,
             decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(
+                    color: isDark ? Colors.white24 : Colors.grey.shade300),
                 borderRadius: BorderRadius.circular(10)),
             child: GridView.builder(
               padding: const EdgeInsets.all(8),
@@ -457,13 +520,14 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
                             : (isDark ? Colors.grey[800] : Colors.grey[100]),
                         borderRadius: BorderRadius.circular(8),
                         border: selected
-                            ? Border.all(
-                                color: _selectedColor, width: 2)
+                            ? Border.all(color: _selectedColor, width: 2)
                             : null,
                       ),
                       child: Icon(
                         CategoryModel.getIconData(item['name']!),
-                        color: selected ? Colors.white : Colors.grey[600],
+                        color: selected
+                            ? Colors.white
+                            : (isDark ? Colors.grey[400] : Colors.grey[600]),
                         size: 22,
                       ),
                     ),
@@ -475,7 +539,6 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
 
           const SizedBox(height: 16),
 
-          // ── اختيار اللون ─────────────────────────────────────────
           const Text('اللون:',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           const SizedBox(height: 10),
@@ -484,7 +547,7 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: _colors.map((c) {
-                final isSelected = _selectedColor == c;
+                final isSelected = _selectedColor.toARGB32() == c.toARGB32();
                 return GestureDetector(
                   onTap: () => setState(() => _selectedColor = c),
                   child: AnimatedContainer(
@@ -499,7 +562,11 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
                           ? Border.all(color: Colors.white, width: 3)
                           : null,
                       boxShadow: isSelected
-                          ? [BoxShadow(color: c.withValues(alpha: 0.5), blurRadius: 6)]
+                          ? [
+                              BoxShadow(
+                                  color: c.withValues(alpha: 0.5),
+                                  blurRadius: 6)
+                            ]
                           : null,
                     ),
                     child: isSelected
@@ -512,7 +579,6 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
             ),
           ),
 
-          // معاينة النتيجة
           const SizedBox(height: 12),
           Row(children: [
             Container(
@@ -527,24 +593,21 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
             const SizedBox(width: 12),
             Text(
               _nameCtrl.text.isEmpty ? 'معاينة الفئة' : _nameCtrl.text,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 16),
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ]),
 
           const SizedBox(height: 24),
           const Divider(),
 
-          // ── الأقسام الفرعية ──────────────────────────────────────
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.account_tree_outlined,
-                  color: Color(0xFF5E35B1)),
-              const SizedBox(width: 8),
-              const Text(
+              Icon(Icons.account_tree_outlined, color: Color(0xFF5E35B1)),
+              SizedBox(width: 8),
+              Text(
                 'الأقسام الفرعية (Sub Categories)',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 14),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ],
           ),
@@ -596,7 +659,6 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
           else
             Column(
               children: _subCategories.map((sub) {
-                // ✅ كل controller مُنشأ مسبقاً في initState / _addSubCat
                 final ctrl = _subSubCtrls[sub] ??
                     (_subSubCtrls[sub] = TextEditingController());
                 final subSubs = _subSubCategories[sub] ?? [];
@@ -605,11 +667,9 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
                   margin: const EdgeInsets.only(bottom: 10),
                   decoration: BoxDecoration(
                     border: Border.all(
-                        color: Colors.grey.shade300),
+                        color: isDark ? Colors.white24 : Colors.grey.shade300),
                     borderRadius: BorderRadius.circular(10),
-                    color: isDark
-                        ? const Color(0xFF1E1E2E)
-                        : Colors.white,
+                    color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
                   ),
                   child: Theme(
                     data: Theme.of(context)
@@ -618,8 +678,7 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
                       key: ValueKey(sub),
                       title: Text(sub,
                           style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14)),
+                              fontWeight: FontWeight.w600, fontSize: 14)),
                       subtitle: Text('${subSubs.length} فرعي دقيق',
                           style: const TextStyle(
                               fontSize: 11, color: Colors.grey)),
@@ -631,7 +690,6 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
                       ),
                       childrenPadding: const EdgeInsets.all(12),
                       children: [
-                        // إضافة فرعي دقيق
                         Row(children: [
                           Expanded(
                             child: TextField(
@@ -641,12 +699,10 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
                               decoration: InputDecoration(
                                 hintText: 'فرعي دقيق (مثال: شيرت)',
                                 isDense: true,
-                                contentPadding:
-                                    const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 8),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 8),
                                 border: OutlineInputBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(8)),
+                                    borderRadius: BorderRadius.circular(8)),
                               ),
                             ),
                           ),
@@ -669,16 +725,13 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
                                         label: Text(ss,
                                             style: const TextStyle(
                                                 fontSize: 12)),
-                                        visualDensity:
-                                            VisualDensity.compact,
-                                        deleteIcon: const Icon(
-                                            Icons.close,
+                                        visualDensity: VisualDensity.compact,
+                                        deleteIcon: const Icon(Icons.close,
                                             size: 14),
                                         onDeleted: () =>
                                             _removeSubSub(sub, ss),
-                                        backgroundColor:
-                                            _selectedColor.withValues(
-                                                alpha: 0.1),
+                                        backgroundColor: _selectedColor
+                                            .withValues(alpha: 0.1),
                                       ))
                                   .toList(),
                             ),

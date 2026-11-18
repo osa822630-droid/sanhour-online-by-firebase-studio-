@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '345802587606',
     projectId: 'sanhour-online',
     storageBucket: 'sanhour-online.firebasestorage.app',
-    iosBundleId: 'com.sanhour.sanhourOnline',
+    iosBundleId: 'com.sanhour.online',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '345802587606',
     projectId: 'sanhour-online',
     storageBucket: 'sanhour-online.firebasestorage.app',
-    iosBundleId: 'com.sanhour.sanhourOnline',
+    iosBundleId: 'com.sanhour.online',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

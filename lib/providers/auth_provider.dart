@@ -1,12 +1,7 @@
 // lib/providers/auth_provider.dart
-// ✅ QA Fix #123: _isMockLogin محمية بـ kDebugMode — لا تعمل في Production
-// ✅ QA Fix #125: logout يحذف مفاتيح الجلسة فقط
-// ✅ QA Fix #136: _fetchUserData مع timeout 10 ثانية
-// ✅ QA Fix #143: moderator قيمة مستقلة في UserRole
-// ✅ QA Fix #198: phone.substring guard ضد RangeError
-// ✅ QA Fix #229: _normalizePhone() موحَّدة
-// ✅ QA Fix #58: NotificationService.cleanup() في logout
-// ✅ QA Fix #124: whitelist صريح لـ userType
+// ✅ إزالة سحب مفتاح Gemini السري لأجهزة المستخدمين العاديين (يُعالج عبر Cloud Function askGemini)
+// ✅ استخدام AppConstants.phoneLookupCandidates عند المطالبة التلقائية بالمحلات المعلقة (pendingOwnerPhone)
+// ✅ حجز اسم المستخدم في usernames/{username} وتوليد referralCode تلقائياً عند التسجيل
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
@@ -15,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 import '../services/gemini_service.dart';
 import '../services/notification_service.dart';
+import '../services/referral_service.dart';
 import '../utils/constants.dart';
 
 enum AuthStatus {
@@ -54,7 +50,8 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  bool get isAdmin => userRole == UserRole.admin || userRole == UserRole.moderator;
+  bool get isAdmin =>
+      userRole == UserRole.admin || userRole == UserRole.moderator;
 
   bool get canViewFinancialStats => _user?.canViewFinancialStats ?? false;
   bool get canViewShopStats => _user?.canViewShopStats ?? false;
@@ -67,18 +64,13 @@ class AuthProvider with ChangeNotifier {
   Future<void> _autoLogin() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool('is_guest') == true) {
+      await _ensureAnonymousSession();
       _status = AuthStatus.guest;
       notifyListeners();
       return;
     }
 
     final firebaseUser = _auth.currentUser;
-    // ✅ إصلاح: تجاهل جلسة Firebase Auth المجهولة (anonymous) هنا — هذه
-    // الجلسة تُستخدَم فقط لتلبية شرط isAuth() في Firestore Security Rules
-    // (حتى تعمل عمليات الكتابة)، وليست هوية المستخدم الفعلية. هوية
-    // المستخدم الحقيقية تُستعاد من user_id المحفوظ في SharedPreferences عبر
-    // نظام تسجيل الدخول التجريبي الحالي. بدون هذا الشرط، أي جلسة مجهولة
-    // سابقة كانت ستُعامَل خطأً كأنها UID مستخدم حقيقي مخزَّن في Firestore.
     if (firebaseUser != null && !firebaseUser.isAnonymous) {
       _status = AuthStatus.authenticating;
       notifyListeners();
@@ -90,10 +82,10 @@ class AuthProvider with ChangeNotifier {
     if (userId != null) {
       _status = AuthStatus.authenticating;
       notifyListeners();
-      // ✅ إعادة تأسيس جلسة Firebase Auth المجهولة عند استعادة جلسة الدخول
-      // التجريبي من SharedPreferences مباشرةً (بعد إعادة تشغيل التطبيق)
       await _ensureAnonymousSession();
-      await _bindMockSession(userId);
+      if (BuildFlags.mockModeEnabled) {
+        await _bindMockSession(userId);
+      }
       await _fetchUserData(userId);
     } else {
       _status = AuthStatus.unauthenticated;
@@ -101,36 +93,18 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// ✅ يُنشئ جلسة Firebase Auth مجهولة (anonymous) إن لم تكن موجودة بالفعل.
-  /// ضرورية فقط لتلبية شرط `request.auth != null` في Firestore Security
-  /// Rules، حتى تنجح عمليات الكتابة (نشر منتج، إضافة إعلان ديلر، تقييم...)
-  /// بدلاً من أن يرفضها الخادم بصمت. لا علاقة لها بهوية المستخدم الفعلية في
-  /// التطبيق — تلك تُدار بالكامل عبر نظام تسجيل الدخول التجريبي (Mock
-  /// Login) ومُعرِّف المستخدم المخزَّن في Firestore/SharedPreferences.
   Future<void> _ensureAnonymousSession() async {
     try {
       if (_auth.currentUser == null) {
         await _auth.signInAnonymously();
       }
     } catch (e) {
-      // ✅ فشل هذه الخطوة لا يجب أن يوقف تسجيل الدخول التجريبي — القراءة
-      // وتصفح التطبيق يبقيان يعملان، وقد تفشل فقط بعض عمليات الكتابة لاحقاً
       debugPrint('Anonymous auth session error (non-fatal): $e');
     }
   }
 
-  /// ✅ Fix #13: يربط جلسة Firebase المجهولة بمعرّف مستخدم التطبيق
-  /// (mock_admin / mock_merchant / ...) عبر وثيقة `auth_sessions/{uid}`.
-  ///
-  /// السبب: قواعد Firestore تقارن حقول الملكية (ownerId / userId / ...) وأدوار
-  /// المستخدم بـ `request.auth.uid`، وهو في الجلسة المجهولة معرّف عشوائي لا
-  /// يساوي معرّف المستخدم التجريبي، فكانت كل كتابة مقيَّدة بالملكية تُرفَض.
-  /// دالة `appUid()` في firestore.rules تقرأ هذه الوثيقة وتحلّ الهوية منها.
-  ///
-  /// تتجاهل الجلسات الحقيقية (غير المجهولة) لأن معرّفها يطابق معرّف التطبيق
-  /// أصلاً. فشلها غير قاتل: يبقى التصفح والقراءة يعملان وتفشل فقط الكتابات
-  /// المقيَّدة بالهوية.
   Future<void> _bindMockSession(String appUserId) async {
+    if (!BuildFlags.mockModeEnabled) return;
     try {
       final session = _auth.currentUser;
       if (session == null || !session.isAnonymous) return;
@@ -143,8 +117,6 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  /// يحذف وثيقة ربط الجلسة المجهولة الحالية — يُستدعى قبل signOut()
-  /// (بعده لا تبقى جلسة تملك صلاحية الحذف فتتراكم وثائق يتيمة).
   Future<void> _unbindMockSession() async {
     try {
       final session = _auth.currentUser;
@@ -155,7 +127,6 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // ✅ Fix #136: timeout 10 ثانية
   Future<void> _fetchUserData(String uid) async {
     try {
       final doc = await _firestore
@@ -165,7 +136,7 @@ class AuthProvider with ChangeNotifier {
           .timeout(const Duration(seconds: 10),
               onTimeout: () => throw TimeoutException('انتهت مهلة الاتصال'));
       if (doc.exists) {
-        final data = doc.data()!;
+        final data = Map<String, dynamic>.from(doc.data()!);
         if (data['isDeleted'] == true) {
           _status = AuthStatus.unauthenticated;
         } else if (data['isSuspended'] == true) {
@@ -192,14 +163,72 @@ class AuthProvider with ChangeNotifier {
   }
 
   void _onLoginSuccess() {
-    _loadGeminiKey();
+    if (_user?.isAnyAdmin == true) {
+      _loadGeminiKeyForAdmin();
+    }
     _subscribeToNotificationTopics();
+    _claimPendingShopsByPhone();
+    _ensureReferralCode();
   }
 
-  Future<void> _loadGeminiKey() async {
+  Future<void> _ensureReferralCode() async {
+    final u = _user;
+    if (u == null || (u.referralCode != null && u.referralCode!.isNotEmpty)) {
+      return;
+    }
     try {
-      // ✅ Fix #17: المفتاح في settings_private/gemini (يُقرأ بعد الدخول فقط،
-      // بجلسة معروفة الهوية) وليس settings/general المقروءة للعالم بلا حساب
+      final code = await ReferralService.generateReferralCode(u.id);
+      if (_user != null && _user!.id == u.id) {
+        _user = _user!.copyWith(referralCode: code);
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  /// ✅ ربط أي محل أضافه الأدمن برقم هاتف هذا المستخدم قبل تسجيله في التطبيق (بجميع صيغ الرقم)
+  Future<void> _claimPendingShopsByPhone() async {
+    final user = _user;
+    if (user == null || user.phone.trim().isEmpty) {
+      return;
+    }
+    try {
+      final candidates = AppConstants.phoneLookupCandidates(user.phone.trim());
+      if (candidates.isEmpty) return;
+
+      final snap = await _firestore
+          .collection('shops')
+          .where('pendingOwnerPhone', whereIn: candidates)
+          .get();
+      if (snap.docs.isEmpty) {
+        return;
+      }
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.update(doc.reference, {
+          'ownerId': user.id,
+          'pendingOwnerPhone': null,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      if (user.userType == 'customer') {
+        batch.update(_firestore.collection('users').doc(user.id), {
+          'userType': 'merchant',
+          'shopRole': 'owner',
+        });
+      }
+      await batch.commit();
+      if (user.userType == 'customer') {
+        _user = user.copyWith(userType: 'merchant', shopRole: 'owner');
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('_claimPendingShopsByPhone error: $e');
+    }
+  }
+
+  /// ✅ يُستدعى للمشرفين فقط (لأن قراءة settings_private مقصورة على المشرفين في firestore.rules)
+  Future<void> _loadGeminiKeyForAdmin() async {
+    try {
       final doc =
           await _firestore.collection('settings_private').doc('gemini').get();
       if (doc.exists) {
@@ -225,20 +254,17 @@ class AuthProvider with ChangeNotifier {
 
   void updateUserLocally({String? name, String? username, String? photoUrl}) {
     if (_user == null) return;
-    _user = _user!.copyWith(name: name, username: username, profileImageUrl: photoUrl);
+    _user = _user!.copyWith(
+        name: name, username: username, profileImageUrl: photoUrl);
     notifyListeners();
   }
 
-  // ✅ Fix #229: تطبيع رقم الهاتف موحَّد
-  static String _normalizePhone(String phone) {
-    String p = phone.replaceAll(RegExp(r'[\s\-]'), '');
-    p = p.replaceAllMapped(RegExp(r'[٠-٩]'),
-        (m) => (m[0]!.codeUnitAt(0) - '٠'.codeUnitAt(0)).toString());
-    if (p.startsWith('+20')) return p;
-    if (p.startsWith('0020')) return '+2${p.substring(4)}';
-    if (p.startsWith('20') && p.length == 12) return '+$p';
-    if (p.startsWith('0') && p.length == 11) return '+2$p';
-    return '+2$p';
+  static String _normalizePhone(String phone) =>
+      AppConstants.normalizePhoneToE164(phone);
+
+  static String _phoneToAuthEmail(String normalizedPhone) {
+    final digits = normalizedPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    return 'u$digits@users.sanhour.online';
   }
 
   bool _isMockCredentials(String phone, String password) =>
@@ -246,67 +272,266 @@ class AuthProvider with ChangeNotifier {
       (phone == '01234567890' && password == 'merchant123') ||
       (phone == '01112223334' && password == 'user123');
 
-  bool _isMockLogin(String phone, String password) =>
-      _isMockCredentials(phone, password);
-
-  Future<String?> loginWithPhoneAndPassword(String phone, String password) async {
+  Future<String?> loginWithPhoneAndPassword(
+      String phone, String password) async {
     _status = AuthStatus.authenticating;
     notifyListeners();
 
-    // ✅ Fix #123 + #5/#6: Mock credentials محظورة إلا في وضع الاختبار
-    // (Debug عادي أو --dart-define=ENABLE_MOCK_MODE=true صراحةً)
     if (!BuildFlags.mockModeEnabled && _isMockCredentials(phone, password)) {
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       return 'رقم الهاتف أو كلمة المرور غير صحيحة';
     }
 
+    final normalizedPhone = _normalizePhone(phone);
+    final phoneCandidates = AppConstants.phoneLookupCandidates(phone);
+
     try {
-      if (!_isMockLogin(phone, password)) {
-        _status = AuthStatus.unauthenticated;
-        notifyListeners();
-        return 'رقم الهاتف أو كلمة المرور غير صحيحة';
+      if (BuildFlags.mockModeEnabled && _isMockCredentials(phone, password)) {
+        await _ensureAnonymousSession();
+        final snap = await _firestore
+            .collection('users')
+            .where('phone', whereIn: phoneCandidates)
+            .limit(1)
+            .get();
+
+        if (snap.docs.isNotEmpty) {
+          final data = Map<String, dynamic>.from(snap.docs.first.data());
+          if (data['isSuspended'] == true) {
+            _status = AuthStatus.unauthenticated;
+            notifyListeners();
+            return 'تم تعليق حسابك. تواصل مع الإدارة.';
+          }
+          data['id'] = snap.docs.first.id;
+          _user = AppUser.fromMap(data);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('is_guest', false);
+          await prefs.setString('user_id', _user!.id);
+          await _bindMockSession(_user!.id);
+          _status = AuthStatus.authenticated;
+          _onLoginSuccess();
+          notifyListeners();
+          return null;
+        }
+
+        await _handleMockLogin(phone, password);
+        return null;
       }
 
-      final normalizedPhone = _normalizePhone(phone);
-      // ✅ Fix #13: الجلسة المجهولة تُنشأ قبل أي قراءة أو كتابة — قاعدة قراءة
-      // users تتطلب isAuth()، وبدونها يفشل البحث بالهاتف في أول دخول (وبعد
-      // الخروج أيضاً لأن signOut() يُسقط الجلسة).
-      await _ensureAnonymousSession();
-      final snap = await _firestore
-          .collection('users')
-          .where('phone', isEqualTo: normalizedPhone)
-          .limit(1)
-          .get();
+      final syntheticEmail = _phoneToAuthEmail(normalizedPhone);
+      try {
+        final credential = await _auth.signInWithEmailAndPassword(
+          email: syntheticEmail,
+          password: password,
+        );
+        final uid = credential.user!.uid;
+        var doc = await _firestore.collection('users').doc(uid).get();
 
-      if (snap.docs.isNotEmpty) {
-        final data = snap.docs.first.data();
-        if (data['isSuspended'] == true) {
+        Map<String, dynamic>? userData;
+        String resolvedId = uid;
+
+        if (doc.exists && doc.data() != null) {
+          userData = Map<String, dynamic>.from(doc.data()!);
+          resolvedId = doc.id;
+        } else {
+          final snap = await _firestore
+              .collection('users')
+              .where('phone', whereIn: phoneCandidates)
+              .limit(1)
+              .get();
+          if (snap.docs.isNotEmpty) {
+            userData = Map<String, dynamic>.from(snap.docs.first.data());
+            resolvedId = snap.docs.first.id;
+          }
+        }
+
+        if (userData == null) {
+          await _auth.signOut();
+          _status = AuthStatus.unauthenticated;
+          notifyListeners();
+          return 'لم يتم العثور على بيانات الحساب. يرجى إنشاء حساب جديد.';
+        }
+
+        if (userData['isSuspended'] == true) {
+          await _auth.signOut();
           _status = AuthStatus.unauthenticated;
           notifyListeners();
           return 'تم تعليق حسابك. تواصل مع الإدارة.';
         }
-        data['id'] = snap.docs.first.id;
-        _user = AppUser.fromMap(data);
+
+        if (userData['isDeleted'] == true) {
+          await _auth.signOut();
+          _status = AuthStatus.unauthenticated;
+          notifyListeners();
+          return 'هذا الحساب محذوف.';
+        }
+
+        userData['id'] = resolvedId;
+        _user = AppUser.fromMap(userData);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('is_guest', false);
         await prefs.setString('user_id', _user!.id);
-        // ✅ Fix #13: ربط الجلسة المجهولة (أُنشئت أعلاه لتلبية isAuth()) بمعرّف
-        // المستخدم ليتعرّف عليه appUid() في Firestore Security Rules
-        await _bindMockSession(_user!.id);
         _status = AuthStatus.authenticated;
         _onLoginSuccess();
         notifyListeners();
         return null;
-      }
+      } on auth.FirebaseAuthException catch (authErr) {
+        if (BuildFlags.mockModeEnabled &&
+            (authErr.code == 'user-not-found' ||
+                authErr.code == 'invalid-credential')) {
+          await _ensureAnonymousSession();
+          final snap = await _firestore
+              .collection('users')
+              .where('phone', whereIn: phoneCandidates)
+              .limit(1)
+              .get();
+          if (snap.docs.isNotEmpty) {
+            final data = Map<String, dynamic>.from(snap.docs.first.data());
+            if (data['isSuspended'] == true) {
+              _status = AuthStatus.unauthenticated;
+              notifyListeners();
+              return 'تم تعليق حسابك. تواصل مع الإدارة.';
+            }
+            data['id'] = snap.docs.first.id;
+            _user = AppUser.fromMap(data);
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('is_guest', false);
+            await prefs.setString('user_id', _user!.id);
+            await _bindMockSession(_user!.id);
+            _status = AuthStatus.authenticated;
+            _onLoginSuccess();
+            notifyListeners();
+            return null;
+          }
+        }
 
-      await _handleMockLogin(phone, password);
-      return null;
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        switch (authErr.code) {
+          case 'user-not-found':
+          case 'wrong-password':
+          case 'invalid-credential':
+            return 'رقم الهاتف أو كلمة المرور غير صحيحة';
+          case 'user-disabled':
+            return 'تم تعليق حسابك. تواصل مع الإدارة.';
+          case 'too-many-requests':
+            return 'محاولات كثيرة جداً. يرجى الانتظار قليلاً ثم المحاولة.';
+          case 'network-request-failed':
+            return 'تعذّر الاتصال بالإنترنت. تحقق من اتصالك.';
+          default:
+            return 'تعذّر تسجيل الدخول (${authErr.code}).';
+        }
+      }
     } catch (e) {
       debugPrint('Login error: $e');
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       return 'حدث خطأ في الاتصال. حاول مجدداً.';
+    }
+  }
+
+  /// إنشاء حساب جديد فعلي برقم الهاتف وكلمة المرور
+  Future<String?> registerWithPhoneAndPassword({
+    required String name,
+    required String username,
+    required String phone,
+    required String password,
+    required String userType,
+  }) async {
+    const allowedTypes = ['customer', 'merchant'];
+    if (!allowedTypes.contains(userType)) {
+      return 'نوع المستخدم غير مسموح به.';
+    }
+
+    _status = AuthStatus.authenticating;
+    notifyListeners();
+
+    final normalizedPhone = _normalizePhone(phone);
+    final phoneCandidates = AppConstants.phoneLookupCandidates(phone);
+    final syntheticEmail = _phoneToAuthEmail(normalizedPhone);
+    final cleanUsername = username.trim().toLowerCase();
+
+    try {
+      await _ensureAnonymousSession();
+
+      if (await checkUsernameExists(cleanUsername)) {
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return 'اسم المستخدم مستخدم مسبقاً.';
+      }
+
+      final phoneSnap = await _firestore
+          .collection('users')
+          .where('phone', whereIn: phoneCandidates)
+          .limit(1)
+          .get();
+      if (phoneSnap.docs.isNotEmpty) {
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return 'رقم الهاتف مسجّل بالفعل.';
+      }
+
+      if (_auth.currentUser != null && _auth.currentUser!.isAnonymous) {
+        await _unbindMockSession();
+        await _auth.signOut();
+      }
+
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: syntheticEmail,
+        password: password,
+      );
+      final uid = credential.user!.uid;
+
+      final newUser = AppUser(
+        id: uid,
+        name: name.trim(),
+        username: cleanUsername,
+        email: syntheticEmail,
+        phone: normalizedPhone,
+        userType: userType,
+      );
+
+      final batch = _firestore.batch();
+      batch.set(_firestore.collection('users').doc(uid), {
+        ...newUser.toMap(),
+        'id': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+        'isSuspended': false,
+        'isDeleted': false,
+      });
+      batch.set(_firestore.collection('usernames').doc(cleanUsername), {
+        'uid': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await batch.commit();
+
+      _user = newUser;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_guest', false);
+      await prefs.setString('user_id', uid);
+      _status = AuthStatus.authenticated;
+      _onLoginSuccess();
+      notifyListeners();
+      return null;
+    } on auth.FirebaseAuthException catch (e) {
+      debugPrint('registerWithPhoneAndPassword error: ${e.code}');
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+      switch (e.code) {
+        case 'email-already-in-use':
+          return 'رقم الهاتف مسجّل بالفعل.';
+        case 'weak-password':
+          return 'كلمة المرور ضعيفة (يجب أن تكون 6 أحرف على الأقل).';
+        case 'network-request-failed':
+          return 'لا يوجد اتصال بالإنترنت. حاول لاحقاً.';
+        default:
+          return 'تعذّر إنشاء الحساب (${e.code}).';
+      }
+    } catch (e) {
+      debugPrint('registerWithPhoneAndPassword unexpected error: $e');
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+      return 'حدث خطأ غير متوقع، حاول مجدداً.';
     }
   }
 
@@ -331,14 +556,15 @@ class AuthProvider with ChangeNotifier {
       _user = AppUser.fromMap(data);
       await _bindMockSession(_user!.id);
     } else {
-      // ✅ Fix #198: guard ضد RangeError
-      final suffix = phone.length >= 4 ? phone.substring(phone.length - 4) : phone;
+      final suffix =
+          phone.length >= 4 ? phone.substring(phone.length - 4) : phone;
       final mockId = '${userType}_mock_$suffix';
-      // ✅ Fix #13: الربط قبل كتابة وثيقة المستخدم حتى تُنسب الكتابة لهويّته
       await _bindMockSession(mockId);
       final mockUser = AppUser(
         id: mockId,
-        name: userType == 'admin' ? 'المدير' : (userType == 'merchant' ? 'التاجر' : 'مستخدم'),
+        name: userType == 'admin'
+            ? 'المدير'
+            : (userType == 'merchant' ? 'التاجر' : 'مستخدم'),
         username: userType,
         email: '$userType@sanhour.com',
         phone: normalizedPhone,
@@ -370,15 +596,19 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> checkUsernameExists(String username) async {
+    final clean = username.trim().toLowerCase();
+    final reservedDoc =
+        await _firestore.collection('usernames').doc(clean).get();
+    if (reservedDoc.exists) return true;
+
     final result = await _firestore
         .collection('users')
-        .where('username', isEqualTo: username)
+        .where('username', isEqualTo: clean)
         .limit(1)
         .get();
     return result.docs.isNotEmpty;
   }
 
-  // ✅ Fix #124: whitelist صريح لـ userType
   Future<String?> completeRegistration(
       String name, String username, String userType) async {
     const allowedTypes = ['customer', 'merchant'];
@@ -396,8 +626,10 @@ class AuthProvider with ChangeNotifier {
       return 'لم يتم العثور على جلسة نشطة.';
     }
 
+    final cleanUsername = username.trim().toLowerCase();
+
     try {
-      if (await checkUsernameExists(username)) {
+      if (await checkUsernameExists(cleanUsername)) {
         _status = AuthStatus.unauthenticated;
         notifyListeners();
         return 'اسم المستخدم مستخدم مسبقاً.';
@@ -405,23 +637,30 @@ class AuthProvider with ChangeNotifier {
 
       final newUser = AppUser(
         id: currentUser.uid,
-        name: name,
-        username: username,
+        name: name.trim(),
+        username: cleanUsername,
         email: currentUser.email ?? '',
         phone: currentUser.phoneNumber ?? '',
         userType: userType,
       );
 
-      await _firestore.collection('users').doc(newUser.id).set({
+      final batch = _firestore.batch();
+      batch.set(_firestore.collection('users').doc(newUser.id), {
         ...newUser.toMap(),
         'createdAt': FieldValue.serverTimestamp(),
         'isSuspended': false,
         'isDeleted': false,
       });
+      batch.set(_firestore.collection('usernames').doc(cleanUsername), {
+        'uid': newUser.id,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await batch.commit();
 
       _user = newUser;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('is_guest', false);
+      await prefs.setString('user_id', newUser.id);
       _status = AuthStatus.authenticated;
       _onLoginSuccess();
       notifyListeners();
@@ -431,10 +670,14 @@ class AuthProvider with ChangeNotifier {
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       switch (e.code) {
-        case 'permission-denied': return 'غير مصرح لك بهذه العملية.';
-        case 'unavailable': return 'لا يوجد اتصال بالإنترنت. حاول لاحقاً.';
-        case 'already-exists': return 'هذا الرقم مسجّل بالفعل.';
-        default: return 'حدث خطأ غير متوقع، حاول مجدداً.';
+        case 'permission-denied':
+          return 'غير مصرح لك بهذه العملية.';
+        case 'unavailable':
+          return 'لا يوجد اتصال بالإنترنت. حاول لاحقاً.';
+        case 'already-exists':
+          return 'هذا الرقم مسجّل بالفعل.';
+        default:
+          return 'حدث خطأ غير متوقع، حاول مجدداً.';
       }
     } catch (e) {
       debugPrint('Registration error: $e');
@@ -445,6 +688,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> loginAsGuest() async {
+    await _ensureAnonymousSession();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_guest', true);
     _status = AuthStatus.guest;
@@ -452,14 +696,10 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // ✅ Fix #125: حذف مفاتيح الجلسة فقط
-  // ✅ Fix #58: cleanup() قبل الخروج
   Future<void> logout() async {
     try {
       NotificationService().cleanup();
       await NotificationService.unsubscribeFromAllTopics();
-      // ✅ Fix #13: حذف وثيقة الربط قبل signOut() — بعده لا تبقى جلسة تملك
-      // صلاحية حذفها فتتراكم وثائق يتيمة في auth_sessions
       await _unbindMockSession();
       await _auth.signOut();
     } catch (_) {}
@@ -467,7 +707,6 @@ class AuthProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('is_guest');
     await prefs.remove('user_id');
-    // show_startup_ads و user_interests تُحفَظ بعد الخروج
 
     _user = null;
     _status = AuthStatus.unauthenticated;

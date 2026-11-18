@@ -1,6 +1,7 @@
 // lib/screens/tabs/admin_complaints_tab.dart
 // ✅ إصلاح: الرد يكتب حقل 'reply' (بدلاً من 'adminReply') ليتوافق مع my_complaints_screen
-// ✅ إضافة: الرد يُنشئ إشعاراً في notifications collection ليظهر للمستخدم فوراً
+// ✅ إضافة: الرد يُنشئ إشعاراً في notifications collection ليظهر للمستخدم المسجل فوراً (مع استثناء الزوار 'guest')
+// ✅ إصلاح: التخلص من replyCtrl بعد إغلاق ديالوج الرد لمنع تسريب الذاكرة
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -55,7 +56,12 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
       }
     } catch (e) {
       debugPrint("load error: $e");
-      if (mounted) setState(() { _isLoading = false; _errorMsg = "تعذّر تحميل البيانات. اضغط للمحاولة."; });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMsg = "تعذّر تحميل البيانات. اضغط للمحاولة.";
+        });
+      }
     }
   }
 
@@ -127,8 +133,6 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
           ? const Center(child: CircularProgressIndicator())
           : _filteredComplaints.isEmpty
               ? Center(
-                  // ✅ رسالة الخطأ المخزّنة (Fix #104/#106/#107) كانت بتتكتب ومبتتعرضش:
-                  // دلوقتي بتظهر بدل "لا توجد رسائل" والضغط عليها يعيد المحاولة.
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _errorMsg != null ? _loadComplaints : null,
@@ -180,10 +184,17 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
 
     Color typeColor;
     switch (type) {
-      case 'شكوى': typeColor = Colors.red; break;
-      case 'اقتراح': typeColor = Colors.blue; break;
-      case 'إبلاغ عن تاجر': typeColor = Colors.orange; break;
-      default: typeColor = Colors.purple;
+      case 'شكوى':
+        typeColor = Colors.red;
+        break;
+      case 'اقتراح':
+        typeColor = Colors.blue;
+        break;
+      case 'إبلاغ عن تاجر':
+        typeColor = Colors.orange;
+        break;
+      default:
+        typeColor = Colors.purple;
     }
 
     return Card(
@@ -199,7 +210,8 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
             // ── معلومات المُرسِل ──────────────────────────────
             Row(children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: typeColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
@@ -237,7 +249,8 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
               const SizedBox(width: 6),
               Text(
                 item['userName'] as String? ?? 'مجهول',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
               const SizedBox(width: 10),
               GestureDetector(
@@ -260,8 +273,7 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
             // العنوان
             Text(
               item['title'] as String? ?? '',
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 15),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
             ),
 
             // التفاصيل
@@ -269,7 +281,10 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
               const SizedBox(height: 6),
               Text(
                 item['details'] as String,
-                style: TextStyle(color: Colors.grey[600], fontSize: 13, height: 1.5),
+                style: TextStyle(
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                    fontSize: 13,
+                    height: 1.5),
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -284,7 +299,8 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
                 decoration: BoxDecoration(
                   color: Colors.green.withValues(alpha: 0.07),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                  border:
+                      Border.all(color: Colors.green.withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,14 +349,15 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: () => _confirmDelete(item['id'] as String),
-                icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                icon: const Icon(Icons.delete_outline,
+                    size: 16, color: Colors.red),
                 label: const Text('حذف', style: TextStyle(color: Colors.red)),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.red),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
               ),
             ]),
@@ -351,58 +368,66 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
   }
 
   // ── ديالوج الرد ─────────────────────────────────────────────────────
-  void _showReplyDialog(Map<String, dynamic> item) {
+  Future<void> _showReplyDialog(Map<String, dynamic> item) async {
     final existingReply = (item['reply'] as String?)?.isNotEmpty == true
         ? item['reply'] as String
         : (item['adminReply'] as String? ?? '');
     final replyCtrl = TextEditingController(text: existingReply);
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          existingReply.isEmpty ? 'إرسال رد' : 'تعديل الرد',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'على: "${item['title'] ?? ''}"',
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: replyCtrl,
-              maxLines: 4,
-              autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'اكتب ردك هنا...',
-                border: OutlineInputBorder(),
+    try {
+      final submittedReply = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            existingReply.isEmpty ? 'إرسال رد' : 'تعديل الرد',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'على: "${item['title'] ?? ''}"',
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: replyCtrl,
+                maxLines: 4,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'اكتب ردك هنا...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5E35B1),
+                  foregroundColor: Colors.white),
+              onPressed: () {
+                final text = replyCtrl.text.trim();
+                if (text.isEmpty) return;
+                Navigator.pop(ctx, text);
+              },
+              child: const Text('إرسال'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1),
-                foregroundColor: Colors.white),
-            onPressed: () async {
-              if (replyCtrl.text.trim().isEmpty) return;
-              Navigator.pop(ctx);
-              await _submitReply(item, replyCtrl.text.trim());
-            },
-            child: const Text('إرسال'),
-          ),
-        ],
-      ),
-    );
+      );
+
+      if (submittedReply != null && submittedReply.isNotEmpty) {
+        await _submitReply(item, submittedReply);
+      }
+    } finally {
+      replyCtrl.dispose();
+    }
   }
 
   Future<void> _submitReply(
@@ -425,10 +450,11 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
         'repliedAt': FieldValue.serverTimestamp(),
       });
 
-      // ✅ إشعار فوري للمستخدم
-      if (userId.isNotEmpty) {
+      // ✅ إشعار فوري للمستخدم الحقيقي فقط (استثناء 'guest')
+      if (userId.isNotEmpty && userId != 'guest') {
         await FirebaseFirestore.instance.collection('notifications').add({
-          'title': '💬 رد على "${title.length > 30 ? '${title.substring(0, 30)}...' : title}"',
+          'title':
+              '💬 رد على "${title.length > 30 ? '${title.substring(0, 30)}...' : title}"',
           'body': replyText.length > 80
               ? '${replyText.substring(0, 80)}...'
               : replyText,

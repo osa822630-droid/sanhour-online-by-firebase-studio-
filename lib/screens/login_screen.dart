@@ -1,13 +1,15 @@
 // lib/screens/login_screen.dart
 // ✅ Phase 2 Fix #25: إضافة Form + GlobalKey + AutovalidateMode + Validators.
-// قبل الإصلاح: كانت TextFields مجردة بلا Form — الكود يتحقق يدوياً من isEmpty()
-// فقط، مما يتيح إرسال مدخلات غير صحيحة (رقم 4 أرقام، كلمة مرور حرف واحد).
-// بعد الإصلاح: validators صريحة تمنع الإرسال قبل أن يصل الطلب للـ AuthProvider.
+// ✅ Pre-Launch Fix: دعم التبديل السلس بين تسجيل الدخول وإنشاء حساب جديد (زبون / تاجر) + كود الدعوة + استعادة كلمة المرور الفعالة
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:sanhour_online/providers/auth_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/analytics_service.dart';
+import '../utils/constants.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,23 +18,29 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // ✅ Fix #25: GlobalKey للـ Form
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _referralCodeController = TextEditingController();
+
+  bool _isRegisterMode = false;
+  String _selectedUserType = 'customer';
   bool _isPasswordVisible = false;
-  // ✅ تفعيل validation بعد أول محاولة submit فقط — لا تُزعج المستخدم قبلها
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
 
   @override
   void dispose() {
+    _nameController.dispose();
+    _usernameController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _referralCodeController.dispose();
     super.dispose();
   }
 
-  Future<void> _login() async {
-    // ✅ Fix #25: تفعيل validation أولاً
+  Future<void> _submit() async {
     setState(() => _autovalidateMode = AutovalidateMode.onUserInteraction);
 
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -41,7 +49,21 @@ class _LoginScreenState extends State<LoginScreen> {
     final phone = _phoneController.text.trim();
     final password = _passwordController.text.trim();
 
-    final error = await auth.loginWithPhoneAndPassword(phone, password);
+    String? error;
+    if (_isRegisterMode) {
+      error = await auth.registerWithPhoneAndPassword(
+        name: _nameController.text.trim(),
+        username: _usernameController.text.trim(),
+        phone: phone,
+        password: password,
+        userType: _selectedUserType,
+        referralCode: _referralCodeController.text.trim().isNotEmpty
+            ? _referralCodeController.text.trim()
+            : null,
+      );
+    } else {
+      error = await auth.loginWithPhoneAndPassword(phone, password);
+    }
 
     if (!mounted) return;
 
@@ -69,19 +91,160 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.pushReplacementNamed(context, '/home');
   }
 
+  // ✅ استعادة كلمة المرور: عبر البريد الحقيقي أو التواصل الفوري عبر واتساب الإدارة لحسابات الهاتف
+  Future<void> _showForgotPasswordDialog() async {
+    final phoneOrEmailCtrl =
+        TextEditingController(text: _phoneController.text.trim());
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('استعادة كلمة المرور'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'أدخل رقم الهاتف المسجّل للتواصل المباشر مع دعم سنهور أونلاين لإعادة تعيين كلمة المرور، أو أدخل بريدك الإلكتروني إن كان حسابك مسجلاً ببريد إلكتروني:',
+              style: TextStyle(fontSize: 13, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneOrEmailCtrl,
+              textDirection: TextDirection.ltr,
+              decoration: const InputDecoration(
+                labelText: 'رقم الهاتف أو البريد الإلكتروني',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5E35B1),
+              foregroundColor: Colors.white,
+            ),
+            icon: const Icon(Icons.lock_reset, size: 18),
+            label: const Text('متابعة'),
+            onPressed: () async {
+              final input = phoneOrEmailCtrl.text.trim();
+              if (input.isEmpty) {
+                return;
+              }
+              if (input.contains('@') &&
+                  !input.endsWith('@users.sanhour.online') &&
+                  !input.endsWith('@sanhour.online')) {
+                try {
+                  await FirebaseAuth.instance
+                      .sendPasswordResetEmail(email: input);
+                  if (!ctx.mounted) return;
+                  Navigator.pop(ctx);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني ✅'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (_) {
+                  if (!ctx.mounted) return;
+                  Navigator.pop(ctx);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          'تعذّر إرسال البريد الإلكتروني. تحقق من صحة البريد أو تواصل مع الإدارة.'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+                return;
+              }
+
+              // حساب رقم هاتف: جلب رقم واتساب الدعم من الإعدادات وفتح محادثة جاهزة
+              final normalizedPhone = AppConstants.normalizePhone(input);
+              String supportWhatsapp = '';
+              try {
+                final settingsDoc = await FirebaseFirestore.instance
+                    .collection('settings')
+                    .doc('general')
+                    .get();
+                final data = settingsDoc.data() ?? {};
+                supportWhatsapp = (data['whatsapp'] ??
+                        data['supportWhatsapp'] ??
+                        data['supportPhone'] ??
+                        data['phone'] ??
+                        '')
+                    .toString()
+                    .trim();
+              } catch (_) {}
+
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+
+              if (supportWhatsapp.isNotEmpty) {
+                final waPhone =
+                    AppConstants.normalizeWhatsAppPhone(supportWhatsapp);
+                final msg = Uri.encodeComponent(
+                    'مرحباً إدارة سنهور أونلاين، أرغب في إعادة تعيين كلمة المرور لحسابي المسجل برقم الهاتف: $normalizedPhone');
+                final uri = Uri.parse('https://wa.me/$waPhone?text=$msg');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  return;
+                }
+              }
+
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'لإعادة تعيين كلمة سر حساب الهاتف، يرجى التواصل مع إدارة سنهور أونلاين وتزويدهم برقم هاتفك المسجل.'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    ).whenComplete(() => phoneOrEmailCtrl.dispose());
+  }
+
   // ── Validators ────────────────────────────────────────────
+
+  String? _validateName(String? value) {
+    if (!_isRegisterMode) return null;
+    if (value == null || value.trim().length < 3) {
+      return 'أدخل الاسم الكامل (3 أحرف على الأقل)';
+    }
+    return null;
+  }
+
+  String? _validateUsername(String? value) {
+    if (!_isRegisterMode) return null;
+    if (value == null || value.trim().isEmpty) {
+      return 'اسم المستخدم مطلوب';
+    }
+    final clean = value.trim();
+    if (clean.length < 4) {
+      return 'اسم المستخدم يجب أن يكون 4 أحرف على الأقل';
+    }
+    if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(clean)) {
+      return 'حروف إنجليزية وأرقام وشرطة سفلية (_) فقط';
+    }
+    return null;
+  }
 
   String? _validatePhone(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'رقم الهاتف مطلوب';
     }
-    // ✅ Fix #230: قبول أرقام عربية وصيغ دولية (+20 / 0020)
-    String trimmed = value.trim().replaceAllMapped(
-        RegExp(r'[٠-٩]'),
-        (m) => (m[0]!.codeUnitAt(0) - '٠'.codeUnitAt(0)).toString());
-    trimmed = trimmed.replaceAll(RegExp(r'[\s\-]'), '');
-    // قبول: 01xxxxxxxxx أو +201xxxxxxxxx أو 00201xxxxxxxxx
-    if (!RegExp(r'^(\+?20|0020)?01[0-9]{9}$').hasMatch(trimmed)) {
+    final normalized = AppConstants.normalizePhone(value);
+    if (!RegExp(r'^01[0-9]{9}$').hasMatch(normalized)) {
       return 'أدخل رقم هاتف مصري صحيح (11 رقم يبدأ بـ 01)';
     }
     return null;
@@ -113,42 +276,46 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               // ── هيدر ──────────────────────────────────────
               Expanded(
-                flex: 2,
+                flex: _isRegisterMode ? 1 : 2,
                 child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.storefront,
+                              size: 48, color: Colors.white),
                         ),
-                        child: const Icon(Icons.storefront,
-                            size: 56, color: Colors.white),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'سنهور أونلاين',
-                        style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'أهلاً بك — سجّل دخولك للمتابعة',
-                        style:
-                            TextStyle(fontSize: 13, color: Colors.white70),
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        const Text(
+                          'سنهور أونلاين',
+                          style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _isRegisterMode
+                              ? 'أنشئ حسابك الجديد في ثوانٍ'
+                              : 'أهلاً بك — سجّل دخولك للمتابعة',
+                          style: const TextStyle(
+                              fontSize: 13, color: Colors.white70),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
 
               // ── بطاقة الفورم ──────────────────────────────
               Expanded(
-                flex: 3,
+                flex: _isRegisterMode ? 4 : 3,
                 child: Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).scaffoldBackgroundColor,
@@ -160,112 +327,235 @@ class _LoginScreenState extends State<LoginScreen> {
                       final isLoading =
                           auth.status == AuthStatus.authenticating;
                       return SingleChildScrollView(
-                        padding:
-                            const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
                         child: Form(
                           key: _formKey,
                           autovalidateMode: _autovalidateMode,
-                          // ✅ AutofillGroup يُمكِّن مديري كلمات المرور من ملء الحقول
                           child: AutofillGroup(
                             child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // ── حقل رقم الهاتف ────────────
-                              TextFormField(
-                                controller: _phoneController,
-                                keyboardType: TextInputType.phone,
-                                autofillHints: const [
-                                  AutofillHints.telephoneNumber
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (_isRegisterMode) ...[
+                                  TextFormField(
+                                    controller: _nameController,
+                                    keyboardType: TextInputType.name,
+                                    textInputAction: TextInputAction.next,
+                                    autofillHints: const [AutofillHints.name],
+                                    validator: _validateName,
+                                    decoration: const InputDecoration(
+                                      labelText: 'الاسم الكامل',
+                                      hintText: 'مثال: أحمد محمد',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.person_outline),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  TextFormField(
+                                    controller: _usernameController,
+                                    keyboardType: TextInputType.text,
+                                    textInputAction: TextInputAction.next,
+                                    autocorrect: false,
+                                    autofillHints: const [
+                                      AutofillHints.newUsername
+                                    ],
+                                    validator: _validateUsername,
+                                    decoration: const InputDecoration(
+                                      labelText: 'اسم المستخدم (بالإنجليزي)',
+                                      hintText: 'مثال: ahmed_sanhour',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.alternate_email),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
                                 ],
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(11),
-                                ],
-                                validator: _validatePhone,
-                                decoration: const InputDecoration(
-                                  labelText: 'رقم الهاتف',
-                                  hintText: '01xxxxxxxxx',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.phone_android),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
 
-                              // ── حقل كلمة المرور ───────────
-                              TextFormField(
-                                controller: _passwordController,
-                                obscureText: !_isPasswordVisible,
-                                autofillHints: const [AutofillHints.password],
-                                validator: _validatePassword,
-                                onFieldSubmitted: (_) =>
-                                    isLoading ? null : _login(),
-                                decoration: InputDecoration(
-                                  labelText: 'كلمة المرور',
-                                  border: const OutlineInputBorder(),
-                                  prefixIcon: const Icon(Icons.lock),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(_isPasswordVisible
-                                        ? Icons.visibility
-                                        : Icons.visibility_off),
-                                    onPressed: () => setState(() =>
-                                        _isPasswordVisible =
-                                            !_isPasswordVisible),
+                                // ── حقل رقم الهاتف ────────────
+                                TextFormField(
+                                  controller: _phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  textInputAction: TextInputAction.next,
+                                  autofillHints: const [
+                                    AutofillHints.telephoneNumber
+                                  ],
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                        RegExp(r'[0-9٠-٩\+\-\s]')),
+                                    LengthLimitingTextInputFormatter(15),
+                                  ],
+                                  validator: _validatePhone,
+                                  decoration: const InputDecoration(
+                                    labelText: 'رقم الهاتف',
+                                    hintText: '01xxxxxxxxx',
+                                    border: OutlineInputBorder(),
+                                    prefixIcon: Icon(Icons.phone_android),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 24),
+                                const SizedBox(height: 14),
 
-                              // ── زر تسجيل الدخول ───────────
-                              SizedBox(
-                                height: 52,
-                                child: ElevatedButton(
-                                  onPressed: isLoading ? null : _login,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.deepPurple,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12)),
+                                // ── حقل كلمة المرور ───────────
+                                TextFormField(
+                                  controller: _passwordController,
+                                  obscureText: !_isPasswordVisible,
+                                  autofillHints: const [AutofillHints.password],
+                                  validator: _validatePassword,
+                                  onFieldSubmitted: (_) =>
+                                      isLoading ? null : _submit(),
+                                  decoration: InputDecoration(
+                                    labelText: 'كلمة المرور',
+                                    border: const OutlineInputBorder(),
+                                    prefixIcon: const Icon(Icons.lock),
+                                    suffixIcon: IconButton(
+                                      icon: Icon(_isPasswordVisible
+                                          ? Icons.visibility
+                                          : Icons.visibility_off),
+                                      onPressed: () => setState(() =>
+                                          _isPasswordVisible =
+                                              !_isPasswordVisible),
+                                    ),
                                   ),
-                                  child: isLoading
-                                      ? const SizedBox(
-                                          height: 22,
-                                          width: 22,
-                                          child: CircularProgressIndicator(
-                                              color: Colors.white,
-                                              strokeWidth: 2))
-                                      : const Text(
-                                          'تسجيل الدخول',
-                                          style: TextStyle(
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.bold),
+                                ),
+                                if (!_isRegisterMode)
+                                  Align(
+                                    alignment: AlignmentDirectional.centerEnd,
+                                    child: TextButton(
+                                      onPressed: isLoading
+                                          ? null
+                                          : _showForgotPasswordDialog,
+                                      child: const Text(
+                                        'نسيت كلمة المرور؟',
+                                        style: TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                  ),
+
+                                if (_isRegisterMode) ...[
+                                  const SizedBox(height: 14),
+                                  TextFormField(
+                                    controller: _referralCodeController,
+                                    keyboardType: TextInputType.text,
+                                    textInputAction: TextInputAction.done,
+                                    textCapitalization:
+                                        TextCapitalization.characters,
+                                    decoration: const InputDecoration(
+                                      labelText: 'كود الدعوة (اختياري)',
+                                      hintText: 'مثال: SAN-AB12CD',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon:
+                                          Icon(Icons.card_giftcard_outlined),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ChoiceChip(
+                                          label: const Text('مشتري / زبون'),
+                                          selected:
+                                              _selectedUserType == 'customer',
+                                          onSelected: (v) {
+                                            if (v) {
+                                              setState(() => _selectedUserType =
+                                                  'customer');
+                                            }
+                                          },
                                         ),
-                                ),
-                              ),
-                              const SizedBox(height: 12),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: ChoiceChip(
+                                          label: const Text('تاجر / صاحب محل'),
+                                          selected:
+                                              _selectedUserType == 'merchant',
+                                          onSelected: (v) {
+                                            if (v) {
+                                              setState(() => _selectedUserType =
+                                                  'merchant');
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
 
-                              // ── زر الدخول كزائر ───────────
-                              SizedBox(
-                                height: 48,
-                                child: OutlinedButton.icon(
+                                const SizedBox(height: 20),
+
+                                // ── زر تسجيل الدخول / إنشاء الحساب ───────────
+                                SizedBox(
+                                  height: 52,
+                                  child: ElevatedButton(
+                                    onPressed: isLoading ? null : _submit,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF5E35B1),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
+                                    ),
+                                    child: isLoading
+                                        ? const SizedBox(
+                                            height: 22,
+                                            width: 22,
+                                            child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2))
+                                        : Text(
+                                            _isRegisterMode
+                                                ? 'إنشاء الحساب'
+                                                : 'تسجيل الدخول',
+                                            style: const TextStyle(
+                                                fontSize: 17,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+
+                                // ── التبديل بين الدخول والتسجيل ───────────
+                                TextButton(
                                   onPressed: isLoading
                                       ? null
-                                      : () => _loginAsGuest(auth),
-                                  icon: const Icon(Icons.person_outline),
-                                  label: const Text('تصفح كزائر'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.deepPurple,
-                                    side: const BorderSide(
-                                        color: Colors.deepPurple),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12)),
+                                      : () {
+                                          setState(() {
+                                            _isRegisterMode = !_isRegisterMode;
+                                            _autovalidateMode =
+                                                AutovalidateMode.disabled;
+                                          });
+                                        },
+                                  child: Text(
+                                    _isRegisterMode
+                                        ? 'لديك حساب بالفعل؟ سجّل دخولك'
+                                        : 'ليس لديك حساب؟ إنشاء حساب جديد',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+
+                                const SizedBox(height: 6),
+
+                                // ── زر الدخول كزائر ───────────
+                                SizedBox(
+                                  height: 48,
+                                  child: OutlinedButton.icon(
+                                    onPressed: isLoading
+                                        ? null
+                                        : () => _loginAsGuest(auth),
+                                    icon: const Icon(Icons.person_outline),
+                                    label: const Text('تصفح كزائر'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF5E35B1),
+                                      side: const BorderSide(
+                                          color: Color(0xFF5E35B1)),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          ), // end AutofillGroup
                         ),
                       );
                     },

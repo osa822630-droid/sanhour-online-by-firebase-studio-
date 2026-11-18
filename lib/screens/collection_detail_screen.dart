@@ -1,6 +1,6 @@
 // lib/screens/collection_detail_screen.dart
 // ✅ إلغاء حوار الهدية/الخصم عند الدعوة
-// ✅ دعوة عبر رقم الهاتف أو اسم المستخدم + إشعار للمدعو (قبول / رفض)
+// ✅ دعوة عبر رقم الهاتف (بكل الصيغ) أو اسم المستخدم + فتح العنصر عند النقر
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,6 +10,7 @@ import '../providers/favorites_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/cached_image.dart';
 import '../services/deep_link_service.dart';
+import '../utils/constants.dart';
 
 class CollectionDetailScreen extends StatefulWidget {
   final WishlistCollection collection;
@@ -20,7 +21,6 @@ class CollectionDetailScreen extends StatefulWidget {
 }
 
 class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
-  // ── مشاركة القائمة ─────────────────────────────────────────────────
   void _share(WishlistCollection col) {
     DeepLinkService.shareCollection(
       id: col.id,
@@ -29,8 +29,6 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     );
   }
 
-  // ── دعوة شخص عبر رقم الهاتف أو اسم المستخدم ──────────────────────
-  // ✅ لا يوجد أي حوار هدية أو خصم — مباشر للبحث والدعوة فقط
   Future<void> _showInviteDialog(
       BuildContext context, WishlistCollection col) async {
     final queryCtrl = TextEditingController();
@@ -55,14 +53,13 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── هيدر ────────────────────────────────────────────
               Row(children: [
                 const Icon(Icons.person_add_outlined,
                     color: Color(0xFF5E35B1)),
                 const SizedBox(width: 10),
                 const Text('دعوة شخص للقائمة',
-                    style: TextStyle(
-                        fontSize: 17, fontWeight: FontWeight.bold)),
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(
                   onPressed: () => Navigator.pop(ctx),
@@ -76,7 +73,6 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
               ),
               const SizedBox(height: 16),
 
-              // ── حقل البحث ───────────────────────────────────────
               Row(children: [
                 Expanded(
                   child: TextField(
@@ -119,8 +115,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                             searchError = null;
                           });
                           try {
-                            final result =
-                                await _searchUser(q);
+                            final result = await _searchUser(q);
                             setLS(() {
                               foundUser = result;
                               isSearching = false;
@@ -148,7 +143,6 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
 
               const SizedBox(height: 16),
 
-              // ── نتيجة البحث ─────────────────────────────────────
               if (foundUser != null) ...[
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -156,15 +150,16 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                     color: const Color(0xFF5E35B1).withValues(alpha: 0.07),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                        color: const Color(0xFF5E35B1)
-                            .withValues(alpha: 0.3)),
+                        color:
+                            const Color(0xFF5E35B1).withValues(alpha: 0.3)),
                   ),
                   child: Row(children: [
                     CircleAvatar(
                       backgroundColor: const Color(0xFF5E35B1),
                       child: Text(
-                        (foundUser!['name'] as String? ?? 'م')
-                            .substring(0, 1)
+                        ((foundUser!['name'] as String? ?? 'م').trim().isNotEmpty
+                                ? (foundUser!['name'] as String).trim()[0]
+                                : 'م')
                             .toUpperCase(),
                         style: const TextStyle(
                             color: Colors.white,
@@ -179,8 +174,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                           Text(
                             foundUser!['name'] as String? ?? '',
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15),
+                                fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                           if ((foundUser!['username'] as String?)
                                   ?.isNotEmpty ==
@@ -204,11 +198,9 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                         Navigator.pop(ctx);
                         await _sendInvite(
                           col: col,
-                          targetUserId:
-                              foundUser!['id'] as String,
+                          targetUserId: foundUser!['id'] as String,
                           targetUserName:
-                              foundUser!['name'] as String? ??
-                                  'مستخدم',
+                              foundUser!['name'] as String? ?? 'مستخدم',
                         );
                       },
                       child: const Text('دعوة'),
@@ -222,30 +214,25 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
           ),
         ),
       ),
-    );
+    ).whenComplete(() => queryCtrl.dispose());
   }
 
-  // ── البحث عن مستخدم ─────────────────────────────────────────────
+  // ── البحث عن مستخدم برقم الهاتف (بكل الصيغ) أو اسم المستخدم ─────────
   Future<Map<String, dynamic>?> _searchUser(String query) async {
     final db = FirebaseFirestore.instance;
     QuerySnapshot? snap;
 
     final cleanQuery = query.replaceFirst('@', '').trim();
+    final phoneCandidates = AppConstants.phoneLookupCandidates(cleanQuery);
 
-    // بحث برقم الهاتف
-    if (RegExp(r'^01[0-2,5]\d{8}$').hasMatch(cleanQuery) ||
-        RegExp(r'^\+2\d{11}$').hasMatch(cleanQuery)) {
-      final phone = cleanQuery.startsWith('+2')
-          ? cleanQuery
-          : '+2$cleanQuery';
+    if (phoneCandidates.isNotEmpty) {
       snap = await db
           .collection('users')
-          .where('phone', isEqualTo: phone)
+          .where('phone', whereIn: phoneCandidates)
           .limit(1)
           .get();
     }
 
-    // بحث باسم المستخدم
     if (snap == null || snap.docs.isEmpty) {
       snap = await db
           .collection('users')
@@ -254,42 +241,63 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
           .get();
     }
 
-    if (snap.docs.isEmpty) return null;
+    if (snap.docs.isEmpty) {
+      final usernameDoc = await db
+          .collection('usernames')
+          .doc(cleanQuery.toLowerCase())
+          .get();
+      final uid = usernameDoc.data()?['uid'] as String?;
+      if (uid != null && uid.isNotEmpty) {
+        final userDoc = await db.collection('users').doc(uid).get();
+        if (userDoc.exists && userDoc.data() != null) {
+          final data = Map<String, dynamic>.from(userDoc.data()!);
+          data['id'] = userDoc.id;
+          return data;
+        }
+      }
+      return null;
+    }
 
-    final data = Map<String, dynamic>.from(
-        snap.docs.first.data() as Map<String, dynamic>);
+    final data =
+        Map<String, dynamic>.from(snap.docs.first.data() as Map<String, dynamic>);
     data['id'] = snap.docs.first.id;
     return data;
   }
 
-  // ── إرسال الدعوة وإشعار المدعو ─────────────────────────────────
+  static const int maxCollaborators = 20;
+
   Future<void> _sendInvite({
     required WishlistCollection col,
     required String targetUserId,
     required String targetUserName,
   }) async {
+    if (col.collaborators.length >= maxCollaborators) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('وصلت القائمة للحد الأقصى للمتعاونين (20 عضواً)'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     final auth = context.read<AuthProvider>();
     final senderName = auth.user?.name ?? 'أحد المستخدمين';
 
     try {
-      // حفظ الدعوة في Firestore
-      await FirebaseFirestore.instance
-          .collection('collection_invites')
-          .add({
+      await FirebaseFirestore.instance.collection('collection_invites').add({
         'collectionId': col.id,
         'collectionName': col.name,
         'inviterId': auth.user?.id ?? '',
         'inviterName': senderName,
         'inviteeId': targetUserId,
-        'status': 'pending', // pending | accepted | rejected
+        'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // كتابة إشعار للمدعو في Firestore (يظهر في notifications_screen)
       await FirebaseFirestore.instance.collection('notifications').add({
         'title': 'دعوة لقائمة مشتريات 🛒',
-        'body':
-            '$senderName يدعوك للانضمام لقائمة "${col.name}"',
+        'body': '$senderName يدعوك للانضمام لقائمة "${col.name}"',
         'type': 'collection_invite',
         'targetUserId': targetUserId,
         'fromUserId': auth.user?.id ?? '',
@@ -303,13 +311,9 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // إشعار FCM عبر notification_queue
-      await FirebaseFirestore.instance
-          .collection('notification_queue')
-          .add({
+      await FirebaseFirestore.instance.collection('notification_queue').add({
         'title': 'دعوة لقائمة مشتريات 🛒',
-        'body':
-            '$senderName يدعوك للانضمام لقائمة "${col.name}"',
+        'body': '$senderName يدعوك للانضمام لقائمة "${col.name}"',
         'targetUserId': targetUserId,
         'data': {
           'route': 'notifications',
@@ -337,6 +341,17 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
     }
   }
 
+  void _openItem(WishlistItem item) {
+    if (item.itemId.isEmpty) return;
+    if (item.type == 'shop') {
+      Navigator.pushNamed(context, '/shop/${item.itemId}');
+    } else if (item.type == 'offer') {
+      Navigator.pushNamed(context, '/offer/${item.itemId}');
+    } else {
+      Navigator.pushNamed(context, '/product/${item.itemId}');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<FavoritesProvider>(
@@ -350,10 +365,9 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
           appBar: AppBar(
             title: Text(updated.name,
                 style: const TextStyle(fontWeight: FontWeight.bold)),
-            backgroundColor: Colors.deepPurple,
+            backgroundColor: const Color(0xFF5E35B1),
             foregroundColor: Colors.white,
             actions: [
-              // ✅ دعوة — بدون حوار هدية
               IconButton(
                 icon: const Icon(Icons.person_add_outlined),
                 tooltip: 'دعوة شخص',
@@ -398,20 +412,19 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
               ? _buildEmptyState()
               : Column(
                   children: [
-                    // ── شريط معلومات ─────────────────────────────
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
-                      color: Colors.deepPurple.withValues(alpha: 0.07),
+                      color: const Color(0xFF5E35B1).withValues(alpha: 0.07),
                       child: Row(children: [
                         const Icon(Icons.collections_bookmark,
-                            size: 16, color: Colors.deepPurple),
+                            size: 16, color: Color(0xFF5E35B1)),
                         const SizedBox(width: 8),
                         Text(
                           '${updated.items.length} عنصر في القائمة',
                           style: const TextStyle(
-                              color: Colors.deepPurple,
+                              color: Color(0xFF5E35B1),
                               fontWeight: FontWeight.w600,
                               fontSize: 13),
                         ),
@@ -424,8 +437,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                               color: Colors.green.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                  color: Colors.green
-                                      .withValues(alpha: 0.4)),
+                                  color: Colors.green.withValues(alpha: 0.4)),
                             ),
                             child: Row(children: [
                               const Icon(Icons.group,
@@ -442,7 +454,6 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                           ),
                       ]),
                     ),
-                    // ── عناصر القائمة ────────────────────────────
                     Expanded(
                       child: ListView.builder(
                         padding: const EdgeInsets.all(12),
@@ -454,6 +465,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                             child: ListTile(
+                              onTap: () => _openItem(item),
                               leading: ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
                                 child: SizedBox(
@@ -474,8 +486,8 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                               trailing: IconButton(
                                 icon: const Icon(Icons.delete_outline,
                                     color: Colors.red, size: 20),
-                                onPressed: () => provider
-                                    .removeItemFromCollection(
+                                onPressed: () =>
+                                    provider.removeItemFromCollection(
                                         updated.id, item),
                               ),
                             ),
@@ -498,8 +510,8 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                 size: 70, color: Colors.grey[300]),
             const SizedBox(height: 16),
             const Text('القائمة فارغة',
-                style: TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold)),
+                style:
+                    TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text('أضف منتجات وعروض من شاشة التصفح',
                 style: TextStyle(color: Colors.grey)),
@@ -518,7 +530,6 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
             controller: ctrl,
             autofocus: true,
             maxLength: 50,
-            // ✅ Fix #152: رفض المحارف الخاصة الخطيرة
             inputFormatters: [
               FilteringTextInputFormatter.deny(RegExp(r'[<>"/\\]')),
             ],
@@ -530,7 +541,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
               child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
+                backgroundColor: const Color(0xFF5E35B1),
                 foregroundColor: Colors.white),
             onPressed: () {
               final name = ctrl.text.trim();
@@ -546,7 +557,6 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
           ),
         ],
       ),
-    // ✅ Fix #65: dispose controller بعد إغلاق الـ dialog
     ).whenComplete(() => ctrl.dispose());
   }
 

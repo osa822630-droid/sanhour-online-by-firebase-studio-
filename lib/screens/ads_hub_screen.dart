@@ -17,15 +17,26 @@ class AdsHubScreen extends StatefulWidget {
 class _AdsHubScreenState extends State<AdsHubScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
+  late final Set<int> _activatedTabs;
 
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialTab.clamp(0, 2);
+    _activatedTabs = {initial};
     _tabs = TabController(
       length: 3,
       vsync: this,
-      initialIndex: widget.initialTab,
-    );
+      initialIndex: initial,
+    )..addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (!_activatedTabs.contains(_tabs.index)) {
+      setState(() {
+        _activatedTabs.add(_tabs.index);
+      });
+    }
   }
 
   @override
@@ -64,10 +75,16 @@ class _AdsHubScreenState extends State<AdsHubScreen>
       ),
       body: TabBarView(
         controller: _tabs,
-        children: const [
-          AllAdsScreen(showAppBar: false),
-          JobAdsTabScreen(),
-          ServiceRequestsTabScreen(),
+        children: [
+          _activatedTabs.contains(0)
+              ? const AllAdsScreen(showAppBar: false)
+              : const SizedBox.shrink(),
+          _activatedTabs.contains(1)
+              ? const JobAdsTabScreen()
+              : const SizedBox.shrink(),
+          _activatedTabs.contains(2)
+              ? const ServiceRequestsTabScreen()
+              : const SizedBox.shrink(),
         ],
       ),
     );

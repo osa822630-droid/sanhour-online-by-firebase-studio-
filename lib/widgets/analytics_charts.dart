@@ -2,7 +2,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-// ✅ Widget مجمعة (حاوية)
 class AnalyticsCharts extends StatelessWidget {
   const AnalyticsCharts({super.key});
 
@@ -15,7 +14,6 @@ class AnalyticsCharts extends StatelessWidget {
   }
 }
 
-// ✅ موديل البيانات
 class ChartData {
   final String label;
   final double value;
@@ -29,7 +27,7 @@ class ChartData {
 }
 
 // =========================================================
-// 1. رسم بياني بالأعمدة (Bar Chart) - ذكي (Scrollable / Fit)
+// 1. رسم بياني بالأعمدة (Bar Chart)
 // =========================================================
 class BarChartWidget extends StatelessWidget {
   final List<ChartData> data;
@@ -47,33 +45,32 @@ class BarChartWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor = isDark ? Colors.grey[300]! : Colors.black87;
+    final subLabelColor = isDark ? Colors.grey[400]! : Colors.grey[600]!;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final double availableHeight =
             constraints.maxHeight > 0 ? constraints.maxHeight : 200;
         final double availableWidth = constraints.maxWidth;
 
-        // حساب ما إذا كنا نحتاج لتفعيل السكرول (لو الأعمدة كتير)
-        // بنفترض أن كل عمود محتاج على الأقل (عرضه + 20 بيكسل هوامش)
         final double minItemWidth = barWidth + 24;
         final double requiredWidth = data.length * minItemWidth;
         final bool isScrollable = requiredWidth > availableWidth;
 
         Widget chartContent = Row(
           crossAxisAlignment: CrossAxisAlignment.end,
-          // لو سكرول => ابدأ من الأول، لو لأ => وزعهم بالتساوي
           mainAxisAlignment: isScrollable
               ? MainAxisAlignment.start
               : MainAxisAlignment.spaceEvenly,
           children: data.map((item) {
             final double barPercentage =
-                maxValue == 0 ? 0.0 : (item.value / maxValue);
-            // نترك 30 بيكسل للنصوص بالأسفل
-            final double maxBarHeight = availableHeight - 30;
+                maxValue <= 0 ? 0.0 : (item.value / maxValue).clamp(0.0, 1.0);
+            final double maxBarHeight = math.max(0.0, availableHeight - 36);
             final double barHeight = maxBarHeight * barPercentage;
 
             return Padding(
-              // لو سكرول بنضيف هوامش بين الأعمدة، لو لأ الـ spaceEvenly بيقوم بالواجب
               padding: isScrollable
                   ? const EdgeInsets.symmetric(horizontal: 12)
                   : EdgeInsets.zero,
@@ -84,7 +81,7 @@ class BarChartWidget extends StatelessWidget {
                     message: '${item.label}: ${item.value.toInt()}',
                     child: Container(
                       width: barWidth,
-                      height: barHeight > 0 ? barHeight : 0,
+                      height: barHeight > 0 ? barHeight : 2,
                       decoration: BoxDecoration(
                         color: item.color,
                         borderRadius: const BorderRadius.vertical(
@@ -92,7 +89,10 @@ class BarChartWidget extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
-                          colors: [item.color.withValues(alpha: 0.7), item.color],
+                          colors: [
+                            item.color.withValues(alpha: 0.7),
+                            item.color
+                          ],
                         ),
                       ),
                     ),
@@ -102,17 +102,16 @@ class BarChartWidget extends StatelessWidget {
                     width: barWidth + 20,
                     child: Text(
                       item.label,
-                      style:
-                          const TextStyle(fontSize: 10, color: Colors.black87),
+                      style: TextStyle(fontSize: 10, color: labelColor),
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Text('${item.value.toInt()}',
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 9,
-                          color: Colors.grey,
+                          color: subLabelColor,
                           fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -127,7 +126,6 @@ class BarChartWidget extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
               child: ConstrainedBox(
-                // نضمن أنه ياخد العرض المتاح على الأقل
                 constraints: BoxConstraints(minWidth: availableWidth),
                 child: chartContent,
               ),
@@ -142,14 +140,14 @@ class BarChartWidget extends StatelessWidget {
 }
 
 // =========================================================
-// 2. رسم بياني خطي (Line Chart) - مع تدرج لوني (Area)
+// 2. رسم بياني خطي (Line Chart)
 // =========================================================
 class LineChartWidget extends StatelessWidget {
   final List<ChartData> data;
   final double maxValue;
   final Color lineColor;
   final bool showPoints;
-  final bool showGradient; // ✅ ميزة جديدة: تلوين تحت الخط
+  final bool showGradient;
 
   const LineChartWidget({
     super.key,
@@ -157,7 +155,7 @@ class LineChartWidget extends StatelessWidget {
     required this.maxValue,
     this.lineColor = Colors.blue,
     this.showPoints = true,
-    this.showGradient = true, // مفعل افتراضياً لشكل أجمل
+    this.showGradient = true,
   });
 
   @override
@@ -166,8 +164,7 @@ class LineChartWidget extends StatelessWidget {
       return Container(
         width: double.infinity,
         height: constraints.maxHeight > 0 ? constraints.maxHeight : 200,
-        padding: const EdgeInsets.fromLTRB(
-            10, 10, 20, 20), // Padding عشان النقاط متتقطعش
+        padding: const EdgeInsets.fromLTRB(10, 10, 20, 20),
         child: CustomPaint(
           painter: LineChartPainter(
             data: data,
@@ -211,39 +208,53 @@ class LineChartPainter extends CustomPainter {
       ..color = Colors.grey.withValues(alpha: 0.2)
       ..strokeWidth = 1;
 
-    // رسم خطوط الشبكة الخلفية
     for (int i = 0; i <= 3; i++) {
-      double y = size.height * (i / 3);
+      final double y = size.height * (i / 3);
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
 
-    final path = Path();
-    final widthStep = data.length > 1 ? size.width / (data.length - 1) : 0.0;
+    // حالة عنصر واحد فقط: نرسم النقطة في المنتصف دون قسمة على صفر
+    if (data.length == 1) {
+      final double x = size.width / 2;
+      final double y = size.height -
+          (maxValue <= 0
+              ? 0
+              : (data[0].value / maxValue).clamp(0.0, 1.0) * size.height);
+      if (showPoints) {
+        canvas.drawCircle(Offset(x, y), 6, Paint()..color = lineColor);
+        canvas.drawCircle(Offset(x, y), 3, Paint()..color = Colors.white);
+      }
+      return;
+    }
 
-    // بناء المسار
+    final path = Path();
+    final widthStep = size.width / (data.length - 1);
+
     for (int i = 0; i < data.length; i++) {
       final x = i * widthStep;
       final y = size.height -
-          (maxValue == 0 ? 0 : (data[i].value / maxValue) * size.height);
+          (maxValue <= 0
+              ? 0
+              : (data[i].value / maxValue).clamp(0.0, 1.0) * size.height);
 
       if (i == 0) {
         path.moveTo(x, y);
       } else {
         final double prevX = (i - 1) * widthStep;
         final double prevY = size.height -
-            (maxValue == 0 ? 0 : (data[i - 1].value / maxValue) * size.height);
+            (maxValue <= 0
+                ? 0
+                : (data[i - 1].value / maxValue).clamp(0.0, 1.0) * size.height);
 
-        // منحنى ناعم (Cubic Bezier)
         final double controlPointX = prevX + (x - prevX) / 2;
         path.cubicTo(controlPointX, prevY, controlPointX, y, x, y);
       }
     }
 
-    // ✅ رسم التدرج اللوني تحت الخط (Area Chart Effect)
     if (showGradient) {
       final gradientPath = Path.from(path);
-      gradientPath.lineTo(size.width, size.height); // للركن السفلي الأيمن
-      gradientPath.lineTo(0, size.height); // للركن السفلي الأيسر
+      gradientPath.lineTo(size.width, size.height);
+      gradientPath.lineTo(0, size.height);
       gradientPath.close();
 
       final gradientPaint = Paint()
@@ -260,15 +271,15 @@ class LineChartPainter extends CustomPainter {
       canvas.drawPath(gradientPath, gradientPaint);
     }
 
-    // رسم الخط الرئيسي
     canvas.drawPath(path, paint);
 
-    // رسم النقاط
     if (showPoints) {
       for (int i = 0; i < data.length; i++) {
         final x = i * widthStep;
         final y = size.height -
-            (maxValue == 0 ? 0 : (data[i].value / maxValue) * size.height);
+            (maxValue <= 0
+                ? 0
+                : (data[i].value / maxValue).clamp(0.0, 1.0) * size.height);
 
         canvas.drawCircle(Offset(x, y), 5, Paint()..color = lineColor);
         canvas.drawCircle(Offset(x, y), 3, Paint()..color = Colors.white);
@@ -308,7 +319,7 @@ class PieChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final total = data.fold(0.0, (sum, item) => sum + item.value);
-    if (total == 0) return;
+    if (total <= 0) return;
 
     var startAngle = -math.pi / 2;
     final center = Offset(size.width / 2, size.height / 2);

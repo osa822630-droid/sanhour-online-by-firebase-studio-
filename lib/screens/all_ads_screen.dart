@@ -1,18 +1,24 @@
 // lib/screens/all_ads_screen.dart
 // ✅ Fix #33: شاشة الإعلانات (واجهة المشتري) = أرشيف الإعلانات من الأحدث للأقدم
-//    مع زر عكس الترتيب، وتحميل تدريجي (20 إعلان في كل مرة)، وشريط بحث موحّد.
-//    • مفيش تقسيم نشط/منتهي: الإعلان بيفضل ظاهر هنا ٦ شهور من تاريخ إنشائه
-//      (AdService.archiveWindow)، وبعدها بيختفي من الشاشة دي بس وبيفضل عند
-//      التاجر في "سجل الإعلانات السابقة".
-//    • الإعلانات غير النشطة (isActive:false) وعناصر تحكم الأدمن مخفية عن المشتري.
-import 'package:cloud_firestore/cloud_firestore.dart' show DocumentSnapshot;
+//    مع زر عكس الترتيب، وتحميل تدريجي (20 إعلان في كل مرة)، وشريط بحث موحّد،
+//    وإمكانية النقر على الإعلان للانتقال المباشر لوجهته أو تشغيل الفيديو.
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/ad_model.dart';
+import '../models/shop.dart';
+import '../models/product.dart';
+import '../models/offer.dart';
+import '../providers/shops_provider.dart';
 import '../services/ad_service.dart';
+import '../services/api_service.dart';
 import '../widgets/app_footer.dart';
 import '../widgets/context_search_bar.dart';
-// ✅ Fix #141: استخدام AdminAdCard المشترك بدلاً من بطاقة مكررة
+import '../widgets/media_preview_dialog.dart';
 import '../screens/tabs/admin_ads_tab.dart' show AdminAdCard;
+import 'detail_screen.dart';
+import 'shop_detail_screen.dart';
 
 class AllAdsScreen extends StatefulWidget {
   final bool showAppBar;
@@ -28,13 +34,12 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
   final ScrollController _scrollController = ScrollController();
   final List<AdModel> _ads = [];
   DocumentSnapshot? _lastDoc;
-  bool _isLoading = true; // تحميل أول صفحة (سبينر كامل الشاشة)
-  bool _isLoadingMore = false; // تحميل الصفحات التالية (سبينر أسفل القايمة)
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
   bool _hasMore = false;
   bool _loadFailed = false;
   bool _newestFirst = true;
   String _searchQuery = '';
-  // رقم الطلب الحالي: أي نتيجة طلب أقدم (بعد عكس الترتيب أو التحديث) بتتجاهل
   int _loadGeneration = 0;
 
   @override
@@ -52,15 +57,12 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
     super.dispose();
   }
 
-  // تحميل الصفحة التالية تلقائيًا لما المستخدم يقرّب من آخر القايمة
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
     if (position.pixels >= position.maxScrollExtent - 300) _loadMore();
   }
 
-  /// يحمّل أول صفحة. [silent] = true للسحب للتحديث: القايمة الحالية بتفضل
-  /// ظاهرة لحد ما توصل النتيجة الجديدة بدل سبينر كامل الشاشة.
   Future<void> _loadFirstPage({bool silent = false}) async {
     final generation = ++_loadGeneration;
     if (!silent) {
@@ -91,8 +93,6 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
     }
   }
 
-  /// يحمّل الصفحة التالية. [isRetry] = true لما المستخدم يضغط "تحميل المزيد"
-  /// أو "إعادة المحاولة" (التحميل التلقائي بيقف بعد أول فشل عشان مفيش loop).
   Future<void> _loadMore({bool isRetry = false}) async {
     if (_isLoading || _isLoadingMore || !_hasMore) return;
     final cursor = _lastDoc;
@@ -118,18 +118,114 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
     });
   }
 
-  // عكس الترتيب = استعلام جديد بالاتجاه العكسي (الترتيب من السيرفر عشان
-  // التحميل التدريجي يفضل صحيح)، والـ cursor بيتصفّر مع أول صفحة.
   void _toggleSort() {
     setState(() => _newestFirst = !_newestFirst);
     _loadFirstPage();
   }
 
-  // البحث على الإعلانات المحمّلة بس (التحميل تدريجي)
   List<AdModel> get _visibleAds {
     if (_searchQuery.isEmpty) return _ads;
     final query = _searchQuery.toLowerCase();
     return _ads.where((a) => a.text.toLowerCase().contains(query)).toList();
+  }
+
+  Future<void> _handleAdTap(AdModel ad) async {
+    ApiService.logAdClick(ad.id);
+
+    if (ad.isVideo &&
+        ad.imageUrl != null &&
+        ad.imageUrl!.isNotEmpty &&
+        (ad.targetType == 'none' ||
+            (ad.targetId ?? '').isEmpty &&
+                (ad.externalUrl ?? '').isEmpty)) {
+      await MediaPreviewDialog.show(
+        context,
+        items: [MediaItem(url: ad.imageUrl!, isVideo: true)],
+      );
+      return;
+    }
+
+    switch (ad.targetType) {
+      case 'shop':
+      case 'shop_products':
+      case 'shop_offers':
+        if (ad.targetId == null || ad.targetId!.isEmpty) return;
+        final provider = context.read<ShopsProvider>();
+        Shop? shop;
+        try {
+          shop = provider.shops.firstWhere((s) => s.id == ad.targetId);
+        } catch (_) {
+          final doc = await FirebaseFirestore.instance
+              .collection('shops')
+              .doc(ad.targetId)
+              .get();
+          if (doc.exists && doc.data() != null) {
+            shop = Shop.fromMap(doc.data()!, doc.id);
+          }
+        }
+        if (shop != null && mounted) {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (_) => ShopDetailScreen(shop: shop!)));
+        }
+        break;
+      case 'product':
+        if (ad.targetId == null || ad.targetId!.isEmpty) return;
+        final provider = context.read<ShopsProvider>();
+        Product? product;
+        try {
+          product = provider.products.firstWhere((p) => p.id == ad.targetId);
+        } catch (_) {
+          final doc = await FirebaseFirestore.instance
+              .collection('products')
+              .doc(ad.targetId)
+              .get();
+          if (doc.exists && doc.data() != null) {
+            product = Product.fromMap(doc.data()!, doc.id);
+          }
+        }
+        if (product != null && mounted) {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (_) => DetailScreen(item: product)));
+        }
+        break;
+      case 'offer':
+        if (ad.targetId == null || ad.targetId!.isEmpty) return;
+        final provider = context.read<ShopsProvider>();
+        Offer? offer;
+        try {
+          offer = provider.allOffers.firstWhere((o) => o.id == ad.targetId);
+        } catch (_) {
+          final doc = await FirebaseFirestore.instance
+              .collection('offers')
+              .doc(ad.targetId)
+              .get();
+          if (doc.exists && doc.data() != null) {
+            offer = Offer.fromMap(doc.data()!, doc.id);
+          }
+        }
+        if (offer != null && mounted) {
+          Navigator.push(context,
+              MaterialPageRoute(builder: (_) => DetailScreen(item: offer)));
+        }
+        break;
+      case 'external':
+        final url = ad.externalUrl;
+        if (url != null && url.isNotEmpty) {
+          final uri = Uri.tryParse(url);
+          if (uri != null && await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        }
+        break;
+      default:
+        if (ad.imageUrl != null && ad.imageUrl!.isNotEmpty) {
+          await MediaPreviewDialog.show(
+            context,
+            items: [MediaItem(url: ad.imageUrl!, isVideo: ad.isVideo)],
+          );
+        }
+        break;
+    }
   }
 
   @override
@@ -158,7 +254,6 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
           : null,
       body: Column(
         children: [
-          // ✅ شريط بحث "ابحث عن إعلان" (من غير فلتر حالة — مفيش نشط/منتهي)
           ContextSearchBar(
             hint: 'ابحث عن إعلان...',
             onSearch: (q) => setState(() => _searchQuery = q),
@@ -174,7 +269,6 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator(color: _brand));
     }
-    // فشل تحميل أول صفحة ومفيش بيانات نعرضها
     if (_loadFailed && _ads.isEmpty) {
       return _buildMessage(
         icon: Icons.cloud_off_outlined,
@@ -189,7 +283,6 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
       return _buildMessage(
         icon: Icons.campaign_outlined,
         text: searching ? 'لا توجد نتائج' : 'لا توجد إعلانات',
-        // البحث على المحمّل بس — نسيب للمستخدم يحمّل الباقي لو لسه في المزيد
         actionLabel:
             searching && _hasMore ? 'تحميل المزيد من الإعلانات' : null,
         onAction: () => _loadMore(isRetry: true),
@@ -202,7 +295,6 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(12),
-        // 0: صف الترتيب · 1..n: الإعلانات · n+1: تذييل التحميل + الفوتر
         itemCount: ads.length + 2,
         itemBuilder: (context, index) {
           if (index == 0) return _buildSortRow();
@@ -235,8 +327,6 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
     );
   }
 
-  // ✅ زر عكس الترتيب جوه جسم الشاشة: الـ AppBar مخفي لما الشاشة تتعرض
-  // جوه AdsHubScreen (showAppBar: false) فزر الـ AppBar القديم مكانش ظاهر.
   Widget _buildSortRow() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -285,15 +375,16 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
     return Column(children: [status, const AppFooter()]);
   }
 
-  // ✅ Fix #33: عرض الإعلان لواجهة المشتري بدون عناصر تحكم الأدمن
-  // (showAdminControls: false) — الـ callbacks فاضية لأن مفيش تفعيل/حذف هنا.
   Widget _buildCard(AdModel ad, bool isDark) {
-    return AdminAdCard(
-      ad: ad,
-      isDark: isDark,
-      showAdminControls: false,
-      onToggle: () {},
-      onDelete: () {},
+    return GestureDetector(
+      onTap: () => _handleAdTap(ad),
+      child: AdminAdCard(
+        ad: ad,
+        isDark: isDark,
+        showAdminControls: false,
+        onToggle: () {},
+        onDelete: () {},
+      ),
     );
   }
 }

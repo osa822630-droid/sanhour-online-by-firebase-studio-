@@ -1,6 +1,7 @@
 // lib/screens/main_screen.dart
 // ✅ Tab الإعلانات → AdsHubScreen (مركز شامل: إعلانات + وظائف + خدمات)
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
@@ -18,12 +19,10 @@ import '../widgets/gemini_chat_button.dart';
 import '../widgets/dealer_icon.dart';
 
 class MainScreen extends StatefulWidget {
-  // ✅ Fix #28: ترتيب التابات في الـ NavigationBar (نفس ترتيب _screens تحت)
   static const int homeTab = 0;
   static const int favoritesTab = 1;
   static const int offersTab = 2;
 
-  /// التاب اللي الشاشة بتفتح عليه — الراوتس /favorites و/offers بتمرّره.
   final int initialIndex;
 
   const MainScreen({super.key, this.initialIndex = homeTab});
@@ -31,23 +30,64 @@ class MainScreen extends StatefulWidget {
   static final GlobalKey<ScaffoldState> scaffoldKey =
       GlobalKey<ScaffoldState>();
 
+  static final ValueNotifier<int?> tabSwitchRequest = ValueNotifier<int?>(null);
+  static void switchTab(int tabIndex) {
+    tabSwitchRequest.value = tabIndex;
+  }
+
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
+  final GlobalKey<ScaffoldState> _localScaffoldKey = GlobalKey<ScaffoldState>();
   late int _selectedIndex;
+  late final Set<int> _activatedTabs;
+
+  // ✅ تخزين Stream عداد الإشعارات غير المقروءة لمنع إعادة الاشتراك مع كل rebuild
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _unreadNotifStream;
+  String? _unreadStreamUid;
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> _getUnreadStream(String uid) {
+    if (_unreadNotifStream == null || _unreadStreamUid != uid) {
+      _unreadStreamUid = uid;
+      _unreadNotifStream = FirebaseFirestore.instance
+          .collection('notifications')
+          .where('targetUserId', isEqualTo: uid)
+          .where('isRead', isEqualTo: false)
+          .limit(99)
+          .snapshots();
+    }
+    return _unreadNotifStream!;
+  }
+
+  void _onExternalTabRequest() {
+    final target = MainScreen.tabSwitchRequest.value;
+    if (target != null && target >= 0 && target < _screens.length && mounted) {
+      setState(() {
+        _selectedIndex = target;
+        _activatedTabs.add(target);
+      });
+      MainScreen.tabSwitchRequest.value = null;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    // أي رقم خارج نطاق التابات بيرجع للرئيسية بدل ما يكسر IndexedStack
     final index = widget.initialIndex;
     _selectedIndex =
         (index >= 0 && index < _screens.length) ? index : MainScreen.homeTab;
+    _activatedTabs = {_selectedIndex};
+    MainScreen.tabSwitchRequest.addListener(_onExternalTabRequest);
   }
 
-  // ✅ AdsHubScreen بدلاً من AllAdsScreen
+  @override
+  void dispose() {
+    MainScreen.tabSwitchRequest.removeListener(_onExternalTabRequest);
+    super.dispose();
+  }
+
   static const List<Widget> _screens = [
     HomeScreen(),
     FavoritesScreen(),
@@ -57,7 +97,10 @@ class _MainScreenState extends State<MainScreen> {
     AdsHubScreen(),
   ];
 
-  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
+  void _onItemTapped(int index) => setState(() {
+        _selectedIndex = index;
+        _activatedTabs.add(index);
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -70,49 +113,46 @@ class _MainScreenState extends State<MainScreen> {
         setState(() => _selectedIndex = 0);
       },
       child: Scaffold(
-        key: MainScreen.scaffoldKey,
+        key: _localScaffoldKey,
         drawer: _buildOptionsDrawer(context, isDark),
         body: IndexedStack(
           index: _selectedIndex,
-          children: _screens,
+          children: List<Widget>.generate(
+            _screens.length,
+            (i) => _activatedTabs.contains(i)
+                ? _screens[i]
+                : const SizedBox.shrink(),
+          ),
         ),
         floatingActionButton: const GeminiChatButton(),
-        floatingActionButtonLocation:
-            FloatingActionButtonLocation.startFloat,
+        floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: _onItemTapped,
-          backgroundColor:
-              isDark ? const Color(0xFF1F1F1F) : Colors.white,
-          indicatorColor:
-              Colors.deepPurple.withValues(alpha: 0.15),
+          backgroundColor: isDark ? const Color(0xFF1F1F1F) : Colors.white,
+          indicatorColor: Colors.deepPurple.withValues(alpha: 0.15),
           surfaceTintColor: Colors.transparent,
           height: 62,
-          labelBehavior:
-              NavigationDestinationLabelBehavior.alwaysShow,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: [
             const NavigationDestination(
               icon: Icon(Icons.home_outlined),
-              selectedIcon:
-                  Icon(Icons.home, color: Colors.deepPurple),
+              selectedIcon: Icon(Icons.home, color: Colors.deepPurple),
               label: 'الرئيسية',
             ),
             const NavigationDestination(
               icon: Icon(Icons.favorite_border),
-              selectedIcon:
-                  Icon(Icons.favorite, color: Colors.deepPurple),
+              selectedIcon: Icon(Icons.favorite, color: Colors.deepPurple),
               label: 'المفضلة',
             ),
             const NavigationDestination(
               icon: Icon(Icons.local_offer_outlined),
-              selectedIcon: Icon(Icons.local_offer,
-                  color: Colors.deepPurple),
+              selectedIcon: Icon(Icons.local_offer, color: Colors.deepPurple),
               label: 'العروض',
             ),
             const NavigationDestination(
               icon: Icon(Icons.grid_view_outlined),
-              selectedIcon: Icon(Icons.grid_view,
-                  color: Colors.deepPurple),
+              selectedIcon: Icon(Icons.grid_view, color: Colors.deepPurple),
               label: 'الفئات',
             ),
             NavigationDestination(
@@ -124,9 +164,8 @@ class _MainScreenState extends State<MainScreen> {
                         ? Colors.grey[400]!
                         : Colors.grey[600]!,
               ),
-              selectedIcon:
-                  DealerIcon(size: 22, color: Colors.deepPurple),
-              label: 'ديلر',
+              selectedIcon: DealerIcon(size: 22, color: Colors.deepPurple),
+              label: 'سوق',
             ),
             NavigationDestination(
               icon: Icon(
@@ -137,9 +176,9 @@ class _MainScreenState extends State<MainScreen> {
                         ? Colors.grey[400]
                         : Colors.grey[600],
               ),
-              selectedIcon: const Icon(Icons.campaign,
-                  color: Colors.deepPurple),
-              label: 'مركز',
+              selectedIcon:
+                  const Icon(Icons.campaign, color: Colors.deepPurple),
+              label: 'الإعلانات',
             ),
           ],
         ),
@@ -152,8 +191,7 @@ class _MainScreenState extends State<MainScreen> {
   // ════════════════════════════════════════════════════════════════════
   Widget _buildOptionsDrawer(BuildContext context, bool isDark) {
     return Drawer(
-      backgroundColor:
-          isDark ? const Color(0xFF1A1A2E) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,8 +200,7 @@ class _MainScreenState extends State<MainScreen> {
             Consumer<AuthProvider>(
               builder: (ctx, auth, _) => Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     colors: [Color(0xFF5E35B1), Color(0xFF3949AB)],
@@ -180,27 +217,21 @@ class _MainScreenState extends State<MainScreen> {
                           radius: 30,
                           backgroundColor: Colors.white24,
                           backgroundImage:
-                              (auth.user?.profileImageUrl ?? '')
-                                      .isNotEmpty
-                                  ? NetworkImage(
-                                      auth.user!.profileImageUrl!)
+                              (auth.user?.profileImageUrl ?? '').isNotEmpty
+                                  ? NetworkImage(auth.user!.profileImageUrl!)
                                   : null,
-                          child:
-                              (auth.user?.profileImageUrl ?? '').isEmpty
-                                  ? (auth.user?.name.isNotEmpty == true
-                                      ? Text(
-                                          // ✅ Fix #111: حماية من RangeError
-                                          auth.user!.name[0].toUpperCase(),
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 24,
-                                              fontWeight:
-                                                  FontWeight.bold),
-                                        )
-                                      : const Icon(Icons.person,
+                          child: (auth.user?.profileImageUrl ?? '').isEmpty
+                              ? (auth.user?.name.isNotEmpty == true
+                                  ? Text(
+                                      auth.user!.name[0].toUpperCase(),
+                                      style: const TextStyle(
                                           color: Colors.white,
-                                          size: 30))
-                                  : null,
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold),
+                                    )
+                                  : const Icon(Icons.person,
+                                      color: Colors.white, size: 30))
+                              : null,
                         ),
                         if (!auth.isGuest)
                           Positioned(
@@ -223,8 +254,7 @@ class _MainScreenState extends State<MainScreen> {
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(Icons.edit,
-                                    size: 12,
-                                    color: Color(0xFF5E35B1)),
+                                    size: 12, color: Color(0xFF5E35B1)),
                               ),
                             ),
                           ),
@@ -257,25 +287,22 @@ class _MainScreenState extends State<MainScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) =>
-                                    const AccountEditScreen()),
+                                builder: (_) => const AccountEditScreen()),
                           );
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color:
-                                Colors.white.withValues(alpha: 0.15),
+                            color: Colors.white.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                                color: Colors.white
-                                    .withValues(alpha: 0.3)),
+                                color: Colors.white.withValues(alpha: 0.3)),
                           ),
                           child: const Text(
                             'تعديل الحساب ✏️',
-                            style: TextStyle(
-                                color: Colors.white, fontSize: 12),
+                            style:
+                                TextStyle(color: Colors.white, fontSize: 12),
                           ),
                         ),
                       ),
@@ -287,8 +314,6 @@ class _MainScreenState extends State<MainScreen> {
 
             const SizedBox(height: 8),
 
-            // ── عناصر القائمة ────────────────────────────────────
-
             // الإعدادات
             _drawerItem(
               context,
@@ -298,8 +323,7 @@ class _MainScreenState extends State<MainScreen> {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const OptionsScreen()),
+                  MaterialPageRoute(builder: (_) => const OptionsScreen()),
                 );
               },
             ),
@@ -320,22 +344,54 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ),
 
-            // ✅ الإشعارات → شاشتها المستقلة
-            _drawerItem(
-              context,
-              icon: Icons.notifications_outlined,
-              label: 'الإشعارات',
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.push(
+            // الإشعارات مع عداد محمي ضد إعادة الاشتراك المتكررة
+            Consumer<AuthProvider>(
+              builder: (ctx, auth, _) {
+                final uid = auth.user?.id;
+                return _drawerItem(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const NotificationsScreen()),
+                  icon: Icons.notifications_outlined,
+                  label: 'الإشعارات',
+                  trailing: (uid == null || uid.isEmpty || auth.isGuest)
+                      ? null
+                      : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                          stream: _getUnreadStream(uid),
+                          builder: (_, snap) {
+                            final count = snap.data?.docs.length ?? 0;
+                            if (count <= 0) {
+                              return const SizedBox.shrink();
+                            }
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                count > 99 ? '99+' : '$count',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen()),
+                    );
+                  },
                 );
               },
             ),
 
-            // ✅ عن التطبيق → شاشتها المستقلة
+            // عن التطبيق
             _drawerItem(
               context,
               icon: Icons.info_outline,
@@ -344,8 +400,7 @@ class _MainScreenState extends State<MainScreen> {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const AboutScreen()),
+                  MaterialPageRoute(builder: (_) => const AboutScreen()),
                 );
               },
             ),
@@ -387,19 +442,16 @@ class _MainScreenState extends State<MainScreen> {
     Color? labelColor,
   }) {
     return ListTile(
-      leading: Icon(icon,
-          color: iconColor ?? const Color(0xFF5E35B1), size: 22),
+      leading:
+          Icon(icon, color: iconColor ?? const Color(0xFF5E35B1), size: 22),
       title: Text(
         label,
         style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            color: labelColor),
+            fontSize: 15, fontWeight: FontWeight.w500, color: labelColor),
       ),
       trailing: trailing,
       onTap: onTap,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       horizontalTitleGap: 8,
     );
   }

@@ -1,17 +1,10 @@
 // lib/main.dart
-//
-// ✅ Phase 3 Fix #01: تفعيل Firebase App Check (PlayIntegrity + AppAttest).
-// ✅ Phase 3 Fix #02: تفعيل Firebase Crashlytics.
-// ✅ Phase 3 Fix #03: تفعيل Deep Links بـ app_links package.
-// ✅ QA Fix #01: nav.context.mounted → nav.mounted.
-// ✅ QA Fix #22: إضافة onGenerateRoute لمسارات الإشعارات الديناميكية.
-// ✅ QA Fix #25: FavoritesProvider.updateUser() لتجنب إعادة الإنشاء.
-// ✅ QA Fix #33: kDebugMode لاختيار AppCheck provider تلقائياً.
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -19,7 +12,6 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:app_links/app_links.dart';
-import 'package:intl/date_symbol_data_local.dart';
 import 'dart:developer' as developer;
 
 import 'firebase_options.dart';
@@ -42,15 +34,17 @@ import 'screens/post_service_request_screen.dart';
 import 'screens/provider_registration_screen.dart';
 import 'screens/merchant_type_screen.dart';
 import 'screens/account_edit_screen.dart';
+import 'screens/complete_profile_screen.dart';
 import 'screens/shop_detail_screen.dart';
 import 'screens/detail_screen.dart';
+import 'screens/seeder_screen.dart';
+import 'screens/categories_screen.dart';
 import 'models/wishlist_collection_model.dart';
 import 'screens/collection_detail_screen.dart';
 import 'providers/shops_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/favorites_provider.dart';
 import 'providers/theme_provider.dart';
-// ✅ Pro Suggestions: ربط الـ shared utilities بالتطبيق
 import 'utils/app_theme.dart';
 import 'services/connectivity_service.dart';
 import 'services/notification_service.dart';
@@ -65,24 +59,17 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // ✅ Item #40: DateHelper بيبني DateFormat(..., 'ar') (حقول static final)،
-  // وبيانات التواريخ العربية لازم تتحمّل قبل أول استخدام وإلا بيترمي
-  // LocaleDataException. كنا معتمدين بالصدفة على إن MaterialApp حمّلتها قبل أول
-  // شاشة بتنسّق تاريخ، فبنحمّلها هنا صراحةً قبل أي شيء تاني.
   await initializeDateFormatting('ar');
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // ✅ Phase 3 Fix #02: تفعيل Crashlytics
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   PlatformDispatcher.instance.onError = (error, stack) {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     return true;
   };
 
-  // ✅ QA Fix #33: debug provider في debug mode — playIntegrity/appAttest للـ production فقط
   await FirebaseAppCheck.instance.activate(
     providerAndroid: kDebugMode
         ? const AndroidDebugProvider()
@@ -92,7 +79,6 @@ void main() async {
         : const AppleAppAttestProvider(),
   );
 
-  // ── Firestore settings ────────────────────────────────────
   try {
     FirebaseFirestore.instance.settings = const Settings(
       persistenceEnabled: true,
@@ -152,7 +138,6 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  // ✅ QA Fix #01: nav.mounted بدلاً من nav.context.mounted
   Future<void> _handleDeepLink(Uri uri) async {
     final nav = NotificationService.navigatorKey.currentState;
     if (nav == null) return;
@@ -168,56 +153,41 @@ class _MyAppState extends State<MyApp> {
     switch (type) {
       case 'shop':
         if (id == null || id.isEmpty) return;
-        try {
-          final doc = await FirebaseFirestore.instance
-              .collection('shops')
-              .doc(id)
-              .get();
-          if (doc.exists && nav.mounted) {
-            nav.push(MaterialPageRoute(
-              builder: (_) =>
-                  ShopDetailScreen(shop: Shop.fromMap(doc.data()!, doc.id)),
-            ));
-          }
-        } catch (e) {
-          developer.log('Deep link shop fetch error: $e');
-        }
+        nav.pushNamed('/shop/$id');
         break;
 
       case 'product':
         if (id == null || id.isEmpty) return;
-        try {
-          final doc = await FirebaseFirestore.instance
-              .collection('products')
-              .doc(id)
-              .get();
-          if (doc.exists && nav.mounted) {
-            nav.push(MaterialPageRoute(
-              builder: (_) => DetailScreen(
-                  item: Product.fromMap(doc.data()!, doc.id)),
-            ));
-          }
-        } catch (e) {
-          developer.log('Deep link product fetch error: $e');
-        }
+        nav.pushNamed('/product/$id');
         break;
 
       case 'offer':
         if (id == null || id.isEmpty) return;
-        try {
-          final doc = await FirebaseFirestore.instance
-              .collection('offers')
-              .doc(id)
-              .get();
-          if (doc.exists && nav.mounted) {
-            nav.push(MaterialPageRoute(
-              builder: (_) => DetailScreen(
-                  item: Offer.fromMap(doc.data()!, doc.id)),
-            ));
-          }
-        } catch (e) {
-          developer.log('Deep link offer fetch error: $e');
+        nav.pushNamed('/offer/$id');
+        break;
+
+      case 'service':
+        nav.pushNamed('/ads_hub', arguments: {'tab': 2});
+        break;
+
+      case 'job':
+        nav.pushNamed('/ads_hub', arguments: {'tab': 1});
+        break;
+
+      case 'ad':
+        nav.pushNamed('/ads_hub', arguments: {'tab': 0});
+        break;
+
+      case 'collection':
+        if (id != null && id.isNotEmpty) {
+          nav.pushNamed('/collection/$id');
+        } else {
+          nav.pushNamed('/favorites');
         }
+        break;
+
+      case 'category':
+        nav.pushNamed('/categories');
         break;
 
       default:
@@ -232,13 +202,11 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ShopsProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        // ✅ Pro #222: ConnectivityService متاح في كل التطبيق
         ChangeNotifierProvider(create: (_) {
           final svc = ConnectivityService();
           svc.startMonitoring();
           return svc;
         }),
-        // ✅ QA Fix #25: updateUser() لتعديل نفس الـ instance بدلاً من إنشاء جديد
         ChangeNotifierProxyProvider<AuthProvider, FavoritesProvider>(
           create: (_) => FavoritesProvider(null, [], [], []),
           update: (ctx, auth, prev) {
@@ -252,8 +220,6 @@ class _MyAppState extends State<MyApp> {
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
-          // ✅ Item #1: AppTheme.light/dark هما getters بتبني ThemeData جديد كل مرة،
-          // فنثبّت نسخة واحدة لكل ثيم ونبني عليها بدل استدعائهم أكتر من مرة.
           final lightBase = AppTheme.light;
           final darkBase = AppTheme.dark;
           return MaterialApp(
@@ -269,164 +235,203 @@ class _MyAppState extends State<MyApp> {
             supportedLocales: const [Locale('ar', 'EG')],
             locale: const Locale('ar', 'EG'),
             themeMode: themeProvider.themeMode,
-
-            // ✅ Pro #220: استخدام AppTheme المركزي بدلاً من ThemeData inline
-            theme: lightBase.copyWith(
-              // ThemeData.copyWith لا يملك معامل fontFamily (موجود في constructor فقط)،
-              // فنطبّق الخط على الـ TextThemes مباشرة وده نفس تأثير ThemeData(fontFamily:).
-              textTheme: lightBase.textTheme.apply(fontFamily: 'Tajawal'),
-              primaryTextTheme:
-                  lightBase.primaryTextTheme.apply(fontFamily: 'Tajawal'),
-              inputDecorationTheme: InputDecorationTheme(
-                filled: true,
-                fillColor: Colors.grey[100],
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey[300]!, width: 1)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                        color: Color(0xFF5E35B1), width: 1.5)),
-                prefixIconColor: const Color(0xFF5E35B1),
-                labelStyle: const TextStyle(color: Color(0xFF5E35B1)),
-              ),
-              chipTheme: ChipThemeData(
-                selectedColor: const Color(0xFF5E35B1),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
-              ),
-              progressIndicatorTheme:
-                  const ProgressIndicatorThemeData(color: Color(0xFF5E35B1)),
-              dividerTheme:
-                  DividerThemeData(color: Colors.grey[200], thickness: 1),
-              snackBarTheme: SnackBarThemeData(
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-
-            darkTheme: darkBase.copyWith(
-              textTheme: darkBase.textTheme.apply(fontFamily: 'Tajawal'),
-              primaryTextTheme:
-                  darkBase.primaryTextTheme.apply(fontFamily: 'Tajawal'),
-              inputDecorationTheme: InputDecorationTheme(
-                filled: true,
-                fillColor: const Color(0xFF252535),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                        color: Color(0xFF7C4DFF), width: 1.5)),
-                prefixIconColor: const Color(0xFF7C4DFF),
-                labelStyle: const TextStyle(color: Color(0xFF7C4DFF)),
-              ),
-              chipTheme: ChipThemeData(
-                selectedColor: const Color(0xFF7C4DFF),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
-              ),
-              progressIndicatorTheme:
-                  const ProgressIndicatorThemeData(color: Color(0xFF7C4DFF)),
-              snackBarTheme: SnackBarThemeData(
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-
-            // ✅ Item #2: الـ SplashScreen هي صاحبة قرار التنقل الأولي الوحيدة.
-            // قبل كده كان هنا Consumer<AuthProvider> بيبدّل الشاشة أول ما حالة
-            // المصادقة تتغير (غالبًا قبل ما الـ Splash تخلّص ثانيتين) فكان بيقطع
-            // فحوصاتها: الأونبوردينج / التحديث الإجباري / الاهتمامات / إعلان البداية.
-            // الـ Splash هي اللي بتستنى المصادقة وتروح /home أو /login. تسجيل الدخول
-            // والخروج بيستخدموا تنقّل صريح (pushReplacementNamed / pushNamedAndRemoveUntil).
+            theme: lightBase,
+            darkTheme: darkBase,
             home: const SplashScreen(),
-
             routes: {
-              '/home':                 (_) => const MainScreen(),
-              '/login':                (_) => const LoginScreen(),
-              '/admin':                (_) => const AdminDashboard(),
-              '/merchant':             (_) => const MerchantDashboard(),
-              '/advanced_search':      (_) => const AdvancedSearchScreen(),
-              '/dealer':               (_) => const SanhourDealerScreen(),
-              '/interests':            (_) => const InterestsScreen(),
-              '/onboarding':           (_) => const OnboardingScreen(),
-              '/merchant_stats':       (_) => const MerchantDashboard(),
-              '/subscription':         (_) => const SubscriptionScreen(),
-              '/all_ads':              (_) => const AdsHubScreen(),
-              // ✅ Fix #86: /ads_hub حُذف من routes الثابتة — onGenerateRoute يتولاه
-              //             لضمان وصول arguments (initialTab) للشاشة
-              '/notifications':        (_) => const NotificationsScreen(),
-              '/my_complaints':        (_) => const MyComplaintsScreen(),
-              '/my_service_history':   (_) => const MyServiceHistoryScreen(),
-              '/post_job':             (_) => const PostJobAdScreen(),
-              '/post_service':         (_) => const PostServiceRequestScreen(),
-              '/register_provider':    (_) => const ProviderRegistrationScreen(),
-              '/merchant_type':        (_) => const MerchantTypeScreen(),
-              '/account_edit':         (_) => const AccountEditScreen(),
-              // ✅ Fix #28: كانت الاتنين بترجّع MainScreen() على تاب الرئيسية
-              '/favorites':            (_) => const MainScreen(initialIndex: MainScreen.favoritesTab),
-              '/offers':               (_) => const MainScreen(initialIndex: MainScreen.offersTab),
+              '/home':               (_) => const MainScreen(),
+              '/login':              (_) => const LoginScreen(),
+              '/admin':              (_) => const AdminDashboard(),
+              '/merchant':           (_) => const MerchantDashboard(),
+              '/advanced_search':    (_) => const AdvancedSearchScreen(),
+              '/dealer':             (_) => const SanhourDealerScreen(),
+              '/interests':          (_) => const InterestsScreen(),
+              '/onboarding':         (_) => const OnboardingScreen(),
+              '/merchant_stats':     (_) => const MerchantDashboard(),
+              '/subscription':       (_) => const SubscriptionScreen(),
+              '/all_ads':            (_) => const AdsHubScreen(),
+              '/notifications':      (_) => const NotificationsScreen(),
+              '/my_complaints':      (_) => const MyComplaintsScreen(),
+              '/user_complaints':    (_) => const MyComplaintsScreen(),
+              '/my_service_history': (_) => const MyServiceHistoryScreen(),
+              '/post_job':           (_) => const PostJobAdScreen(),
+              '/post_service':       (_) => const PostServiceRequestScreen(),
+              '/register_provider':  (_) => const ProviderRegistrationScreen(),
+              '/merchant_type':      (_) => const MerchantTypeScreen(),
+              '/account_edit':       (_) => const AccountEditScreen(),
+              '/complete_profile':   (_) => const CompleteProfileScreen(),
+              '/categories':         (_) => const CategoriesScreen(),
+              '/seeder':             (_) => const SeederScreen(),
+              '/favorites':          (_) => const MainScreen(initialIndex: MainScreen.favoritesTab),
+              '/offers':             (_) => const MainScreen(initialIndex: MainScreen.offersTab),
+              '/job_ads':            (_) => const AdsHubScreen(initialTab: 1),
+              '/service_requests':   (_) => const AdsHubScreen(initialTab: 2),
             },
-
-            // ✅ QA Fix #22: مسارات الإشعارات والـ Deep Links الديناميكية
-            onGenerateRoute: (settings) {
-              if (settings.name == '/shop_detail') {
-                final args = settings.arguments as Map<String, dynamic>?;
-                final shopId = args?['shopId'] as String?;
-                if (shopId != null && shopId.isNotEmpty) {
-                  return MaterialPageRoute(
-                    builder: (_) => _ShopDetailById(shopId: shopId),
-                  );
-                }
-              }
-              if (settings.name == '/product_detail') {
-                final args = settings.arguments as Map<String, dynamic>?;
-                final productId = args?['productId'] as String?;
-                if (productId != null && productId.isNotEmpty) {
-                  return MaterialPageRoute(
-                    builder: (_) => _ProductDetailById(productId: productId),
-                  );
-                }
-              }
-              if (settings.name == '/offer_detail') {
-                final args = settings.arguments as Map<String, dynamic>?;
-                final offerId = args?['offerId'] as String?;
-                if (offerId != null && offerId.isNotEmpty) {
-                  return MaterialPageRoute(
-                    builder: (_) => _OfferDetailById(offerId: offerId),
-                  );
-                }
-              }
-              // ✅ AdsHub مع تحديد التاب الافتراضي (0=ads, 1=jobs, 2=services)
-              if (settings.name == '/ads_hub') {
-                final args = settings.arguments as Map<String, dynamic>?;
-                final tab = (args?['tab'] as int?) ?? 0;
-                return MaterialPageRoute(
-                  builder: (_) => AdsHubScreen(initialTab: tab),
-                );
-              }
-              // ✅ CollectionDetail by ID (من الإشعارات أو الرابط المشارك)
-              if (settings.name == '/collection_detail') {
-                final args = settings.arguments as Map<String, dynamic>?;
-                final collectionId = args?['collectionId'] as String? ?? '';
-                return MaterialPageRoute(
-                  builder: (_) =>
-                      _CollectionDetailById(collectionId: collectionId),
-                );
-              }
-              return null;
-            },
+            onGenerateRoute: _onGenerateRoute,
           );
         },
       ),
     );
+  }
+
+  Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
+    final rawName = settings.name ?? '';
+    final args = settings.arguments is Map<String, dynamic>
+        ? settings.arguments as Map<String, dynamic>
+        : null;
+
+    // 1. دعم المسارات النصية المدمجة بالمعرّف (/shop/:id, /product/:id, /offer/:id, /collection/:id)
+    if (rawName.startsWith('/shop/')) {
+      final shopId = rawName.substring('/shop/'.length).trim();
+      if (shopId.isNotEmpty) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => _ShopDetailById(shopId: shopId),
+        );
+      }
+    }
+    if (rawName.startsWith('/product/')) {
+      final productId = rawName.substring('/product/'.length).trim();
+      if (productId.isNotEmpty) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => _ProductDetailById(productId: productId),
+        );
+      }
+    }
+    if (rawName.startsWith('/offer/')) {
+      final offerId = rawName.substring('/offer/'.length).trim();
+      if (offerId.isNotEmpty) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => _OfferDetailById(offerId: offerId),
+        );
+      }
+    }
+    if (rawName.startsWith('/collection/')) {
+      final colId = rawName.substring('/collection/'.length).trim();
+      if (colId.isNotEmpty) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => _CollectionDetailById(collectionId: colId),
+        );
+      }
+    }
+    if (rawName.startsWith('/service_request/') ||
+        rawName.startsWith('service_request:')) {
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) => const MyServiceHistoryScreen(),
+      );
+    }
+
+    // 2. دعم المسارات المعتمدة على arguments Map
+    if (rawName == '/shop_detail' || rawName == 'shop_details' || rawName == 'shop') {
+      final shopObj = args?['shop'];
+      if (shopObj is Shop) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => ShopDetailScreen(shop: shopObj),
+        );
+      }
+      final shopId = (args?['shopId'] ?? args?['targetId'])?.toString();
+      if (shopId != null && shopId.isNotEmpty) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => _ShopDetailById(shopId: shopId),
+        );
+      }
+    }
+
+    if (rawName == '/product_detail' || rawName == 'product_details' || rawName == 'product') {
+      final productObj = args?['product'];
+      if (productObj is Product) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => DetailScreen(item: productObj),
+        );
+      }
+      final productId = (args?['productId'] ?? args?['targetId'])?.toString();
+      if (productId != null && productId.isNotEmpty) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => _ProductDetailById(productId: productId),
+        );
+      }
+    }
+
+    if (rawName == '/offer_detail' || rawName == 'offer_details' || rawName == 'offer') {
+      final offerObj = args?['offer'];
+      if (offerObj is Offer) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => DetailScreen(item: offerObj),
+        );
+      }
+      final offerId = (args?['offerId'] ?? args?['targetId'])?.toString();
+      if (offerId != null && offerId.isNotEmpty) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => _OfferDetailById(offerId: offerId),
+        );
+      }
+    }
+
+    if (rawName == '/ads_hub' || rawName == 'ads_hub') {
+      final tab = (args?['tab'] as num?)?.toInt() ?? 0;
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) => AdsHubScreen(initialTab: tab),
+      );
+    }
+
+    if (rawName == 'job_ads') {
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) => const AdsHubScreen(initialTab: 1),
+      );
+    }
+
+    if (rawName == 'service_requests') {
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) => const AdsHubScreen(initialTab: 2),
+      );
+    }
+
+    if (rawName == 'merchant') {
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) => const MerchantDashboard(),
+      );
+    }
+
+    if (rawName == 'user_complaints') {
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) => const MyComplaintsScreen(),
+      );
+    }
+
+    if (rawName == '/collection_detail' || rawName == 'collection_detail') {
+      final colObj = args?['collection'];
+      if (colObj is WishlistCollection) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => CollectionDetailScreen(collection: colObj),
+        );
+      }
+      final collectionId =
+          (args?['collectionId'] ?? args?['targetId'])?.toString() ?? '';
+      if (collectionId.isNotEmpty) {
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => _CollectionDetailById(collectionId: collectionId),
+        );
+      }
+    }
+
+    return null;
   }
 }
 
@@ -449,7 +454,7 @@ class _ShopDetailById extends StatelessWidget {
         if (!snap.hasData || !snap.data!.exists) {
           return Scaffold(
             appBar: AppBar(title: const Text('المحل')),
-            body: const Center(child: Text('المحل غير موجود')),
+            body: const Center(child: Text('عذراً، هذا المحل لم يعد متاحاً حالياً')),
           );
         }
         return ShopDetailScreen(
@@ -479,7 +484,7 @@ class _ProductDetailById extends StatelessWidget {
         if (!snap.hasData || !snap.data!.exists) {
           return Scaffold(
             appBar: AppBar(title: const Text('المنتج')),
-            body: const Center(child: Text('المنتج غير موجود')),
+            body: const Center(child: Text('عذراً، هذا المنتج لم يعد متاحاً حالياً')),
           );
         }
         return DetailScreen(
@@ -507,7 +512,7 @@ class _OfferDetailById extends StatelessWidget {
         if (!snap.hasData || !snap.data!.exists) {
           return Scaffold(
             appBar: AppBar(title: const Text('العرض')),
-            body: const Center(child: Text('العرض غير موجود')),
+            body: const Center(child: Text('عذراً، هذا العرض انتهى أو لم يعد متاحاً')),
           );
         }
         return DetailScreen(
@@ -518,7 +523,6 @@ class _OfferDetailById extends StatelessWidget {
   }
 }
 
-// ✅ CollectionDetailById — يُستخدم من الإشعارات والروابط المشتركة
 class _CollectionDetailById extends StatelessWidget {
   final String collectionId;
   const _CollectionDetailById({required this.collectionId});
@@ -541,7 +545,7 @@ class _CollectionDetailById extends StatelessWidget {
                 title: const Text('القائمة'),
                 backgroundColor: const Color(0xFF5E35B1),
                 foregroundColor: Colors.white),
-            body: const Center(child: Text('القائمة غير موجودة')),
+            body: const Center(child: Text('عذراً، هذه القائمة غير موجودة أو حُذفت')),
           );
         }
         final data =

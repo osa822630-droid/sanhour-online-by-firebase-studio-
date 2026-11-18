@@ -1,18 +1,15 @@
 // lib/services/ad_service.dart
-// ✅ تحديث createAd() لدعم رفع صور متعددة + coverImageIndex
-// ✅ توافق خلفي: لا يزال يحفظ imageUrl كـ computed value
-// ✅ إصلاح الكراش: كل رفع (صور + فيديو) عبر MediaUploadService الآن —
-//    تحقق من الحجم، رسائل خطأ عربية، تتبع تقدم حقيقي.
+// ✅ استخدام معرف المستخدم الفعلي المسجل (FirebaseAuth.currentUser.uid) عند حرق كود الإعلان لدعم الشركاء في المتجر
+// ✅ حذف ملف الفيديو المرفوض من Firebase Storage وإرسال إشعار للتاجر عند قبول أو رفض إعلان الفيديو
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:math' show Random;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/ad_model.dart';
 import 'audit_log_service.dart';
 import 'media_upload_service.dart';
 
-/// ✅ Fix #16: خطأ استهلاك كود الإعلان — رسالته عربية جاهزة للعرض للمستخدم
-/// (بدلاً من رسالة عامة تُخفي سبب الرفض: كود غير صحيح / مستخدم / منتهي).
 class AdCodeException implements Exception {
   final String userMessage;
   const AdCodeException(this.userMessage);
@@ -21,9 +18,6 @@ class AdCodeException implements Exception {
   String toString() => 'AdCodeException: $userMessage';
 }
 
-/// ✅ Fix #33: نتيجة صفحة من أرشيف الإعلانات (واجهة المشتري) — نفس نمط
-/// ProductPageResult، مع علم [failed] عشان الشاشة تفرّق بين "مفيش إعلانات"
-/// و"فشل التحميل" وتعرض رسالة وزر إعادة محاولة.
 class AdsPageResult {
   final List<AdModel> ads;
   final DocumentSnapshot? lastDocument;
@@ -41,8 +35,6 @@ class AdsPageResult {
 class AdService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // ✅ Fix #37: إضافة limit لمنع قراءة كل الإعلانات
-  // ✅ Fix #38: فلترة displayLocations لـ home screen افتراضياً
   static Future<List<AdModel>> getActiveAds({
     String? location,
     int limit = 20,
@@ -83,8 +75,6 @@ class AdService {
     }
   }
 
-  // ✅ إصلاح الكراش: تفويض كامل لـ MediaUploadService — تحقق من الحجم
-  // ورسائل خطأ عربية وإعادة محاولة تلقائية بدلاً من putFile الخام
   static Future<String> _uploadAdImage(
     File file, {
     void Function(double fraction)? onProgress,
@@ -97,7 +87,6 @@ class AdService {
     );
   }
 
-  /// ✅ createAd مُحدَّث: يقبل قائمة صور + coverIndex + تتبع تقدم لكل صورة
   static Future<void> createAd({
     required List<File> imageFiles,
     required String targetType,
@@ -108,14 +97,12 @@ class AdService {
     int coverIndex = 0,
     String? shopId,
     List<String> displayLocations = const ['home', 'splash', 'ads_screen'],
-    // ✅ نظام تقدم الرفع: (index في imageFiles, fraction 0.0–1.0)
     void Function(int fileIndex, double fraction)? onImageProgress,
   }) async {
     if (imageFiles.isEmpty) {
       throw Exception('يجب إضافة صورة واحدة على الأقل للإعلان');
     }
 
-    // ── رفع كل الصور بالتوازي مع تتبع تقدم منفصل لكل صورة ──────────
     final imageUrls = await Future.wait(List.generate(imageFiles.length, (i) {
       return _uploadAdImage(
         imageFiles[i],
@@ -125,11 +112,9 @@ class AdService {
       );
     }));
 
-    // ── التأكد من صحة coverIndex ─────────────────────────────────
     final validCoverIndex = coverIndex.clamp(0, imageUrls.length - 1);
     final coverImageUrl = imageUrls[validCoverIndex];
 
-    // ── نظام الإعلان الواحد النشط لكل محل ──────────────────────
     if (shopId != null) {
       final existing = await _firestore
           .collection('ads')
@@ -144,11 +129,14 @@ class AdService {
       }
     }
 
-    await _firestore.collection('ads').add({
-      // ✅ نظام الصور المتعدد
+    final docRef = _firestore.collection('ads').doc();
+    final expiresTs = durationDays > 0
+        ? Timestamp.fromDate(DateTime.now().add(Duration(days: durationDays)))
+        : null;
+    await docRef.set({
+      'id': docRef.id,
       'imageUrls': imageUrls,
       'coverImageIndex': validCoverIndex,
-      // ✅ توافق خلفي
       'imageUrl': coverImageUrl,
       'text': text,
       'actionButtonText': 'اعرف أكثر',
@@ -160,15 +148,13 @@ class AdService {
       'clickCount': 0,
       'shopId': shopId,
       'displayLocations': displayLocations,
-      'expiresAt': durationDays > 0
-          ? Timestamp.fromDate(
-              DateTime.now().add(Duration(days: durationDays)))
-          : null,
+      'expiresAt': expiresTs,
+      'endDate': expiresTs,
       'createdAt': FieldValue.serverTimestamp(),
+      'startDate': FieldValue.serverTimestamp(),
     });
   }
 
-  /// ✅ جلب كل الإعلانات (نشطة + غير نشطة) من الأحدث للأقدم
   static Future<List<AdModel>> getAllAds() async {
     try {
       final snap = await _firestore
@@ -183,20 +169,7 @@ class AdService {
     }
   }
 
-  // ==========================================================
-  // ✅ Fix #33: أرشيف الإعلانات لواجهة المشتري (شاشة الإعلانات)
-  // ----------------------------------------------------------
-  // • isActive == true إلزامي: قاعدة قراءة ads بتمنع أي حد غير الأدمن من
-  //   قراءة إعلان غير نشط (فيديو تحت المراجعة / مرفوض / لسه مدفوعش)،
-  //   وأي استعلام من غير الشرط ده بيترفض بالكامل.
-  // • من غير فلتر على expiresAt: الإعلان بيفضل في الأرشيف بعد أسبوعه لحد
-  //   ما يعدّي [archiveWindow] من تاريخ إنشائه (createdAt). الاختفاء من
-  //   هنا بس — المستند نفسه مبيتمسحش وبيفضل في سجل الإعلانات عند التاجر.
-  // • الترتيب بـ createdAt (composite index: isActive + createdAt موجود
-  //   في firestore.indexes.json) والتحميل تدريجي بـ startAfterDocument،
-  //   ونفس الـ index بيخدم الاتجاهين (الأحدث أولًا / الأقدم أولًا).
-  // ==========================================================
-  static const Duration archiveWindow = Duration(days: 183); // ≈ ٦ شهور
+  static const Duration archiveWindow = Duration(days: 183);
   static const int archivePageSize = 20;
 
   static Future<AdsPageResult> getArchivePage({
@@ -229,7 +202,6 @@ class AdService {
     }
   }
 
-  /// ✅ تحديد مكان ظهور الإعلان
   static Future<void> updateAdLocations(
       String adId, List<String> locations) async {
     await _firestore.collection('ads').doc(adId).update({
@@ -239,18 +211,13 @@ class AdService {
     });
   }
 
-  /// ✅ Fix #16: يولّد كود إعلان حقيقياً في نظام activation_codes الموحّد.
-  ///
-  /// كانت الدالة ترجّع نصاً (`AD_CODE_<millis>`) دون كتابة أي وثيقة، فكان الكود
-  /// المعروض للأدمن غير موجود فعلياً ولا يمكن لأي تاجر استهلاكه. الآن تُكتب
-  /// وثيقة بـ `type: 'ad_activation'` (الحقل الإجباري في كل استعلام تحقق) وصلاحية
-  /// 30 يوماً، ويُسجَّل التوليد في audit log أسوةً بكود المحل، ثم يُرجَع النص.
   static Future<String> generateAdCode({String adminId = 'admin'}) async {
     final code = 'AD-${_secureString(4)}-${_secureString(4)}';
 
-    await _firestore.collection('activation_codes').add({
+    await _firestore.collection('activation_codes').doc(code).set({
       'code': code,
       'type': 'ad_activation',
+      'price': 50,
       'isUsed': false,
       'generatedBy': adminId,
       'createdAt': FieldValue.serverTimestamp(),
@@ -263,11 +230,6 @@ class AdService {
     return code;
   }
 
-  /// ✅ Fix #16: يستهلك كود إعلان من `activation_codes` (type: ad_activation).
-  ///
-  /// الاستعلام (equality فقط بلا index مركّب) يحدد الوثيقة، ثم تعيد transaction
-  /// قراءتها بـ `tx.get` وتحرقها — فلا يقدر طلبان متزامنان حرق نفس الكود.
-  /// يرمي [AdCodeException] برسالة عربية عند كود غير صحيح/مستخدم/منتهي.
   static Future<void> redeemAdCode({
     required String code,
     required String userId,
@@ -277,16 +239,20 @@ class AdService {
     final normalized = code.trim().toUpperCase();
     if (normalized.isEmpty) throw invalid;
 
-    final snap = await _firestore
-        .collection('activation_codes')
-        .where('code', isEqualTo: normalized)
-        .where('type', isEqualTo: 'ad_activation')
-        .where('isUsed', isEqualTo: false)
-        .limit(1)
-        .get();
-    if (snap.docs.isEmpty) throw invalid;
+    final directRef = _firestore.collection('activation_codes').doc(normalized);
+    final directDoc = await directRef.get();
+    if (!directDoc.exists ||
+        directDoc.data()?['isUsed'] == true ||
+        directDoc.data()?['type'] != 'ad_activation') {
+      throw invalid;
+    }
 
-    final ref = snap.docs.first.reference;
+    // ✅ استخدام معرّف الجلسة الفعلية إذا كان المستخدم شريكاً في المتجر ليتطابق مع شرط usedBy == appUid() في firestore.rules
+    final authUser = FirebaseAuth.instance.currentUser;
+    final effectiveUserId =
+        (authUser != null && !authUser.isAnonymous) ? authUser.uid : userId;
+
+    final ref = directRef;
     await _firestore.runTransaction((tx) async {
       final fresh = await tx.get(ref);
       final data = fresh.data();
@@ -303,7 +269,7 @@ class AdService {
       }
       tx.update(ref, {
         'isUsed': true,
-        'usedBy': userId,
+        'usedBy': effectiveUserId,
         'usedAt': FieldValue.serverTimestamp(),
         'shopId': shopId,
       });
@@ -316,8 +282,6 @@ class AdService {
     return List.generate(length, (_) => chars[rng.nextInt(chars.length)])
         .join();
   }
-
-  // ── ضوابط الفيديوهات الترويجية ───────────────────────────────────────────
 
   static const double videoPricePerMinute = 50.0;
   static const int maxVideoDurationMinutes = 3;
@@ -343,7 +307,6 @@ class AdService {
     required int durationSeconds,
     required String description,
     List<String> displayLocations = const ['home', 'ads_screen'],
-    // ✅ نظام تقدم الرفع: fraction 0.0–1.0
     void Function(double fraction)? onProgress,
   }) async {
     final durationError = validateVideoDuration(durationSeconds);
@@ -355,8 +318,6 @@ class AdService {
     final durationMinutes = (durationSeconds / 60).ceil();
 
     try {
-      // ✅ إصلاح الكراش: رفع آمن عبر MediaUploadService بدل putFile الخام —
-      // تحقق من الحجم (≤100MB)، إعادة محاولة لأخطاء الشبكة، تتبع تقدم حقيقي
       final videoUrl = await MediaUploadService.uploadFile(
         file: videoFile,
         folder: 'ads/$shopId/pending',
@@ -365,8 +326,11 @@ class AdService {
             onProgress == null ? null : (p) => onProgress(p.fraction),
       );
 
-      final docRef = await _firestore.collection('ads').add({
+      final docRef = _firestore.collection('ads').doc();
+      await docRef.set({
+        'id': docRef.id,
         'videoUrl': videoUrl,
+        'text': description,
         'imageUrls': <String>[],
         'coverImageIndex': 0,
         'imageUrl': '',
@@ -385,6 +349,7 @@ class AdService {
         'displayLocations': displayLocations,
         'clickCount': 0,
         'createdAt': FieldValue.serverTimestamp(),
+        'startDate': FieldValue.serverTimestamp(),
         'contentFlags': {
           'hasMusic': false,
           'hasWomenAppearance': false,
@@ -408,7 +373,6 @@ class AdService {
           name: 'AdService', error: e, stackTrace: s);
       return {
         'success': false,
-        // ✅ MediaUploadException.toString() يُعيد رسالة عربية جاهزة مباشرة
         'error': e is MediaUploadException
             ? e.userMessage
             : 'حدث خطأ أثناء رفع الفيديو، حاول مرة أخرى.'
@@ -422,23 +386,52 @@ class AdService {
     required bool hasWomenAppearance,
     String? adminNote,
   }) async {
+    final adRef = _firestore.collection('ads').doc(adId);
+    final adSnap = await adRef.get();
+    final adData = adSnap.data() ?? {};
+    final String? videoUrl = adData['videoUrl'] as String?;
+    final String? ownerId = adData['shopOwnerId'] as String?;
+    final adminUid = FirebaseAuth.instance.currentUser?.uid ?? 'admin';
+
     if (hasMusic || hasWomenAppearance) {
-      await _firestore.collection('ads').doc(adId).update({
+      final reasonNote = adminNote ??
+          'الفيديو لا يتوافق مع سياسة المحتوى: '
+              '${hasMusic ? "يحتوي على موسيقى. " : ""}'
+              '${hasWomenAppearance ? "يحتوي على ظهور نساء." : ""}';
+
+      await adRef.update({
         'status': 'rejected',
         'isActive': false,
+        'videoUrl': '',
         'contentFlags.hasMusic': hasMusic,
         'contentFlags.hasWomenAppearance': hasWomenAppearance,
         'contentFlags.reviewedByAdmin': true,
-        'contentFlags.adminNote': adminNote ??
-            'الفيديو لا يتوافق مع سياسة المحتوى: '
-                '${hasMusic ? "يحتوي على موسيقى. " : ""}'
-                '${hasWomenAppearance ? "يحتوي على ظهور نساء." : ""}',
+        'contentFlags.adminNote': reasonNote,
         'rejectionReason': 'مخالفة سياسة المحتوى',
       });
+
+      // ✅ حذف ملف الفيديو المرفوض من Firebase Storage لمنع بقاء ملفات يتيمة
+      if (videoUrl != null && videoUrl.isNotEmpty) {
+        await MediaUploadService.deleteByUrl(videoUrl);
+      }
+
+      // ✅ إشعار التاجر بسبب رفض إعلان الفيديو
+      if (ownerId != null && ownerId.isNotEmpty) {
+        await _firestore.collection('notifications').add({
+          'title': '❌ تم رفض إعلان الفيديو',
+          'body': reasonNote,
+          'type': 'video_ad_rejected',
+          'targetUserId': ownerId,
+          'fromUserId': adminUid,
+          'data': {'route': 'merchant', 'channel': 'admin_alerts'},
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
       return;
     }
 
-    await _firestore.collection('ads').doc(adId).update({
+    await adRef.update({
       'status': 'approved',
       'contentFlags.hasMusic': hasMusic,
       'contentFlags.hasWomenAppearance': hasWomenAppearance,
@@ -446,6 +439,19 @@ class AdService {
       'contentFlags.adminNote': adminNote,
       'approvedAt': FieldValue.serverTimestamp(),
     });
+
+    if (ownerId != null && ownerId.isNotEmpty) {
+      await _firestore.collection('notifications').add({
+        'title': '✅ تمت الموافقة على إعلان الفيديو',
+        'body': adminNote ?? 'تمت مراجعة الفيديو والموافقة عليه. يمكنك الآن إتمام الدفع لتفعيله.',
+        'type': 'video_ad_approved',
+        'targetUserId': ownerId,
+        'fromUserId': adminUid,
+        'data': {'route': 'merchant', 'channel': 'admin_alerts'},
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
   }
 
   static Future<void> activateAdAfterPayment(

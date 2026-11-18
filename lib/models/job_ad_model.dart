@@ -1,5 +1,6 @@
 // lib/models/job_ad_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/date_parser.dart';
 
 enum JobCategory {
   workers,       // عمال يومية
@@ -29,6 +30,8 @@ class JobAdModel {
   final bool isActive;
   final DateTime createdAt;
   final DateTime? expiresAt;
+  final int viewCount;
+  final int applicationCount;
 
   JobAdModel({
     required this.id,
@@ -45,6 +48,8 @@ class JobAdModel {
     required this.isActive,
     required this.createdAt,
     this.expiresAt,
+    this.viewCount = 0,
+    this.applicationCount = 0,
   });
 
   static JobCategory _categoryFromString(String? s) {
@@ -83,14 +88,10 @@ class JobAdModel {
   }
 
   factory JobAdModel.fromMap(Map<String, dynamic> m) {
-    DateTime? expiresAt;
-    if (m['expiresAt'] is Timestamp) {
-      expiresAt = (m['expiresAt'] as Timestamp).toDate();
-    }
-    DateTime createdAt = DateTime.now();
-    if (m['createdAt'] is Timestamp) {
-      createdAt = (m['createdAt'] as Timestamp).toDate();
-    }
+    final DateTime? expiresAt =
+        m['expiresAt'] != null ? DateParser.parse(m['expiresAt']) : null;
+    final DateTime createdAt =
+        m['createdAt'] != null ? DateParser.parse(m['createdAt']) : DateTime.now();
 
     return JobAdModel(
       id: m['id'] as String? ?? '',
@@ -103,19 +104,17 @@ class JobAdModel {
       location: m['location'] as String? ?? '',
       salary: m['salary'] as String? ?? 'يُتفق عليه',
       workType: m['workType'] as String? ?? 'دوام كامل',
-      requiredCount: (m['requiredCount'] as int?) ?? 1,
+      requiredCount: (m['requiredCount'] as num?)?.toInt() ?? 1,
       isActive: m['isActive'] as bool? ?? true,
       createdAt: createdAt,
       expiresAt: expiresAt,
+      viewCount: (m['viewCount'] as num?)?.toInt() ?? 0,
+      applicationCount: (m['applicationCount'] as num?)?.toInt() ?? 0,
     );
   }
 
-  // ✅ Fix #154: toMap شامل — يحتوي على كل الحقول المطلوبة للـ Firestore
-  // ✅ Item #39: toMap بقت آمنة للتحديث: مفيهاش createdAt ولا viewCount /
-  // applicationCount، فأي set/update بيها مايصفّرش تاريخ النشر ولا العدّادات
-  // (كانت بتكتب createdAt = وقت السيرفر والعدّادات = 0 مع كل كتابة).
-  // الإنشاء بيستخدم toCreateMap() اللي بتضيف الحقول دي.
-  Map<String, dynamic> toMap() => {
+  // ✅ استخدام serverTimestamp افتراضياً عند الإنشاء مع إمكانية الحفاظ على createdAt عند التعديل
+  Map<String, dynamic> toMap({bool isNew = true}) => {
     'id': id,
     'posterId': posterId,
     'posterName': posterName,
@@ -128,19 +127,12 @@ class JobAdModel {
     'workType': workType,
     'requiredCount': requiredCount,
     'isActive': isActive,
+    'createdAt': isNew ? FieldValue.serverTimestamp() : Timestamp.fromDate(createdAt),
     'updatedAt': FieldValue.serverTimestamp(),
     'expiresAt': expiresAt != null ? Timestamp.fromDate(expiresAt!) : null,
-    // ✅ Fix #154: حقول searchKeywords لدعم البحث
     'searchKeywords': _buildKeywords(),
-  };
-
-  /// حمولة إنشاء إعلان جديد فقط: toMap() + createdAt من السيرفر (اتفاقية #25)
-  /// + عدّادات المشاهدات والطلبات تبدأ من صفر.
-  Map<String, dynamic> toCreateMap() => {
-    ...toMap(),
-    'createdAt': FieldValue.serverTimestamp(),
-    'viewCount': 0,
-    'applicationCount': 0,
+    'viewCount': viewCount,
+    'applicationCount': applicationCount,
   };
 
   List<String> _buildKeywords() {

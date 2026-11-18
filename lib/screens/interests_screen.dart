@@ -1,10 +1,15 @@
 // lib/screens/interests_screen.dart
+// ✅ Item #47: مطابقة مسميات الاهتمامات مع الفئات الفعلية للمحلات في قاعدة البيانات
+// ✅ Item #52: دعم الفتح من الإعدادات (fromSettings: true) لتعديل الاهتمامات لاحقاً
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 class InterestsScreen extends StatefulWidget {
-  const InterestsScreen({super.key});
+  final bool fromSettings;
+  const InterestsScreen({super.key, this.fromSettings = false});
   @override
   State<InterestsScreen> createState() => _InterestsScreenState();
 }
@@ -13,26 +18,54 @@ class _InterestsScreenState extends State<InterestsScreen> {
   final Set<String> _selected = {};
 
   static const List<Map<String, dynamic>> _interests = [
-    {'label': 'مأكولات ومطاعم', 'icon': Icons.restaurant, 'color': 0xFFE53935},
-    {'label': 'ملابس وأزياء',   'icon': Icons.checkroom,   'color': 0xFF8E24AA},
-    {'label': 'أجهزة إلكترونية','icon': Icons.phone_android,'color': 0xFF1E88E5},
-    {'label': 'صحة وجمال',      'icon': Icons.spa,          'color': 0xFF00897B},
-    {'label': 'أثاث وديكور',    'icon': Icons.chair,        'color': 0xFFFF8F00},
-    {'label': 'خدمات طبية',     'icon': Icons.local_hospital,'color': 0xFFD81B60},
-    {'label': 'مواد غذائية',    'icon': Icons.shopping_cart, 'color': 0xFF43A047},
-    {'label': 'خدمات صيانة',    'icon': Icons.handyman,     'color': 0xFF546E7A},
-    {'label': 'رياضة ولياقة',   'icon': Icons.sports_soccer,'color': 0xFF00ACC1},
-    {'label': 'هدايا وتذكارات', 'icon': Icons.card_giftcard,'color': 0xFF7CB342},
-    {'label': 'خدمات قانونية',  'icon': Icons.gavel,        'color': 0xFF6D4C41},
-    {'label': 'تعليم ودروس',    'icon': Icons.school,       'color': 0xFF3949AB},
+    {'label': 'مأكولات ومشروبات', 'icon': Icons.restaurant,        'color': 0xFFE53935},
+    {'label': 'ملابس وأزياء',     'icon': Icons.checkroom,         'color': 0xFF8E24AA},
+    {'label': 'أجهزة إلكترونية',  'icon': Icons.phone_android,     'color': 0xFF1E88E5},
+    {'label': 'صحة وجمال',        'icon': Icons.health_and_safety, 'color': 0xFF43A047},
+    {'label': 'خدمات منزلية',     'icon': Icons.handyman,          'color': 0xFFFB8C00},
+    {'label': 'تعليم وتدريب',     'icon': Icons.school,            'color': 0xFF3949AB},
+    {'label': 'مواصلات وسيارات',  'icon': Icons.directions_car,    'color': 0xFF6D4C41},
+    {'label': 'خدمات مهنية',      'icon': Icons.gavel,             'color': 0xFF546E7A},
+    {'label': 'ذهب ومجوهرات',     'icon': Icons.diamond,           'color': 0xFFFFB300},
+    {'label': 'عقارات',           'icon': Icons.home_work,         'color': 0xFF00897B},
+    {'label': 'أثاث وديكور',      'icon': Icons.chair,             'color': 0xFFFF8F00},
+    {'label': 'رياضة ولياقة',     'icon': Icons.sports_soccer,     'color': 0xFF00ACC1},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingInterests();
+  }
+
+  Future<void> _loadExistingInterests() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('user_interests');
+    if (raw != null && mounted) {
+      try {
+        final saved = List<String>.from(jsonDecode(raw) as List);
+        setState(() {
+          _selected.addAll(saved);
+        });
+      } catch (_) {}
+    }
+  }
 
   Future<void> _finish() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('interests_done', true);
     await prefs.setString('user_interests', jsonEncode(_selected.toList()));
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/home');
+    if (widget.fromSettings) {
+      Navigator.pop(context, true);
+    } else {
+      final auth = context.read<AuthProvider>();
+      if (auth.isLoggedIn || auth.isGuest) {
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    }
   }
 
   @override
@@ -48,11 +81,20 @@ class _InterestsScreenState extends State<InterestsScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              const SizedBox(height: 32),
+              if (widget.fromSettings)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                )
+              else
+                const SizedBox(height: 32),
               const Text('ما الذي يهمك؟',
                   style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 8),
-              const Text('اختر اهتماماتك لنعرض لك المحتوى المناسب',
+              const Text('اختر اهتماماتك لنعرض لك المحتوى المناسب في قسم اخترنا لك',
                   style: TextStyle(fontSize: 14, color: Colors.white70)),
               const SizedBox(height: 24),
               Expanded(
@@ -138,17 +180,18 @@ class _InterestsScreenState extends State<InterestsScreen> {
                                 style: const TextStyle(color: Colors.grey, fontSize: 13)),
                           const SizedBox(height: 8),
                           SizedBox(
-                            width: double.infinity,
-                            height: 52,
+                            width: double.infinity, height: 50,
                             child: ElevatedButton(
-                              onPressed: _finish,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.deepPurple,
+                                backgroundColor: const Color(0xFF5E35B1),
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),
+                              onPressed: _finish,
                               child: Text(
-                                _selected.isEmpty ? 'تخطي' : 'ابدأ التصفح',
+                                widget.fromSettings
+                                    ? 'حفظ الاهتمامات'
+                                    : (_selected.isEmpty ? 'تخطي الآن' : 'متابعة (${_selected.length})'),
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                             ),

@@ -1,7 +1,7 @@
 // lib/screens/complete_profile_screen.dart
 // ✅ Fix #164: كل النصوص مترجمة للعربية
 // ✅ Fix #113: validators null-safe بدون force-unwrap
-// ✅ Fix #122: messenger مُخزَّنة قبل await لمنع استخدام context غير نشط
+// ✅ Fix #122: دعم كود الدعوة الاختياري والوضع الليلي الكامل
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -18,12 +18,14 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _usernameController = TextEditingController();
+  final _referralCodeController = TextEditingController();
   String _userType = 'customer';
 
   @override
   void dispose() {
     _nameController.dispose();
     _usernameController.dispose();
+    _referralCodeController.dispose();
     super.dispose();
   }
 
@@ -37,12 +39,14 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       _nameController.text.trim(),
       _usernameController.text.trim(),
       _userType,
+      referralCode: _referralCodeController.text.trim().isNotEmpty
+          ? _referralCodeController.text.trim()
+          : null,
     );
 
     if (!mounted) return;
 
     if (error == null) {
-      // ✅ Fix #210: success dialog مع animation بدلاً من SnackBar فقط
       await showDialog(
         context: context,
         barrierDismissible: false,
@@ -64,6 +68,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final isLoading = auth.status == AuthStatus.authenticating;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -84,11 +89,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                 const Icon(Icons.person_add_alt_1,
                     size: 80, color: Color(0xFF5E35B1)),
                 const SizedBox(height: 20),
-                const Text(
-                  // ✅ Fix #164: نص عربي
+                Text(
                   'أكمل بياناتك للبدء في تجربة سنهور أونلاين!',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 18, color: Colors.black54),
+                  style: TextStyle(
+                      fontSize: 18,
+                      color: isDark ? Colors.white70 : Colors.black54),
                 ),
                 const SizedBox(height: 30),
                 TextFormField(
@@ -101,11 +107,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     prefixIcon: Icon(Icons.person_outline),
                     border: OutlineInputBorder(),
                   ),
-                  // ✅ Fix #113: null-safe validator
-                  validator: (val) =>
-                      (val == null || val.trim().isEmpty)
-                          ? 'الاسم مطلوب'
-                          : null,
+                  validator: (val) => (val == null || val.trim().isEmpty)
+                      ? 'الاسم مطلوب'
+                      : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -121,7 +125,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     helperText: 'حروف إنجليزية وأرقام وشرطة سفلية فقط.',
                     border: OutlineInputBorder(),
                   ),
-                  // ✅ Fix #113: null-safe validator
                   validator: (val) {
                     if (val == null || val.isEmpty) return 'اسم المستخدم مطلوب';
                     if (val.length < 4) return 'اسم المستخدم: 4 أحرف على الأقل';
@@ -131,27 +134,39 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _referralCodeController,
+                  textInputAction: TextInputAction.done,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: 'كود الدعوة (اختياري)',
+                    hintText: 'مثال: SAN-AB12CD',
+                    prefixIcon: Icon(Icons.card_giftcard_outlined),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
                 const SizedBox(height: 24),
-                // ✅ Fix #164: نص عربي
                 const Text('نوع حسابي:',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 RadioGroup<String>(
                   groupValue: _userType,
-                  onChanged: (value) =>
-                      setState(() => _userType = value!),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _userType = value);
+                    }
+                  },
                   child: Column(
                     children: [
                       RadioListTile<String>(
                         title: const Text('مستخدم / مشتري'),
-                        subtitle:
-                            const Text('أتصفح المحلات والمنتجات.'),
+                        subtitle: const Text('أتصفح المحلات والمنتجات.'),
                         value: 'customer',
                       ),
                       RadioListTile<String>(
                         title: const Text('تاجر / صاحب محل'),
-                        subtitle:
-                            const Text('أريد فتح محلي وعرض منتجاتي.'),
+                        subtitle: const Text('أريد فتح محلي وعرض منتجاتي.'),
                         value: 'merchant',
                       ),
                     ],
@@ -163,8 +178,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   child: ElevatedButton(
                     onPressed: isLoading ? null : _submitProfile,
                     child: isLoading
-                        ? const CircularProgressIndicator(
-                            color: Colors.white)
+                        ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('حفظ ومتابعة',
                             style: TextStyle(fontSize: 18)),
                   ),
@@ -178,7 +192,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   }
 }
 
-// ✅ Fix #210: Success animation dialog
 class _SuccessDialog extends StatefulWidget {
   const _SuccessDialog();
 
@@ -198,9 +211,8 @@ class _SuccessDialogState extends State<_SuccessDialog>
     _ctrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 600));
     _scaleAnim = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
-    _fadeAnim  = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
+    _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
     _ctrl.forward();
-    // إغلاق تلقائي بعد 1.8 ثانية
     Future.delayed(const Duration(milliseconds: 1800), () {
       if (mounted) Navigator.pop(context);
     });
@@ -214,6 +226,7 @@ class _SuccessDialogState extends State<_SuccessDialog>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -224,12 +237,13 @@ class _SuccessDialogState extends State<_SuccessDialog>
           child: Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
               borderRadius: BorderRadius.circular(24),
             ),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Container(
-                width: 80, height: 80,
+                width: 80,
+                height: 80,
                 decoration: const BoxDecoration(
                   color: Color(0xFF5E35B1),
                   shape: BoxShape.circle,
@@ -237,12 +251,14 @@ class _SuccessDialogState extends State<_SuccessDialog>
                 child: const Icon(Icons.check, color: Colors.white, size: 44),
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'تم بنجاح! 🎉',
                 style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF5E35B1)),
+                    color: isDark
+                        ? const Color(0xFFB39DDB)
+                        : const Color(0xFF5E35B1)),
               ),
               const SizedBox(height: 8),
               const Text(

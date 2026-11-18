@@ -1,35 +1,29 @@
 // lib/services/referral_service.dart
-// ✅ Phase 3 Fix #09: نظام Referral للنمو المحلي.
-// كل مستخدم يحصل على كود دعوة فريد عند التسجيل.
-// عند استخدام الكود: المُدعو يحصل على مكافأة (ظهور في أعلى النتائج 7 أيام)،
-// والمُدعي يحصل على تمديد اشتراكه 7 أيام إضافية إذا كان تاجراً.
-// النقطة الجوهرية: لا مال، لا دفع — مكافآت رمزية فقط (App Store safe).
+// ✅ توحيد حقول الإحالة (referredId + newUserId و appliedAt + createdAt) للتوافق مع firestore.rules و database_seeder
+// ✅ دعم التفعيل عبر Cloud Function redeemReferralCode مع مسار Transaction محلي متوافق مع القواعد الجديدة
 import 'dart:developer' as developer;
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class ReferralService {
   ReferralService._();
 
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
+  static final FirebaseFunctions _functions = FirebaseFunctions.instance;
 
   // ==========================================================
   // 1. توليد كود الدعوة
   // ==========================================================
 
-  /// يُولِّد كود دعوة فريد للمستخدم عند التسجيل ويحفظه في وثيقته.
-  /// يُستدعى مرة واحدة فقط من auth_provider عند اكتمال التسجيل.
   static Future<String> generateReferralCode(String userId) async {
     try {
-      // تحقق أولاً: هل المستخدم عنده كود بالفعل؟
       final userDoc = await _db.collection('users').doc(userId).get();
       final existing = userDoc.data()?['referralCode'];
       if (existing != null && existing.toString().isNotEmpty) {
         return existing.toString();
       }
 
-      // توليد كود فريد: SAN + 6 أحرف عشوائية
-      // ✅ QA Fix #21: maxAttempts guard لمنع infinite loop
       String code = 'SAN${_randomString(6)}';
       bool isUnique = false;
       int attempts = 0;
@@ -44,17 +38,17 @@ class ReferralService {
         isUnique = query.docs.isEmpty;
         attempts++;
         if (attempts >= maxAttempts) {
-          // Fallback: timestamp يضمن الفرادة دائماً
-          code = 'SAN${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+          code =
+              'SAN${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
           break;
         }
       } while (!isUnique);
 
-      await _db.collection('users').doc(userId).update({
+      await _db.collection('users').doc(userId).set({
         'referralCode': code,
         'referralCount': 0,
         'referralBonusDaysEarned': 0,
-      });
+      }, SetOptions(merge: true));
 
       return code;
     } catch (e) {
@@ -67,17 +61,33 @@ class ReferralService {
   // 2. استخدام كود الدعوة عند التسجيل
   // ==========================================================
 
-  /// يُطبِّق كود الدعوة بعد اكتمال تسجيل المستخدم الجديد.
-  /// [newUserId]: المستخدم الجديد (المُدعو)
-  /// [referralCode]: الكود الذي أدخله
   static Future<ReferralResult> applyReferralCode({
     required String newUserId,
     required String referralCode,
   }) async {
     final code = referralCode.trim().toUpperCase();
     if (code.isEmpty) {
-      return ReferralResult(
+      return const ReferralResult(
           success: false, message: 'كود الدعوة فارغ.');
+    }
+
+    // محاولة التنفيذ عبر Cloud Function أولاً
+    try {
+      final callable = _functions.httpsCallable('redeemReferralCode');
+      final res = await callable.call({'referralCode': code});
+      final data = res.data;
+      if (data is Map) {
+        final ok = data['success'] == true;
+        final msg = (data['message'] as String?) ??
+            (ok ? 'تم تطبيق كود الدعوة بنجاح! 🎉' : 'تعذّر تطبيق كود الدعوة.');
+        return ReferralResult(
+          success: ok,
+          message: msg,
+          bonusDays: (data['bonusDays'] as num?)?.toInt() ?? (ok ? 7 : null),
+        );
+      }
+    } catch (_) {
+      // المتابعة إلى المسار المحلي المتوافق مع firestore.rules في حال عدم توفر الدالة السحابية
     }
 
     try {
@@ -89,54 +99,61 @@ class ReferralService {
           .get();
 
       if (referrerQuery.docs.isEmpty) {
-        return ReferralResult(
+        return const ReferralResult(
             success: false, message: 'كود الدعوة غير صحيح.');
       }
 
       final referrerDoc = referrerQuery.docs.first;
       final referrerId = referrerDoc.id;
 
-      // لا يجوز للمستخدم دعوة نفسه
       if (referrerId == newUserId) {
-        return ReferralResult(
-            success: false,
-            message: 'لا يمكنك استخدام كودك الخاص.');
+        return const ReferralResult(
+            success: false, message: 'لا يمكنك استخدام كودك الخاص.');
       }
 
       // ── 2. تحقق أن المُدعو لم يستخدم كود دعوة من قبل ──────
-      final newUserDoc =
-          await _db.collection('users').doc(newUserId).get();
+      final newUserDoc = await _db.collection('users').doc(newUserId).get();
       if (newUserDoc.data()?['referredBy'] != null) {
-        return ReferralResult(
+        return const ReferralResult(
             success: false, message: 'لقد استخدمت كود دعوة مسبقاً.');
       }
 
       // ── 3. تطبيق المكافآت في Transaction واحدة ──────────────
       await _db.runTransaction((txn) async {
-        // تسجيل استخدام الكود على المُدعو
+        final referrerSnap =
+            await txn.get(_db.collection('users').doc(referrerId));
+        final prevCount =
+            (referrerSnap.data()?['referralCount'] as num?)?.toInt() ?? 0;
+        final prevDays =
+            (referrerSnap.data()?['referralBonusDaysEarned'] as num?)
+                    ?.toInt() ??
+                0;
+
         txn.update(_db.collection('users').doc(newUserId), {
           'referredBy': referrerId,
           'referredByCode': code,
           'referralAppliedAt': FieldValue.serverTimestamp(),
-          // ✅ مكافأة المُدعو: ظهور في أعلى النتائج 7 أيام (إذا كان تاجراً)
-          'featuredUntil': DateTime.now()
-              .add(const Duration(days: 7))
-              .toIso8601String(),
+          'featuredUntil':
+              DateTime.now().add(const Duration(days: 7)).toIso8601String(),
         });
 
-        // زيادة عداد الدعوات للمُدعي + مكافأة 7 أيام اشتراك
+        // ✅ تحديث الحقلين المسموح بهما في isReferralRewardBump داخل firestore.rules
         txn.update(_db.collection('users').doc(referrerId), {
-          'referralCount': FieldValue.increment(1),
-          'referralBonusDaysEarned': FieldValue.increment(7),
+          'referralCount': prevCount + 1,
+          'referralBonusDaysEarned': prevDays + 7,
         });
       });
 
-      // ── 4. تسجيل في مجموعة referrals ────────────────────────
+      // ── 4. تسجيل في مجموعة referrals بالحقلين referredId و newUserId معاً ──
+      final ts = FieldValue.serverTimestamp();
       await _db.collection('referrals').add({
         'referrerId': referrerId,
+        'referredId': newUserId,
         'newUserId': newUserId,
         'code': code,
-        'appliedAt': FieldValue.serverTimestamp(),
+        'appliedAt': ts,
+        'createdAt': ts,
+        'bonusDays': 7,
         'referrerBonusDays': 7,
         'newUserBenefit': 'featured_7_days',
       });
@@ -148,11 +165,9 @@ class ReferralService {
         bonusDays: 7,
       );
     } catch (e) {
-      developer.log('applyReferralCode error: $e',
-          name: 'ReferralService');
-      return ReferralResult(
-          success: false,
-          message: 'حدث خطأ. حاول مجدداً.');
+      developer.log('applyReferralCode error: $e', name: 'ReferralService');
+      return const ReferralResult(
+          success: false, message: 'حدث خطأ. حاول مجدداً.');
     }
   }
 
@@ -160,8 +175,7 @@ class ReferralService {
   // 3. إحصائيات الدعوة
   // ==========================================================
 
-  static Future<Map<String, dynamic>> getReferralStats(
-      String userId) async {
+  static Future<Map<String, dynamic>> getReferralStats(String userId) async {
     try {
       final userDoc = await _db.collection('users').doc(userId).get();
       final data = userDoc.data() ?? {};
@@ -172,8 +186,7 @@ class ReferralService {
         'referredBy': data['referredBy'],
       };
     } catch (e) {
-      developer.log('getReferralStats error: $e',
-          name: 'ReferralService');
+      developer.log('getReferralStats error: $e', name: 'ReferralService');
       return {};
     }
   }
@@ -193,15 +206,10 @@ class ReferralService {
         return data;
       }).toList();
     } catch (e) {
-      developer.log('getReferralHistory error: $e',
-          name: 'ReferralService');
+      developer.log('getReferralHistory error: $e', name: 'ReferralService');
       return [];
     }
   }
-
-  // ==========================================================
-  // Helper
-  // ==========================================================
 
   static String _randomString(int length) {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -211,7 +219,6 @@ class ReferralService {
   }
 }
 
-/// نتيجة تطبيق كود الدعوة
 class ReferralResult {
   final bool success;
   final String message;

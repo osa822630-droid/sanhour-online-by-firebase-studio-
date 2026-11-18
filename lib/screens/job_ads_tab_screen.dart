@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/job_ad_model.dart';
 import '../providers/auth_provider.dart';
+import '../utils/constants.dart';
 import '../widgets/app_footer.dart';
 import '../widgets/context_search_bar.dart';
 import 'post_job_ad_screen.dart';
@@ -68,8 +69,8 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
       final doc = await _db.collection('job_subscriptions').doc(uid).get();
       if (doc.exists && mounted) {
         setState(() {
-          _subscribedCategories = Set<String>.from(
-              doc.data()?['categories'] as List? ?? []);
+          _subscribedCategories =
+              Set<String>.from(doc.data()?['categories'] as List? ?? []);
         });
       }
     } catch (_) {}
@@ -135,9 +136,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
           isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // ✅ Item #11: النشر محتاج مستخدم مسجّل. بدل ما الضيف يملا الفورم ويتفاجئ
-          // عند الإرسال، بنوقفه هنا (user == null بيغطي الضيف وغير المسجّل).
-          if (auth.user == null) {
+          if (auth.user == null || auth.isGuest) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('يجب تسجيل الدخول لنشر إعلان وظيفة'),
               backgroundColor: Colors.red,
@@ -156,7 +155,6 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
       ),
       body: Column(
         children: [
-          // ── شريط البحث ────────────────────────────────────────
           ContextSearchBar(
             hint: 'ابحث عن وظيفة...',
             onSearch: (q) => setState(() => _searchQuery = q),
@@ -166,9 +164,11 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
                 label: 'نوع الوظيفة',
                 options: [
                   'الكل',
-                  ...JobCategory.values
-                      .map((c) => JobAdModel.categoryLabel(c)),
+                  ...JobCategory.values.map((c) => JobAdModel.categoryLabel(c)),
                 ],
+                defaultOption: _selectedCategory == null
+                    ? 'الكل'
+                    : JobAdModel.categoryLabel(_selectedCategory!),
               ),
             ],
             onFilterChanged: (id, val) {
@@ -187,11 +187,8 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
             },
           ),
 
-          // ── شريط الاشتراكات ───────────────────────────────────
-          if (!auth.isGuest)
-            _buildSubscriptionStrip(isDark),
+          if (!auth.isGuest) _buildSubscriptionStrip(isDark),
 
-          // ── النتائج ──────────────────────────────────────────
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -218,7 +215,6 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
     );
   }
 
-  // ── شريط الاشتراكات ───────────────────────────────────────────────
   Widget _buildSubscriptionStrip(bool isDark) {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -250,14 +246,12 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
                     margin: const EdgeInsets.only(left: 6),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: isSubbed
                           ? const Color(0xFF5E35B1)
-                          : (isDark
-                              ? Colors.grey[800]
-                              : Colors.grey[100]),
+                          : (isDark ? Colors.grey[800] : Colors.grey[100]),
                       borderRadius: BorderRadius.circular(20),
                       border: isSubbed
                           ? null
@@ -275,14 +269,11 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
                         JobAdModel.categoryLabel(cat),
                         style: TextStyle(
                           fontSize: 11,
-                          fontWeight: isSubbed
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                          fontWeight:
+                              isSubbed ? FontWeight.bold : FontWeight.normal,
                           color: isSubbed
                               ? Colors.white
-                              : (isDark
-                                  ? Colors.grey[300]
-                                  : Colors.grey[700]),
+                              : (isDark ? Colors.grey[300] : Colors.grey[700]),
                         ),
                       ),
                     ]),
@@ -297,17 +288,14 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
     );
   }
 
-  // ── بطاقة الوظيفة ─────────────────────────────────────────────────
   Widget _buildJobCard(JobAdModel job, bool isDark) {
-    final daysSince =
-        DateTime.now().difference(job.createdAt).inDays;
+    final daysSince = DateTime.now().difference(job.createdAt).inDays;
     final auth = context.read<AuthProvider>();
     final isOwner = auth.user?.id == job.posterId;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 2,
       color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
       child: Padding(
@@ -315,11 +303,10 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── الرأس ──────────────────────────────────────────
             Row(children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.deepPurple.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
@@ -334,11 +321,8 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
               ),
               const Spacer(),
               Text(
-                daysSince == 0
-                    ? 'اليوم'
-                    : 'منذ $daysSince يوم',
-                style: TextStyle(
-                    color: Colors.grey[500], fontSize: 11),
+                daysSince == 0 ? 'اليوم' : 'منذ $daysSince يوم',
+                style: TextStyle(color: Colors.grey[500], fontSize: 11),
               ),
               if (isOwner) ...[
                 const SizedBox(width: 8),
@@ -352,14 +336,13 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
 
             const SizedBox(height: 10),
 
-            // ── العنوان ────────────────────────────────────────
             Text(job.title,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold)),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
             Text(job.description,
                 style: TextStyle(
-                    color: Colors.grey[600],
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
                     fontSize: 13,
                     height: 1.5),
                 maxLines: 3,
@@ -367,18 +350,17 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
 
             const SizedBox(height: 12),
 
-            // ── التفاصيل ───────────────────────────────────────
             Wrap(spacing: 8, runSpacing: 6, children: [
-              _chip(Icons.location_on_outlined, job.location),
-              _chip(Icons.payments_outlined, job.salary),
-              _chip(Icons.schedule_outlined, job.workType),
+              _chip(Icons.location_on_outlined, job.location, isDark),
+              _chip(Icons.payments_outlined, job.salary, isDark),
+              _chip(Icons.schedule_outlined, job.workType, isDark),
               if (job.requiredCount > 1)
-                _chip(Icons.people_outline, '${job.requiredCount} مطلوبين'),
+                _chip(
+                    Icons.people_outline, '${job.requiredCount} مطلوبين', isDark),
             ]),
 
             const SizedBox(height: 14),
 
-            // ── زر التواصل ────────────────────────────────────
             Row(children: [
               Expanded(
                 child: OutlinedButton.icon(
@@ -412,7 +394,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
     );
   }
 
-  Widget _chip(IconData icon, String label) {
+  Widget _chip(IconData icon, String label, bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -421,10 +403,13 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
         border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 13, color: Colors.grey[600]),
+        Icon(icon,
+            size: 13, color: isDark ? Colors.grey[400] : Colors.grey[600]),
         const SizedBox(width: 4),
         Text(label,
-            style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+            style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.grey[300] : Colors.grey[700])),
       ]),
     );
   }
@@ -435,8 +420,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.work_off_outlined,
-                  size: 80, color: Colors.grey[300]),
+              Icon(Icons.work_off_outlined, size: 80, color: Colors.grey[300]),
               const SizedBox(height: 16),
               const Text('لا توجد وظائف حالياً',
                   style: TextStyle(fontSize: 16, color: Colors.grey)),
@@ -474,13 +458,13 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
   }
 
   Future<void> _callPhone(String phone) async {
-    final uri = Uri.parse('tel:$phone');
+    final clean = AppConstants.normalizePhone(phone);
+    final uri = Uri.parse('tel:$clean');
     if (await canLaunchUrl(uri)) await launchUrl(uri);
   }
 
   Future<void> _openWhatsApp(String phone) async {
-    final clean = phone.replaceAll(RegExp(r'[^0-9]'), '');
-    final number = clean.startsWith('20') ? clean : '2$clean';
+    final number = AppConstants.normalizeWhatsAppPhone(phone);
     final uri = Uri.parse('https://wa.me/$number');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);

@@ -1,22 +1,9 @@
-<!DOCTYPE html><html><head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
+<!DOCTYPE html><html dir="rtl" lang="ar"><head>
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="تصفح أفضل المحلات والعروض في سنهور المدينة">
+  <meta name="description" content="تصفح أفضل المحلات والعروض والخدمات في سنهور القبلية">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -30,9 +17,10 @@
   <title>سنهور أونلاين</title>
   <link rel="manifest" href="manifest.json">
 
-  <script>
-    window.flutterWebRenderer = "html";
-  </script>
+  <!-- Cropper.js for image_cropper web support -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+
   <style id="splash-screen-style">
     html {
       height: 100%
@@ -42,7 +30,7 @@
       margin: 0;
       min-height: 100%;
       background-color: #0D0614;
-          background-size: 100% 100%;
+      background-size: 100% 100%;
     }
 
     .center {

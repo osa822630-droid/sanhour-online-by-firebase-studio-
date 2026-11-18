@@ -37,7 +37,7 @@ class DealerListingService {
   static Future<String> generateFeeCode({String adminId = 'admin'}) async {
     final code = 'DLR-${_secureString(4)}-${_secureString(4)}';
 
-    await _firestore.collection('activation_codes').add({
+    await _firestore.collection('activation_codes').doc(code).set({
       'code': code,
       'type': feeCodeType,
       'isUsed': false,
@@ -62,17 +62,13 @@ class DealerListingService {
     final normalized = code.trim().toUpperCase();
     if (normalized.isEmpty) throw _invalidCode;
 
-    final snap = await _firestore
-        .collection('activation_codes')
-        .where('code', isEqualTo: normalized)
-        .where('type', isEqualTo: feeCodeType)
-        .where('isUsed', isEqualTo: false)
-        .limit(1)
-        .get();
-    if (snap.docs.isEmpty) throw _invalidCode;
-
-    _assertUsable(snap.docs.first.data());
-    return snap.docs.first.reference;
+    final directRef = _firestore.collection('activation_codes').doc(normalized);
+    final directDoc = await directRef.get();
+    if (!directDoc.exists) {
+      throw _invalidCode;
+    }
+    _assertUsable(directDoc.data());
+    return directRef;
   }
 
   /// يحرق كود الرسوم وينشر الإعلان في transaction واحدة: الـ transaction بتعيد

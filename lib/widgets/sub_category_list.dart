@@ -302,8 +302,8 @@ class _SubCategoryPageState extends State<_SubCategoryPage>
         break;
       case 'views':
         sorted.sort((a, b) {
-          final va = a is Shop ? a.uniqueVisitors : (a is Product ? a.views : 0);
-          final vb = b is Shop ? b.uniqueVisitors : (b is Product ? b.views : 0);
+          final va = a is Shop ? (a.uniqueVisitors > 0 ? a.uniqueVisitors : a.views) : (a is Product ? a.views : 0);
+          final vb = b is Shop ? (b.uniqueVisitors > 0 ? b.uniqueVisitors : b.views) : (b is Product ? b.views : 0);
           return vb.compareTo(va);
         });
         break;

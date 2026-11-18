@@ -1,6 +1,6 @@
 // lib/screens/tabs/admin_locations_tab.dart
 // ✅ إدارة المناطق الجغرافية — إضافة وتعديل وحذف أسماء المناطق
-// وتحديد ما إذا كان زر الموقع يظهر في الرئيسية
+// ومزامنتها في كل من settings/general و settings/locations
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -34,30 +34,59 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
   Future<void> _load() async {
     setState(() => _isLoading = true);
     try {
-      final doc =
-          await _db.collection('settings').doc('general').get();
-      final data = doc.data() ?? {};
+      final results = await Future.wait([
+        _db.collection('settings').doc('general').get(),
+        _db.collection('settings').doc('locations').get(),
+      ]);
+      final generalData = results[0].data() ?? {};
+      final locationsData = results[1].data() ?? {};
+
+      final rawRegions = (locationsData['areas'] as List?) ??
+          (locationsData['regions'] as List?) ??
+          (generalData['regions'] as List?) ??
+          [];
+
+      if (!mounted) return;
       setState(() {
-        _regions = List<String>.from(data['regions'] as List? ?? []);
-        _showLocationFilter = data['showLocationFilter'] as bool? ?? false;
+        _regions = List<String>.from(rawRegions.map((e) => e.toString()));
+        _showLocationFilter =
+            generalData['showLocationFilter'] as bool? ?? false;
         _isLoading = false;
       });
     } catch (_) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _save() async {
     setState(() => _isSaving = true);
     try {
-      await _db.collection('settings').doc('general').update({
-        'regions': _regions,
-        'showLocationFilter': _showLocationFilter,
-      });
+      final batch = _db.batch();
+      batch.set(
+        _db.collection('settings').doc('general'),
+        {
+          'regions': _regions,
+          'showLocationFilter': _showLocationFilter,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      batch.set(
+        _db.collection('settings').doc('locations'),
+        {
+          'areas': _regions,
+          'regions': _regions,
+          'showLocationFilter': _showLocationFilter,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      await batch.commit();
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('تم الحفظ بنجاح ✅'),
+          content: Text('تم حفظ المناطق ومزامنتها بنجاح ✅'),
           backgroundColor: Colors.green,
         ),
       );
@@ -65,8 +94,9 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text('فشل الحفظ: $e'),
-            backgroundColor: Colors.red),
+          content: Text('فشل الحفظ: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -101,15 +131,19 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
               child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
+                backgroundColor: const Color(0xFF5E35B1),
                 foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
             child: const Text('حفظ'),
           ),
         ],
       ),
-    );
-    if (result != null && result.isNotEmpty && result != old) {
+    ).whenComplete(() => ctrl.dispose());
+
+    if (result != null &&
+        result.isNotEmpty &&
+        result != old &&
+        !_regions.contains(result)) {
       setState(() {
         final idx = _regions.indexOf(old);
         if (idx != -1) _regions[idx] = result;
@@ -130,12 +164,10 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // ── إعداد ظهور أيقونة الموقع ───────────────────────────
-          _SectionHeader(
+          const _SectionHeader(
             icon: Icons.location_on,
             title: 'أيقونة الموقع في الرئيسية',
-            subtitle:
-                'تحكّم في ظهور زر تصفية المنطقة للمستخدمين',
+            subtitle: 'تحكّم في ظهور زر تصفية المنطقة للمستخدمين',
           ),
           _cardWrap(isDark, [
             SwitchListTile(
@@ -151,23 +183,20 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
                 ),
               ),
               value: _showLocationFilter,
-              onChanged: (v) =>
-                  setState(() => _showLocationFilter = v),
+              onChanged: (v) => setState(() => _showLocationFilter = v),
               activeThumbColor: const Color(0xFF5E35B1),
             ),
           ]),
 
           const SizedBox(height: 24),
 
-          // ── إدارة المناطق ──────────────────────────────────────
-          _SectionHeader(
+          const _SectionHeader(
             icon: Icons.map_outlined,
             title: 'المناطق والأحياء',
             subtitle:
                 'هذه القائمة تظهر للتجار عند إضافة محل أو خدمة، وللمستخدمين عند التصفية',
           ),
           _cardWrap(isDark, [
-            // حقل الإضافة
             Row(children: [
               Expanded(
                 child: TextField(
@@ -177,8 +206,8 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
                   decoration: const InputDecoration(
                     hintText: 'مثال: ميدان المحطة',
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.add_location_alt_outlined,
                         color: Color(0xFF5E35B1)),
@@ -220,7 +249,6 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
               ReorderableListView(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                // onReorderItem بيدّينا newIdx معدّل لحذف العنصر من oldIdx بالفعل
                 onReorderItem: (oldIdx, newIdx) {
                   setState(() {
                     final item = _regions.removeAt(oldIdx);
@@ -230,10 +258,9 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
                 children: _regions.map((r) {
                   return ListTile(
                     key: ValueKey(r),
-                    leading: const Icon(Icons.drag_handle,
-                        color: Colors.grey),
-                    title: Text(r,
-                        style: const TextStyle(fontSize: 14)),
+                    leading:
+                        const Icon(Icons.drag_handle, color: Colors.grey),
+                    title: Text(r, style: const TextStyle(fontSize: 14)),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -264,7 +291,6 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
 
           const SizedBox(height: 28),
 
-          // زر الحفظ
           SizedBox(
             width: double.infinity,
             height: 50,
@@ -289,14 +315,12 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
 
           const SizedBox(height: 32),
 
-          // ── ملاحظة للمطوّر ──────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.blue.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                  color: Colors.blue.withValues(alpha: 0.3)),
+              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
             ),
             child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,7 +330,7 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
                 Expanded(
                   child: Text(
                     'المناطق المضافة هنا ستظهر للتاجر كقائمة اختيار عند إضافة محل أو خدمة، '
-                    'وللمستخدم كقائمة تصفية عند ظهور أيقونة الموقع في الرئيسية.',
+                    'وللمستخدم كقائمة تصفية في الرئيسية والبحث المتقدم.',
                     style: TextStyle(
                         color: Colors.blue, fontSize: 12, height: 1.5),
                   ),
@@ -339,7 +363,6 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
       );
 }
 
-// ─── Header المقطع ───────────────────────────────────────────────────
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -364,8 +387,7 @@ class _SectionHeader extends StatelessWidget {
               color: const Color(0xFF5E35B1).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child:
-                Icon(icon, color: const Color(0xFF5E35B1), size: 20),
+            child: Icon(icon, color: const Color(0xFF5E35B1), size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -379,8 +401,7 @@ class _SectionHeader extends StatelessWidget {
                         color: Color(0xFF5E35B1))),
                 const SizedBox(height: 2),
                 Text(subtitle,
-                    style: const TextStyle(
-                        color: Colors.grey, fontSize: 12)),
+                    style: const TextStyle(color: Colors.grey, fontSize: 12)),
               ],
             ),
           ),

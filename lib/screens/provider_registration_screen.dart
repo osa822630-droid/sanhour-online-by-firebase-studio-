@@ -52,8 +52,8 @@ class _ProviderRegistrationScreenState
         setState(() {
           _bioCtrl.text = data['bio'] as String? ?? '';
           _locationCtrl.text = data['location'] as String? ?? '';
-          _selectedCategories = Set<String>.from(
-              data['categories'] as List? ?? []);
+          _selectedCategories =
+              Set<String>.from(data['categories'] as List? ?? []);
           _isRegistered = true;
         });
       }
@@ -69,13 +69,17 @@ class _ProviderRegistrationScreenState
       ));
       return;
     }
+    final user = context.read<AuthProvider>().user;
+    if (user == null) {
+      return;
+    }
     setState(() => _isSaving = true);
-    final user = context.read<AuthProvider>().user!;
     try {
-      await FirebaseFirestore.instance
-          .collection('service_providers')
-          .doc(user.id)
-          .set({
+      final db = FirebaseFirestore.instance;
+      final providerRef = db.collection('service_providers').doc(user.id);
+      final existing = await providerRef.get();
+
+      final payload = <String, dynamic>{
         'userId': user.id,
         'name': user.name,
         'phone': user.phone,
@@ -84,33 +88,26 @@ class _ProviderRegistrationScreenState
         'categories': _selectedCategories.toList(),
         'isActive': true,
         'updatedAt': FieldValue.serverTimestamp(),
-        // ✅ Fix #155: createdAt يُكتب عند الإنشاء فقط — SetOptions(merge: true) يتجاهله عند التعديل
-        // استخدام FieldValue.serverTimestamp() مع merge يتجاهل القيمة الموجودة مسبقاً؟
-        // الحل الصحيح: نتحقق إذا كانت الوثيقة موجودة ونضيف createdAt فقط عند الإنشاء
-      }, SetOptions(merge: true));
-
-      // إضافة createdAt منفصلاً فقط إذا لم تكن موجودة
-      final providerRef = FirebaseFirestore.instance
-          .collection('service_providers')
-          .doc(user.id);
-      final existing = await providerRef.get();
-      if (!existing.exists || existing.data()?['createdAt'] == null) {
-        await providerRef.update({
+        if (!existing.exists || existing.data()?['createdAt'] == null)
           'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
+      };
 
-      // تسجيل في notification_queue لاشتراك FCM المجالات
-      await FirebaseFirestore.instance
-          .collection('provider_topic_subscriptions')
-          .doc(user.id)
-          .set({
-        'userId': user.id,
-        'categories': _selectedCategories.toList(),
-        'fcmTopics':
-            _selectedCategories.map((c) => 'providers_$c').toList(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      final batch = db.batch();
+      batch.set(providerRef, payload, SetOptions(merge: true));
+
+      batch.set(
+        db.collection('provider_topic_subscriptions').doc(user.id),
+        {
+          'userId': user.id,
+          'categories': _selectedCategories.toList(),
+          'fcmTopics':
+              _selectedCategories.map((c) => 'providers_$c').toList(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      await batch.commit();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -119,14 +116,13 @@ class _ProviderRegistrationScreenState
         backgroundColor: Colors.green,
         duration: Duration(seconds: 3),
       ));
-      // ✅ إصلاح: تأخير بسيط قبل الإغلاق حتى تظهر رسالة النجاح فعلياً
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('حدث خطأ: $e'),
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('تعذّر حفظ البيانات. تحقق من اتصالك وحاول مرة أخرى.'),
         backgroundColor: Colors.red,
       ));
     } finally {
@@ -143,7 +139,9 @@ class _ProviderRegistrationScreenState
           isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
       appBar: AppBar(
         title: Text(
-          _isRegistered ? 'تعديل بيانات مزوّد الخدمة' : 'التسجيل كمزوّد خدمة',
+          _isRegistered
+              ? 'تعديل بيانات مزوّد الخدمة'
+              : 'التسجيل كمزوّد خدمة',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.teal,
@@ -166,15 +164,14 @@ class _ProviderRegistrationScreenState
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                // ── بانر ──────────────────────────────────────
                 Container(
                   padding: const EdgeInsets.all(14),
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
                     color: Colors.teal.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: Colors.teal.withValues(alpha: 0.3)),
+                    border:
+                        Border.all(color: Colors.teal.withValues(alpha: 0.3)),
                   ),
                   child: const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -186,16 +183,13 @@ class _ProviderRegistrationScreenState
                         child: Text(
                           'سجّل مجالاتك لتصلك إشعارات فورية عند نزول طلبات خدمة تناسبك.',
                           style: TextStyle(
-                              color: Colors.teal,
-                              fontSize: 12,
-                              height: 1.5),
+                              color: Colors.teal, fontSize: 12, height: 1.5),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                // ── اختيار المجالات ───────────────────────────
                 _sectionLabel('مجالات الخدمة التي تقدّمها *'),
                 const SizedBox(height: 10),
                 const Text(
@@ -207,16 +201,12 @@ class _ProviderRegistrationScreenState
                   spacing: 8,
                   runSpacing: 8,
                   children: ServiceRequestCategory.values.map((cat) {
-                    final isSelected =
-                        _selectedCategories.contains(cat.name);
+                    final isSelected = _selectedCategories.contains(cat.name);
                     return FilterChip(
-                      label: Text(
-                          ServiceRequestModel.categoryLabel(cat),
+                      label: Text(ServiceRequestModel.categoryLabel(cat),
                           style: TextStyle(
                               fontSize: 12,
-                              color: isSelected
-                                  ? Colors.white
-                                  : null)),
+                              color: isSelected ? Colors.white : null)),
                       selected: isSelected,
                       onSelected: (v) {
                         setState(() {
@@ -245,21 +235,18 @@ class _ProviderRegistrationScreenState
 
                 const SizedBox(height: 24),
 
-                // ── الموقع ─────────────────────────────────────
                 _sectionLabel('منطقة العمل (اختياري)'),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _locationCtrl,
                   decoration: const InputDecoration(
-                    hintText:
-                        'مثال: سنهور القبلية وضواحيها',
+                    hintText: 'مثال: سنهور القبلية وضواحيها',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.location_on_outlined),
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // ── نبذة ─────────────────────────────────────
                 _sectionLabel('نبذة عن خبرتك (اختياري)'),
                 const SizedBox(height: 8),
                 TextField(
@@ -295,8 +282,7 @@ class _ProviderRegistrationScreenState
                               ? 'تحديث البيانات'
                               : 'تسجيل كمزوّد خدمة'),
                       style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold),
+                          fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.teal,
@@ -315,7 +301,5 @@ class _ProviderRegistrationScreenState
 
   Widget _sectionLabel(String t) => Text(t,
       style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: Colors.teal));
+          fontSize: 14, fontWeight: FontWeight.w600, color: Colors.teal));
 }

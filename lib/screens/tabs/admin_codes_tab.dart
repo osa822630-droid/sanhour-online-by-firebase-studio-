@@ -1,11 +1,16 @@
 // lib/screens/tabs/admin_codes_tab.dart
+// ✅ إصلاح كراش Colors.deepOrangeAccent[800]!
+// ✅ السماح بحذف الأكواد غير المستخدمة أيضاً عند الخطأ في التوليد
+// ✅ تسجيل AuditAction.activationCodeDeleted عند الحذف بدلاً من activationCodeUsed
+// ✅ عرض قيمة الكود لجميع أنواع الأكواد الأربعة (تفعيل متجر، إعلان، ديلر، تجديد متجر)
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/api_service.dart';
 import '../../services/audit_log_service.dart';
 import '../../services/dealer_listing_service.dart';
+import '../../services/subscription_service.dart';
 
 class AdminCodesTab extends StatefulWidget {
   const AdminCodesTab({super.key});
@@ -15,16 +20,11 @@ class AdminCodesTab extends StatefulWidget {
 }
 
 class _AdminCodesTabState extends State<AdminCodesTab> {
-  bool _isLoading = true;
-  int _selectedTypeIndex = 0; // 0 = Shops, 1 = Ads, 2 = Dealer listing fee
-
-  // القوائم
-  List<Map<String, dynamic>> _shopCodes = [];
-  List<Map<String, dynamic>> _adCodes = [];
-  List<Map<String, dynamic>> _dealerCodes = [];
-
-  // الفلترة
+  int _selectedTypeIndex = 0; // 0: متجر, 1: إعلان, 2: ديلر, 3: تجديد متجر
   String _filterStatus = 'all'; // 'all', 'active', 'used'
+  bool _isLoading = false;
+
+  List<Map<String, dynamic>> _codes = [];
 
   @override
   void initState() {
@@ -35,162 +35,150 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
   Future<void> _loadCodes() async {
     setState(() => _isLoading = true);
     try {
-      // ✅ Fix #16: كل أنواع الأكواد في collection واحد (activation_codes)
-      // وحقل type يفصل بينها — استعلام واحد بدل قراءة مجموعتين (ad_codes لم
-      // تعد موجودة). الأكواد القديمة بلا type تُعامَل كأكواد محلات.
-      final snapshot = await FirebaseFirestore.instance
-          .collection('activation_codes')
-          .orderBy('createdAt', descending: true)
-          .get();
-      final allCodes =
-          snapshot.docs.map((d) => {...d.data(), 'id': d.id}).toList();
-
-      if (mounted) {
-        setState(() {
-          // ✅ Item #35: أكواد رسوم إعلان الديلر ليها تبويب مستقل، فلازم تتشال
-          // من قائمة أكواد المحلات (كانت بتتحسب كل ما هو غير ad_activation).
-          _shopCodes = allCodes
-              .where((c) =>
-                  c['type'] != 'ad_activation' &&
-                  c['type'] != DealerListingService.feeCodeType)
-              .toList();
-          _adCodes =
-              allCodes.where((c) => c['type'] == 'ad_activation').toList();
-          _dealerCodes = allCodes
-              .where((c) => c['type'] == DealerListingService.feeCodeType)
-              .toList();
-          _isLoading = false;
-        });
+      if (_selectedTypeIndex == 0) {
+        final all = await ApiService.getAllCodes();
+        _codes = all
+            .where((c) =>
+                c['type'] == 'shop_activation' ||
+                (c['code'] ?? '').toString().startsWith('SHP-') ||
+                (c['code'] ?? '').toString().startsWith('SHOP-') ||
+                (c['type'] == null &&
+                    !(c['code'] ?? '').toString().startsWith('AD-') &&
+                    !(c['code'] ?? '').toString().startsWith('DLR-') &&
+                    !(c['code'] ?? '').toString().startsWith('RNW-')))
+            .toList();
+      } else if (_selectedTypeIndex == 1) {
+        final all = await ApiService.getAllCodes();
+        _codes = all
+            .where((c) =>
+                c['type'] == 'ad_activation' ||
+                (c['code'] ?? '').toString().startsWith('AD-'))
+            .toList();
+      } else if (_selectedTypeIndex == 2) {
+        final all = await ApiService.getAllCodes();
+        _codes = all
+            .where((c) =>
+                c['type'] == 'dealer_listing_fee' ||
+                (c['code'] ?? '').toString().startsWith('DLR-'))
+            .toList();
+      } else {
+        final all = await ApiService.getAllCodes();
+        _codes = all
+            .where((c) =>
+                c['type'] == 'shop_renewal' ||
+                (c['code'] ?? '').toString().startsWith('RNW-'))
+            .toList();
       }
     } catch (e) {
       debugPrint('Error loading codes: $e');
+    } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  // القائمة الحالية المعروضة بناءً على التبويب والفلتر
-  List<Map<String, dynamic>> get _currentList {
-    final List<Map<String, dynamic>> source = switch (_selectedTypeIndex) {
-      0 => _shopCodes,
-      1 => _adCodes,
-      _ => _dealerCodes,
-    };
-
-    if (_filterStatus == 'all') return source;
-    if (_filterStatus == 'active') {
-      return source.where((c) => c['isUsed'] == false).toList();
-    }
-    if (_filterStatus == 'used') {
-      return source.where((c) => c['isUsed'] == true).toList();
-    }
-    return source;
+  List<Map<String, dynamic>> get _filteredCodes {
+    return _codes.where((code) {
+      final isUsed = code['isUsed'] ?? false;
+      if (_filterStatus == 'active') return !isUsed;
+      if (_filterStatus == 'used') return isUsed;
+      return true;
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentList = _currentList;
-    final Color primaryColor = switch (_selectedTypeIndex) {
-      0 => Colors.deepPurple[800]!,
-      1 => Colors.deepOrangeAccent[800]!,
-      _ => Colors.teal[700]!,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // ✅ إصلاح: Colors.deepOrangeAccent[800] كانت ترمي Null check error لأن MaterialAccentColor لا يحتوي على المفتاح 800
+    final Color themeColor = switch (_selectedTypeIndex) {
+      0 => Colors.blue.shade800,
+      1 => Colors.deepOrange.shade800,
+      2 => Colors.teal.shade800,
+      _ => Colors.indigo.shade800,
     };
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: isDark ? const Color(0xFF0E0E1A) : Colors.grey[100],
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _generateCode,
-        backgroundColor: primaryColor,
-        icon: const Icon(Icons.add),
-        label: Text(switch (_selectedTypeIndex) {
-          0 => 'توليد كود محل',
-          1 => 'توليد كود إعلان',
-          _ => 'توليد كود رسوم ديلر',
-        }),
+        onPressed: _isLoading ? null : _generateCode,
+        backgroundColor: themeColor,
+        icon: const Icon(Icons.qr_code, color: Colors.white),
+        label: Text(
+          switch (_selectedTypeIndex) {
+            0 => 'توليد كود متجر (SHOP)',
+            1 => 'توليد كود إعلان (50 ج)',
+            2 => 'توليد كود ديلر (${DealerListingService.extraListingFee} ج)',
+            _ => 'توليد كود تجديد (RNW)',
+          },
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
       body: Column(
         children: [
-          // 1. التبديل بين النوعين (Header)
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
             child: Column(
               children: [
-                // Toggle Switch
                 Container(
-                  height: 45,
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(25),
+                    color: isDark ? const Color(0xFF252538) : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
-                      _buildToggleOption('🏪 المحلات', 0, Colors.blue),
-                      _buildToggleOption(
-                          '📢 الإعلانات', 1, Colors.deepOrangeAccent),
-                      _buildToggleOption('🏷️ رسوم الديلر', 2, Colors.teal),
+                      _buildTypeButton('🏪 المتاجر', 0, Colors.blue.shade800, isDark),
+                      _buildTypeButton(
+                          '📢 الإعلانات', 1, Colors.deepOrange.shade800, isDark),
+                      _buildTypeButton('🏷️ الديلر', 2, Colors.teal.shade800, isDark),
+                      _buildTypeButton('🔄 التجديد', 3, Colors.indigo.shade800, isDark),
                     ],
                   ),
                 ),
-                const SizedBox(height: 15),
-                // إحصائيات سريعة
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildStatBadge(
-                        'متاح',
-                        currentList.where((c) => c['isUsed'] == false).length,
-                        Colors.green),
-                    _buildStatBadge(
-                        'مستخدم',
-                        currentList.where((c) => c['isUsed'] == true).length,
-                        Colors.red),
-                    _buildStatBadge(
-                        'الإجمالي', currentList.length, Colors.grey),
-                  ],
-                )
-              ],
-            ),
-          ),
+                const SizedBox(height: 12),
 
-          // 2. شريط الفلتر
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('سجل الأكواد:',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                DropdownButton<String>(
-                  value: _filterStatus,
-                  underline: const SizedBox(),
-                  style: TextStyle(
-                      color: primaryColor, fontWeight: FontWeight.bold),
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('عرض الكل')),
-                    DropdownMenuItem(
-                        value: 'active', child: Text('المتاح (Active)')),
-                    DropdownMenuItem(
-                        value: 'used', child: Text('المستخدم (Used)')),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildFilterChip('الكل', 'all', themeColor),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('متاح (جديد)', 'active', Colors.green),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('مستخدم', 'used', Colors.grey),
                   ],
-                  onChanged: (val) => setState(() => _filterStatus = val!),
                 ),
               ],
             ),
           ),
 
-          // 3. القائمة
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            color: themeColor.withValues(alpha: 0.12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem('الإجمالي', _codes.length, themeColor),
+                _buildStatItem('المتاح',
+                    _codes.where((c) => !c['isUsed']).length, Colors.green),
+                _buildStatItem('المستخدم',
+                    _codes.where((c) => c['isUsed']).length, Colors.grey),
+              ],
+            ),
+          ),
+
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : currentList.isEmpty
+                : _filteredCodes.isEmpty
                     ? _buildEmptyState()
                     : ListView.builder(
-                        padding: const EdgeInsets.only(
-                            bottom: 80, left: 16, right: 16),
-                        itemCount: currentList.length,
-                        itemBuilder: (ctx, i) =>
-                            _buildCodeTicket(currentList[i], primaryColor),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                        itemCount: _filteredCodes.length,
+                        itemBuilder: (ctx, i) {
+                          final codeData = _filteredCodes[i];
+                          return _buildCodeTicket(codeData, themeColor, isDark);
+                        },
                       ),
           ),
         ],
@@ -198,35 +186,66 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
     );
   }
 
-  // --- Widgets ---
-
-  Widget _buildToggleOption(String title, int index, Color color) {
+  Widget _buildTypeButton(String title, int index, Color color, bool isDark) {
     bool isSelected = _selectedTypeIndex == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _selectedTypeIndex = index),
-        child: Container(
+        onTap: () {
+          setState(() {
+            _selectedTypeIndex = index;
+            _loadCodes();
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(25),
+            color: isSelected
+                ? (isDark ? const Color(0xFF1E1E2E) : Colors.white)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
             boxShadow: isSelected
-                ? [const BoxShadow(color: Colors.black12, blurRadius: 4)]
+                ? [
+                    const BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 4,
+                        offset: Offset(0, 2))
+                  ]
                 : [],
           ),
-          alignment: Alignment.center,
           child: Text(
             title,
+            textAlign: TextAlign.center,
             style: TextStyle(
-                color: isSelected ? color : Colors.grey[600],
-                fontWeight: FontWeight.bold,
-                fontSize: 13),
+              fontWeight: FontWeight.bold,
+              color: isSelected ? color : Colors.grey[600],
+              fontSize: 13,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildStatBadge(String label, int count, Color color) {
+  Widget _buildFilterChip(String label, String status, Color color) {
+    bool isSelected = _filterStatus == status;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (val) => setState(() => _filterStatus = status),
+      selectedColor: color.withValues(alpha: 0.2),
+      labelStyle: TextStyle(
+        color: isSelected ? color : Colors.grey,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontSize: 12,
+      ),
+      side: isSelected
+          ? BorderSide(color: color)
+          : BorderSide(color: Colors.grey.shade300),
+    );
+  }
+
+  Widget _buildStatItem(String label, int count, Color color) {
     return Column(
       children: [
         Text('$count',
@@ -237,27 +256,33 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
     );
   }
 
-  Widget _buildCodeTicket(Map<String, dynamic> codeData, Color themeColor) {
+  Widget _buildCodeTicket(
+      Map<String, dynamic> codeData, Color themeColor, bool isDark) {
     bool isUsed = codeData['isUsed'] ?? false;
     String code = codeData['code'] ?? '???';
-    DateTime? date = codeData['createdAt'] != null
+    DateTime? date = codeData['createdAt'] is Timestamp
         ? (codeData['createdAt'] as Timestamp).toDate()
         : null;
-    String dateStr = date != null ? DateFormat('yyyy-MM-dd').format(date) : 'لا يوجد تاريخ';
-    final String valueStr = switch (_selectedTypeIndex) {
-      1 => '• 50 ج.م',
-      2 => '• ${DealerListingService.extraListingFee} ج.م',
-      _ => '',
-    };
+    String dateStr =
+        date != null ? DateFormat('yyyy-MM-dd').format(date) : 'لا يوجد تاريخ';
+    final num? explicitPrice = codeData['price'] is num ? codeData['price'] as num : null;
+    final String valueStr = explicitPrice != null && explicitPrice > 0
+        ? '• ${explicitPrice.toInt()} ج.م'
+        : switch (_selectedTypeIndex) {
+            0 => '• 200 ج.م',
+            1 => '• 50 ج.م',
+            2 => '• ${DealerListingService.extraListingFee} ج.م',
+            _ => '• 200 ج.م',
+          };
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-              color: Colors.grey.withValues(alpha: 0.1),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 5,
               offset: const Offset(0, 3))
         ],
@@ -266,25 +291,22 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
         borderRadius: BorderRadius.circular(12),
         child: Stack(
           children: [
-            // الشريط الجانبي الملون
             Positioned(
               right: 0,
               top: 0,
               bottom: 0,
-              child:
-                  Container(width: 6, color: isUsed ? Colors.grey : themeColor),
+              child: Container(
+                  width: 6, color: isUsed ? Colors.grey : themeColor),
             ),
-
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
-                  // الأيقونة والحالة
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: isUsed
-                          ? Colors.grey[100]
+                          ? (isDark ? Colors.white10 : Colors.grey[100])
                           : themeColor.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
@@ -294,14 +316,13 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                           : switch (_selectedTypeIndex) {
                               0 => Icons.store,
                               1 => Icons.campaign,
-                              _ => Icons.sell,
+                              2 => Icons.sell,
+                              _ => Icons.autorenew,
                             },
                       color: isUsed ? Colors.grey : themeColor,
                     ),
                   ),
                   const SizedBox(width: 15),
-
-                  // تفاصيل الكود
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,13 +335,15 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                             letterSpacing: 1.5,
                             decoration:
                                 isUsed ? TextDecoration.lineThrough : null,
-                            color: isUsed ? Colors.grey : Colors.black87,
+                            color: isUsed
+                                ? Colors.grey
+                                : (isDark ? Colors.white : Colors.black87),
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           isUsed
-                              ? 'تم الاستخدام'
+                              ? 'تم الاستخدام $valueStr'
                               : 'نشط (جاهز للاستخدام) $valueStr',
                           style: TextStyle(
                               fontSize: 12,
@@ -329,14 +352,12 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                         ),
                         Text(
                           'تاريخ الإنشاء: $dateStr',
-                          style:
-                              const TextStyle(fontSize: 11, color: Colors.grey),
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.grey),
                         ),
                       ],
                     ),
                   ),
-
-                  // زر النسخ
                   if (!isUsed)
                     IconButton(
                       icon: const Icon(Icons.copy, color: Colors.blue),
@@ -345,14 +366,13 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                         ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('تم نسخ الكود ✅')));
                       },
-                    )
-                  else
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.red),
-                      // ✅ Fix #16: الأنواع كلها في activation_codes
-                      onPressed: () =>
-                          _deleteCode(codeData['id'], 'activation_codes'),
                     ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    tooltip: 'حذف الكود',
+                    onPressed: () =>
+                        _deleteCode(codeData['id'], 'activation_codes'),
+                  ),
                 ],
               ),
             ),
@@ -363,20 +383,23 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
   }
 
   Widget _buildEmptyState() {
+    final filterLabel = switch (_filterStatus) {
+      'active' => 'متاحة',
+      'used' => 'مستخدمة',
+      _ => '',
+    };
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.qr_code_2, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 10),
-          Text('لا توجد أكواد $_filterStatus',
+          Text('لا توجد أكواد $filterLabel حالياً',
               style: TextStyle(color: Colors.grey[600])),
         ],
       ),
     );
   }
-
-  // --- Logic ---
 
   Future<void> _generateCode() async {
     setState(() => _isLoading = true);
@@ -384,31 +407,21 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
       String newCode;
 
       if (_selectedTypeIndex == 0) {
-        await ApiService.generateActivationCode('admin');
-        final snapshot = await FirebaseFirestore.instance
-            .collection('activation_codes')
-            .orderBy('createdAt', descending: true)
-            .limit(1)
-            .get();
-        newCode = snapshot.docs.first['code'];
-        // ✅ Fix #132: إضافة expiresAt للكود عند التوليد (30 يوماً)
-        await snapshot.docs.first.reference.update({
-          'expiresAt': Timestamp.fromDate(
-              DateTime.now().add(const Duration(days: 30))),
-        });
+        newCode = await ApiService.generateActivationCode('admin');
       } else if (_selectedTypeIndex == 1) {
         newCode = await ApiService.generateAdCode();
-      } else {
-        // ✅ Item #35: كود رسوم إعلان الديلر الإضافي (dealer_listing_fee)
+      } else if (_selectedTypeIndex == 2) {
         newCode = await DealerListingService.generateFeeCode();
+      } else {
+        newCode = await SubscriptionService.generateRenewalCode();
       }
 
       await _loadCodes();
       if (mounted) _showSuccessDialog(newCode);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('حدث خطأ: $e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('حدث خطأ: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -416,6 +429,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
   }
 
   void _showSuccessDialog(String code) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -426,7 +440,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                  color: Colors.grey[200],
+                  color: isDark ? const Color(0xFF252538) : Colors.grey[200],
                   borderRadius: BorderRadius.circular(8)),
               child: SelectableText(
                 code,
@@ -436,8 +450,9 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                     letterSpacing: 2,
                     color: switch (_selectedTypeIndex) {
                       0 => Colors.blue,
-                      1 => Colors.deepOrangeAccent,
-                      _ => Colors.teal,
+                      1 => Colors.deepOrange,
+                      2 => Colors.teal,
+                      _ => Colors.indigo,
                     }),
               ),
             ),
@@ -446,7 +461,9 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
               switch (_selectedTypeIndex) {
                 0 => 'كود لتفعيل حساب تاجر جديد',
                 1 => 'كوبون إعلاني بقيمة 50 ج.م',
-                _ => 'كود دفع إعلان ديلر إضافي بقيمة ${DealerListingService.extraListingFee} ج.م',
+                2 =>
+                  'كود دفع إعلان ديلر إضافي بقيمة ${DealerListingService.extraListingFee} ج.م',
+                _ => 'كود لتجديد اشتراك متجر حالي',
               },
               style: const TextStyle(color: Colors.grey, fontSize: 12),
             ),
@@ -454,15 +471,16 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إغلاق')),
           ElevatedButton.icon(
             icon: const Icon(Icons.copy),
             label: const Text('نسخ'),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: code));
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('تم نسخ الكود')));
+              ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('تم نسخ الكود')));
             },
           ),
         ],
@@ -489,9 +507,8 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
 
     if (confirm) {
       await FirebaseFirestore.instance.collection(collection).doc(id).delete();
-      // ✅ Fix #40: تسجيل حذف الكود في audit log
       await AuditLogService.log(
-        action: AuditAction.activationCodeUsed, // closest available action
+        action: AuditAction.activationCodeDeleted,
         targetId: id,
         targetType: collection,
       );

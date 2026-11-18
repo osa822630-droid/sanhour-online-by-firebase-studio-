@@ -1,4 +1,4 @@
-// lib_widgets_cached_image.dart
+// lib/widgets/cached_image.dart
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
@@ -11,6 +11,7 @@ class CachedImage extends StatelessWidget {
   final BorderRadius borderRadius;
   final Widget? placeholder;
   final Widget? errorWidget;
+  final IconData fallbackIcon;
   final bool showShimmerEffect;
   final Color? shimmerBaseColor;
   final Color? shimmerHighlightColor;
@@ -24,6 +25,7 @@ class CachedImage extends StatelessWidget {
     this.borderRadius = BorderRadius.zero,
     this.placeholder,
     this.errorWidget,
+    this.fallbackIcon = Icons.image_outlined,
     this.showShimmerEffect = true,
     this.shimmerBaseColor,
     this.shimmerHighlightColor,
@@ -31,87 +33,84 @@ class CachedImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ تفعيل تحسين الذاكرة (Memory Cache Optimization)
-    // بنضرب في 2 أو 3 عشان نحافظ على الجودة في شاشات الـ Retina/High DPI
-    // مع التأكد إن الأبعاد محددة وليست Infinite
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dpr = MediaQuery.devicePixelRatioOf(context).clamp(1.5, 3.0);
+
     final int? memCacheWidth =
-        (width != null && width!.isFinite) ? (width! * 2.5).toInt() : null;
+        (width != null && width!.isFinite && width! > 0)
+            ? (width! * dpr).round()
+            : null;
     final int? memCacheHeight =
-        (height != null && height!.isFinite) ? (height! * 2.5).toInt() : null;
+        (height != null && height!.isFinite && height! > 0)
+            ? (height! * dpr).round()
+            : null;
 
     return ClipRRect(
       borderRadius: borderRadius,
-      child: imageUrl.isEmpty
-          ? _buildErrorWidget()
+      child: imageUrl.trim().isEmpty
+          ? (errorWidget ?? _buildErrorWidget(isDark))
           : CachedNetworkImage(
               imageUrl: imageUrl,
               width: width,
               height: height,
               fit: fit,
-
-              // ✅ أهم نقطة للأداء: تحديد حجم الصورة في الذاكرة
               memCacheWidth: memCacheWidth,
               memCacheHeight: memCacheHeight,
-
-              // ✅ تحديد حجم الصورة في التخزين المؤقت (اختياري لتقليل مساحة الديسك)
-              // maxWidthDiskCache: 1000,
-
               placeholder: (context, url) =>
-                  placeholder ?? _buildShimmerPlaceholder(),
-
+                  placeholder ?? _buildShimmerPlaceholder(isDark),
               errorWidget: (context, url, error) =>
-                  errorWidget ?? _buildErrorWidget(),
-
-              fadeInDuration: const Duration(milliseconds: 300),
-              fadeOutDuration: const Duration(milliseconds: 300),
+                  errorWidget ?? _buildErrorWidget(isDark),
+              fadeInDuration: const Duration(milliseconds: 250),
+              fadeOutDuration: const Duration(milliseconds: 250),
             ),
     );
   }
 
-  Widget _buildShimmerPlaceholder() {
+  Widget _buildShimmerPlaceholder(bool isDark) {
+    final baseColor =
+        shimmerBaseColor ?? (isDark ? Colors.grey[850]! : Colors.grey[300]!);
+    final highlightColor = shimmerHighlightColor ??
+        (isDark ? Colors.grey[700]! : Colors.grey[100]!);
+
     if (!showShimmerEffect) {
       return Container(
-        color: Colors.grey[200],
+        color: baseColor,
         width: width,
         height: height,
       );
     }
     return Shimmer.fromColors(
-      baseColor: shimmerBaseColor ?? Colors.grey[300]!,
-      highlightColor: shimmerHighlightColor ?? Colors.grey[100]!,
+      baseColor: baseColor,
+      highlightColor: highlightColor,
       child: Container(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
         width: width,
         height: height,
       ),
     );
   }
 
-  Widget _buildErrorWidget() {
+  Widget _buildErrorWidget(bool isDark) {
     return Container(
       width: width,
       height: height,
-      color: Colors.grey[200],
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.broken_image,
-            size: _getErrorIconSize(), // حجم أيقونة الخطأ متجاوب
-            color: Colors.grey[400],
-          ),
-        ],
+      color: isDark ? const Color(0xFF252538) : Colors.grey[200],
+      child: Center(
+        child: Icon(
+          fallbackIcon,
+          size: _getErrorIconSize(),
+          color: isDark ? Colors.grey[600] : Colors.grey[400],
+        ),
       ),
     );
   }
 
   double _getErrorIconSize() {
-    // حساب حجم الأيقونة بناءً على حجم الكونتينر
     if (width != null &&
         height != null &&
         width!.isFinite &&
         height!.isFinite) {
-      return (width! + height!) / 6; // كبرت النسبة شوية عشان تبقى أوضح
+      return ((width! + height!) / 6).clamp(18.0, 48.0);
     }
     return 30.0;
   }

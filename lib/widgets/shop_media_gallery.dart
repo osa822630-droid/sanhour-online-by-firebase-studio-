@@ -1,9 +1,8 @@
 // lib/widgets/shop_media_gallery.dart
-// ✅ Fix #74: autoplay Timer مع dispose صحيح لمنع memory leak
-// ✅ Fix #186: _selectedIndex.clamp() لمنع RangeError
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'cached_image.dart';
 
 class ShopMediaGallery extends StatefulWidget {
   final List<String> mediaUrls;
@@ -21,7 +20,6 @@ class ShopMediaGallery extends StatefulWidget {
 
 class _ShopMediaGalleryState extends State<ShopMediaGallery> {
   int _selectedIndex = 0;
-  // ✅ Fix #74: autoplay timer للصور فقط
   Timer? _autoplayTimer;
 
   bool get _hasMedia => widget.mediaUrls.isNotEmpty;
@@ -39,10 +37,10 @@ class _ShopMediaGalleryState extends State<ShopMediaGallery> {
     if (widget.mediaUrls.length <= 1) return;
     _autoplayTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
-      // لا autoplay على الفيديو
       if (_isCurrentVideo) return;
       final next = (_selectedIndex + 1) % widget.mediaUrls.length;
-      setState(() => _selectedIndex = next.clamp(0, widget.mediaUrls.length - 1));
+      setState(
+          () => _selectedIndex = next.clamp(0, widget.mediaUrls.length - 1));
     });
   }
 
@@ -59,7 +57,6 @@ class _ShopMediaGalleryState extends State<ShopMediaGallery> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ─── عنوان القسم ────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
           child: Row(
@@ -79,11 +76,8 @@ class _ShopMediaGalleryState extends State<ShopMediaGallery> {
             ],
           ),
         ),
-
-        // ─── الصورة/الفيديو الرئيسي ─────────────────────────────────
         GestureDetector(
           onTap: () => _openFullscreen(context, _selectedIndex),
-          // ✅ Fix #185: AspectRatio 16:9 بدلاً من ارتفاع ثابت
           child: AspectRatio(
             aspectRatio: 16 / 9,
             child: Container(
@@ -99,8 +93,6 @@ class _ShopMediaGalleryState extends State<ShopMediaGallery> {
             ),
           ),
         ),
-
-        // ─── الصور المصغّرة (Thumbnails) ────────────────────────────
         if (widget.mediaUrls.length > 1) ...[
           const SizedBox(height: 10),
           SizedBox(
@@ -109,62 +101,58 @@ class _ShopMediaGalleryState extends State<ShopMediaGallery> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: widget.mediaUrls.length,
-              itemBuilder: (_, i) => GestureDetector(
-                onTap: () => setState(() =>
-                    _selectedIndex = i.clamp(0, widget.mediaUrls.length - 1)),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 64,
-                  height: 64,
-                  margin: const EdgeInsets.only(left: 8),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: _selectedIndex == i
-                          ? const Color(0xFF5E35B1)
-                          : Colors.transparent,
-                      width: 2.5,
+              itemBuilder: (_, i) {
+                final isVid =
+                    i < widget.mediaTypes.length && widget.mediaTypes[i] == 'video';
+                return GestureDetector(
+                  onTap: () => setState(() =>
+                      _selectedIndex = i.clamp(0, widget.mediaUrls.length - 1)),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 64,
+                    height: 64,
+                    margin: const EdgeInsets.only(left: 8),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _selectedIndex == i
+                            ? const Color(0xFF5E35B1)
+                            : Colors.transparent,
+                        width: 2.5,
+                      ),
+                    ),
+                    clipBehavior: Clip.hardEdge,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        isVid
+                            ? _VideoThumb(
+                                url: widget.mediaUrls[i], isThumb: true)
+                            : _buildImage(widget.mediaUrls[i]),
+                        if (isVid)
+                          const Center(
+                            child: Icon(Icons.play_circle_fill,
+                                color: Colors.white70, size: 24),
+                          ),
+                      ],
                     ),
                   ),
-                  clipBehavior: Clip.hardEdge,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      widget.mediaTypes[i] == 'video'
-                          ? _VideoThumb(url: widget.mediaUrls[i], isThumb: true)
-                          : _buildImage(widget.mediaUrls[i]),
-                      if (widget.mediaTypes[i] == 'video')
-                        const Center(
-                          child: Icon(Icons.play_circle_fill,
-                              color: Colors.white70, size: 24),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],
-
         const SizedBox(height: 16),
         const Divider(height: 1),
       ],
     );
   }
 
-  Widget _buildImage(String url) => Image.network(
-        url,
+  Widget _buildImage(String url) => CachedImage(
+        imageUrl: url,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        errorBuilder: (_, __, ___) => Container(
-          color: Colors.grey[200],
-          child: const Icon(Icons.broken_image_outlined,
-              size: 48, color: Colors.grey),
-        ),
-        loadingBuilder: (_, child, progress) => progress == null
-            ? child
-            : const Center(child: CircularProgressIndicator()),
       );
 
   void _openFullscreen(BuildContext context, int startIndex) {
@@ -179,7 +167,6 @@ class _ShopMediaGalleryState extends State<ShopMediaGallery> {
   }
 }
 
-// ─── عارض الشاشة الكاملة ───────────────────────────────────────────────────
 class _FullscreenGallery extends StatefulWidget {
   final List<String> mediaUrls;
   final List<String> mediaTypes;
@@ -227,12 +214,17 @@ class _FullscreenGalleryState extends State<_FullscreenGallery> {
         onPageChanged: (i) => setState(() => _current = i),
         itemCount: widget.mediaUrls.length,
         itemBuilder: (_, i) {
-          if (widget.mediaTypes[i] == 'video') {
+          final isVid =
+              i < widget.mediaTypes.length && widget.mediaTypes[i] == 'video';
+          if (isVid) {
             return _VideoPlayer(url: widget.mediaUrls[i]);
           }
           return InteractiveViewer(
             child: Center(
-              child: Image.network(widget.mediaUrls[i], fit: BoxFit.contain),
+              child: CachedImage(
+                imageUrl: widget.mediaUrls[i],
+                fit: BoxFit.contain,
+              ),
             ),
           );
         },
@@ -241,7 +233,6 @@ class _FullscreenGalleryState extends State<_FullscreenGallery> {
   }
 }
 
-// ─── مصغّر الفيديو (thumbnail) ─────────────────────────────────────────────
 class _VideoThumb extends StatelessWidget {
   final String url;
   final bool isThumb;
@@ -249,21 +240,31 @@ class _VideoThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // نعرض placeholder بنفسجي مع أيقونة تشغيل
     return Container(
       color: const Color(0xFF1A0030),
       child: Center(
-        child: Icon(
-          Icons.play_circle_outline_rounded,
-          color: const Color(0xFF9575CD),
-          size: isThumb ? 28 : 52,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.play_circle_outline_rounded,
+              color: const Color(0xFF9575CD),
+              size: isThumb ? 28 : 52,
+            ),
+            if (!isThumb) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'اضغط لتشغيل الفيديو',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
 }
 
-// ─── مشغّل الفيديو الكامل ──────────────────────────────────────────────────
 class _VideoPlayer extends StatefulWidget {
   final String url;
   const _VideoPlayer({required this.url});
@@ -273,37 +274,98 @@ class _VideoPlayer extends StatefulWidget {
 }
 
 class _VideoPlayerState extends State<_VideoPlayer> {
-  late VideoPlayerController _ctrl;
+  VideoPlayerController? _ctrl;
   bool _initialized = false;
+  bool _hasError = false;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = VideoPlayerController.networkUrl(Uri.parse(widget.url))
-      ..initialize().then((_) {
-        if (mounted) setState(() => _initialized = true);
-        _ctrl.play();
-      });
+    _initController();
+  }
+
+  Future<void> _initController() async {
+    try {
+      final ctrl = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+      _ctrl = ctrl;
+      await ctrl.initialize();
+      if (!mounted) return;
+      setState(() => _initialized = true);
+      await ctrl.setLooping(true);
+      await ctrl.play();
+    } catch (_) {
+      if (mounted) setState(() => _hasError = true);
+    }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _ctrl?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_initialized) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+    if (_hasError) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, color: Colors.white54, size: 56),
+            SizedBox(height: 12),
+            Text('تعذّر تشغيل هذا الفيديو',
+                style: TextStyle(color: Colors.white70)),
+          ],
+        ),
+      );
+    }
+    if (!_initialized || _ctrl == null) {
+      return const Center(
+          child: CircularProgressIndicator(color: Colors.white));
     }
     return GestureDetector(
-      onTap: () =>
-          _ctrl.value.isPlaying ? _ctrl.pause() : _ctrl.play(),
+      onTap: () {
+        setState(() {
+          _ctrl!.value.isPlaying ? _ctrl!.pause() : _ctrl!.play();
+        });
+      },
       child: Center(
         child: AspectRatio(
-          aspectRatio: _ctrl.value.aspectRatio,
-          child: VideoPlayer(_ctrl),
+          aspectRatio:
+              _ctrl!.value.aspectRatio == 0 ? 16 / 9 : _ctrl!.value.aspectRatio,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              VideoPlayer(_ctrl!),
+              AnimatedOpacity(
+                opacity: _ctrl!.value.isPlaying ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.play_arrow,
+                      color: Colors.white, size: 36),
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: VideoProgressIndicator(
+                  _ctrl!,
+                  allowScrubbing: true,
+                  colors: const VideoProgressColors(
+                    playedColor: Color(0xFF7C4DFF),
+                    bufferedColor: Colors.white38,
+                    backgroundColor: Colors.white12,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

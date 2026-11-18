@@ -52,51 +52,68 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
       ));
       return;
     }
+    final user = context.read<AuthProvider>().user;
+    if (user == null) {
+      return;
+    }
     setState(() => _isSaving = true);
-
-    final user = context.read<AuthProvider>().user!;
     try {
       final db = FirebaseFirestore.instance;
+      final providerRef = db.collection('service_providers').doc(user.id);
+      final existing = await providerRef.get();
 
-      // تسجيل كمزوّد خدمة
-      await db.collection('service_providers').doc(user.id).set({
-        'userId': user.id,
-        'name': _nameCtrl.text.trim(),
-        'phone': _phoneCtrl.text.trim(),
-        'bio': _bioCtrl.text.trim(),
-        'location': _locationCtrl.text.trim(),
-        'categories': _selectedCategories.toList(),
-        'isActive': true,
-        'businessType': 'service_provider',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      final batch = db.batch();
 
-      // تحديث businessType في users
-      await db.collection('users').doc(user.id).update({
+      batch.set(
+        providerRef,
+        {
+          'userId': user.id,
+          'name': _nameCtrl.text.trim(),
+          'phone': _phoneCtrl.text.trim(),
+          'bio': _bioCtrl.text.trim(),
+          'location': _locationCtrl.text.trim(),
+          'categories': _selectedCategories.toList(),
+          'isActive': true,
+          'businessType': 'service_provider',
+          if (!existing.exists || existing.data()?['createdAt'] == null)
+            'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      batch.update(db.collection('users').doc(user.id), {
         'businessType': 'service_provider',
       });
 
-      // تسجيل اشتراكات FCM للمجالات
-      await db.collection('provider_topic_subscriptions').doc(user.id).set({
-        'userId': user.id,
-        'categories': _selectedCategories.toList(),
-        'fcmTopics': _selectedCategories.map((c) => 'providers_$c').toList(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      batch.set(
+        db.collection('provider_topic_subscriptions').doc(user.id),
+        {
+          'userId': user.id,
+          'categories': _selectedCategories.toList(),
+          'fcmTopics':
+              _selectedCategories.map((c) => 'providers_$c').toList(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+
+      await batch.commit();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('تم تسجيل بياناتك بنجاح ✅ — ستصلك إشعارات طلبات الخدمات'),
+        content:
+            Text('تم تسجيل بياناتك بنجاح ✅ — ستصلك إشعارات طلبات الخدمات'),
         backgroundColor: Colors.green,
         duration: Duration(seconds: 3),
       ));
-      // الانتقال للشاشة الرئيسية
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('حدث خطأ: $e'),
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('حدث خطأ أثناء الحفظ. تحقق من اتصالك وحاول مجدداً.'),
         backgroundColor: Colors.red,
       ));
     } finally {
@@ -135,7 +152,6 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // بانر توضيحي
             Container(
               padding: const EdgeInsets.all(14),
               margin: const EdgeInsets.only(bottom: 24),
@@ -147,12 +163,14 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
               child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.engineering_outlined, color: Colors.teal, size: 22),
+                  Icon(Icons.engineering_outlined,
+                      color: Colors.teal, size: 22),
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'سجّل خدماتك لتصلك طلبات من العملاء مباشرة على هاتفك.',
-                      style: TextStyle(color: Colors.teal, fontSize: 13, height: 1.5),
+                      style: TextStyle(
+                          color: Colors.teal, fontSize: 13, height: 1.5),
                     ),
                   ),
                 ],
@@ -166,7 +184,8 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
               decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person_outline)),
-              validator: (v) => v!.trim().isEmpty ? 'الاسم مطلوب' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'الاسم مطلوب' : null,
             ),
 
             const SizedBox(height: 20),
@@ -180,7 +199,8 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
               decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.phone)),
-              validator: (v) => v!.trim().isEmpty ? 'الهاتف مطلوب' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'الهاتف مطلوب' : null,
             ),
 
             const SizedBox(height: 20),
@@ -194,7 +214,8 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.location_on_outlined),
               ),
-              validator: (v) => v!.trim().isEmpty ? 'المنطقة مطلوبة' : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'المنطقة مطلوبة' : null,
             ),
 
             const SizedBox(height: 20),
@@ -226,7 +247,8 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
                   },
                   selectedColor: Colors.teal,
                   checkmarkColor: Colors.white,
-                  backgroundColor: isDark ? Colors.grey[800] : Colors.grey[100],
+                  backgroundColor:
+                      isDark ? Colors.grey[800] : Colors.grey[100],
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                     side: BorderSide(
@@ -247,7 +269,8 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
               controller: _bioCtrl,
               maxLines: 4,
               decoration: const InputDecoration(
-                hintText: 'مثال: كهربائي بخبرة 10 سنوات في التمديدات والصيانة...',
+                hintText:
+                    'مثال: كهربائي بخبرة 10 سنوات في التمديدات والصيانة...',
                 border: OutlineInputBorder(),
                 alignLabelWithHint: true,
                 prefixIcon: Icon(Icons.notes),
@@ -263,7 +286,8 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
                 onPressed: _isSaving ? null : _save,
                 icon: _isSaving
                     ? const SizedBox(
-                        width: 20, height: 20,
+                        width: 20,
+                        height: 20,
                         child: CircularProgressIndicator(
                             color: Colors.white, strokeWidth: 2))
                     : const Icon(Icons.engineering_outlined),

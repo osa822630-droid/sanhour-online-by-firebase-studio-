@@ -1,6 +1,9 @@
-// lib_screens_excel_upload_screen.dart
+// lib/screens/excel_upload_screen.dart
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:excel/excel.dart' hide Border;
+import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
 
 class ExcelUploadScreen extends StatefulWidget {
@@ -22,7 +25,6 @@ class _ExcelUploadScreenState extends State<ExcelUploadScreen> {
 
   Future<void> _pickFile() async {
     try {
-      // تنظيف النتيجة السابقة عند اختيار ملف جديد
       setState(() {
         _uploadResult = null;
       });
@@ -41,8 +43,12 @@ class _ExcelUploadScreenState extends State<ExcelUploadScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('تعذّر اختيار الملف، حاول مرة أخرى'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تعذّر اختيار الملف، حاول مرة أخرى'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -55,7 +61,7 @@ class _ExcelUploadScreenState extends State<ExcelUploadScreen> {
   }
 
   Future<void> _uploadFile() async {
-    if (_selectedFile == null) return;
+    if (_selectedFile == null || _selectedFile!.path == null) return;
 
     setState(() {
       _isUploading = true;
@@ -63,12 +69,8 @@ class _ExcelUploadScreenState extends State<ExcelUploadScreen> {
     });
 
     try {
-      // ⚡ خدعة بسيطة: ننتظر لحظة عشان الـ UI يلحق يعرض الـ Loading قبل ما العملية التقيلة تبدأ
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // استدعاء API الاستيراد الحقيقي
-      // ملاحظة: لو الملف كبير جداً، المعالجة هنا ممكن تاخد وقت (Sync)،
-      // عشان كده ظهرنا الـ Loading الأول.
       final result = await ApiService.importProductsExcel(
           widget.shopId, _selectedFile!.path!);
 
@@ -79,7 +81,6 @@ class _ExcelUploadScreenState extends State<ExcelUploadScreen> {
         _isUploading = false;
       });
 
-      // إظهار رسالة منبثقة بالحالة
       if (result['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -101,12 +102,55 @@ class _ExcelUploadScreenState extends State<ExcelUploadScreen> {
   }
 
   Future<void> _downloadTemplate() async {
-    // ميزة مستقبلية: تحميل نموذج جاهز
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('سيتم توفير نموذج التحميل قريباً...'),
-          backgroundColor: Colors.blue),
-    );
+    try {
+      final excel = Excel.createExcel();
+      final sheetName = excel.getDefaultSheet() ?? 'Sheet1';
+      final sheet = excel[sheetName];
+
+      // الصف الأول: عناوين الأعمدة
+      sheet.appendRow([
+        TextCellValue('اسم المنتج'),
+        TextCellValue('السعر'),
+        TextCellValue('الوصف'),
+        TextCellValue('التصنيف'),
+      ]);
+
+      // صف تجريبي استرشادي
+      sheet.appendRow([
+        TextCellValue('طقم خروج رجالي'),
+        DoubleCellValue(450.0),
+        TextCellValue('قطن مصري ممتاز - جميع المقاسات متاحة'),
+        TextCellValue('ملابس رجالي'),
+      ]);
+
+      final encoded = excel.encode();
+      if (encoded == null) {
+        throw Exception('تعذّر توليد ملف القالب');
+      }
+
+      final xfile = XFile.fromData(
+        Uint8List.fromList(encoded),
+        name: 'sanhour_products_template.xlsx',
+        mimeType:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [xfile],
+          text: 'نموذج رفع المنتجات الجاهز لتطبيق سنهور أونلاين',
+          subject: 'sanhour_products_template.xlsx',
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تعذّر تصدير النموذج: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // --- بناء الواجهة (UI) ---
@@ -153,7 +197,7 @@ class _ExcelUploadScreenState extends State<ExcelUploadScreen> {
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         icon: const Icon(Icons.download),
-                        label: const Text('تحميل نموذج فارغ'),
+                        label: const Text('تحميل نموذج Excel جاهز (.xlsx)'),
                         onPressed: _downloadTemplate,
                       ),
                     ),
@@ -211,7 +255,6 @@ class _ExcelUploadScreenState extends State<ExcelUploadScreen> {
                         ),
                       ],
                     ),
-                    // زر حذف الملف
                     if (_selectedFile != null && !_isUploading)
                       Positioned(
                         top: 5,

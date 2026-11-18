@@ -1,26 +1,15 @@
 // lib/widgets/multi_image_picker_widget.dart
-// ✅ نظام اختيار صور متعدد احترافي مع تحديد صورة الواجهة (الغلاف)
-// — يُستخدم في: AddProductScreen، AddOfferScreen، _AdFormScreen، AddShopScreen، EditShopScreen
-// — يدعم: صور موجودة (URLs) + صور جديدة (Files)
-// — اختيار الغلاف بضغطة واحدة + إشارة تاج ذهبية واضحة
-//
-// ✅ نظام الميديا الاحترافي — إضافات هذا الإصدار:
-// - uploadProgress: عرض نسبة رفع كل صورة جديدة كحلقة تقدم فوق الصورة
-//   أثناء الحفظ — المستخدم يرى تقدماً حقيقياً بدلاً من تجمّد الواجهة.
-// - isUploading: قفل كل التفاعلات (إضافة/حذف/تغيير غلاف) أثناء الرفع
-//   لمنع تغيّر الفهارس في منتصف عملية رفع نشطة.
-// - زر معاينة (عدسة) على كل صورة يفتح MediaPreviewDialog كامل الشاشة.
 import 'dart:io';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import '../utils/image_helper.dart';
 import 'cached_image.dart';
 import 'media_preview_dialog.dart';
 
-/// بيانات الحالة التي يُعيدها الـ widget عند أي تغيير
 class MultiImageState {
   final List<String> existingUrls;
   final List<File> newFiles;
-  final int coverIndex; // index في القائمة المدمجة: existingUrls أولاً ثم newFiles
+  final int coverIndex;
 
   const MultiImageState({
     required this.existingUrls,
@@ -31,14 +20,12 @@ class MultiImageState {
   bool get isEmpty => existingUrls.isEmpty && newFiles.isEmpty;
   int get totalCount => existingUrls.length + newFiles.length;
 
-  /// URL صورة الغلاف للعرض (إن كانت URL موجودة)
   String? get coverUrl {
     if (existingUrls.isEmpty && newFiles.isEmpty) return null;
     if (coverIndex < existingUrls.length) return existingUrls[coverIndex];
     return null;
   }
 
-  /// File صورة الغلاف (إن كانت ملف جديد)
   File? get coverFile {
     if (newFiles.isEmpty) return null;
     final idx = coverIndex - existingUrls.length;
@@ -48,34 +35,14 @@ class MultiImageState {
 }
 
 class MultiImagePickerWidget extends StatefulWidget {
-  /// الصور المحفوظة مسبقاً في Firestore
   final List<String> initialUrls;
-
-  /// الملفات الجديدة (في حالة التعديل)
   final List<File> initialFiles;
-
-  /// index صورة الغلاف في القائمة المدمجة
   final int initialCoverIndex;
-
-  /// يُستدعى عند أي تغيير (إضافة / حذف / تغيير الغلاف)
   final void Function(MultiImageState state) onChanged;
-
-  /// نسبة أبعاد الصور المُختارة
   final ImageRatio ratio;
-
-  /// الحد الأقصى لعدد الصور
   final int maxImages;
-
-  /// تسمية تظهر فوق الـ widget
   final String label;
-
-  /// ✅ تقدم رفع كل صورة جديدة — المفتاح هو index في قائمة newFiles
-  /// (وليس الـ combinedIndex)، والقيمة من 0.0 إلى 1.0.
-  /// عندما يكون غير null لصورة، تظهر حلقة تقدم فوقها.
   final Map<int, double>? uploadProgress;
-
-  /// ✅ عند true تُقفل كل التفاعلات (إضافة/حذف/تغيير غلاف) — تُستخدم
-  /// أثناء عملية الحفظ لمنع تغيّر الفهارس في منتصف الرفع.
   final bool isUploading;
 
   const MultiImagePickerWidget({
@@ -109,10 +76,25 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
     _urls = List.from(widget.initialUrls);
     _files = List.from(widget.initialFiles);
     _coverIndex = widget.initialCoverIndex.clamp(
-        0, (widget.initialUrls.length + widget.initialFiles.length - 1).clamp(0, 999));
+      0,
+      (widget.initialUrls.length + widget.initialFiles.length - 1).clamp(0, 999),
+    );
   }
 
-  // ── حساب القائمة المدمجة ──────────────────────────────────────────────────
+  @override
+  void didUpdateWidget(covariant MultiImagePickerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.isUploading &&
+        !listEquals(oldWidget.initialUrls, widget.initialUrls) &&
+        _files.isEmpty) {
+      _urls = List.from(widget.initialUrls);
+      _coverIndex = widget.initialCoverIndex.clamp(
+        0,
+        (_urls.length + _files.length - 1).clamp(0, 999),
+      );
+    }
+  }
+
   int get _total => _urls.length + _files.length;
   bool get _canAddMore => _total < widget.maxImages && !widget.isUploading;
 
@@ -124,7 +106,6 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
     ));
   }
 
-  // ── اختيار صورة جديدة ────────────────────────────────────────────────────
   Future<void> _addImage() async {
     if (widget.isUploading) return;
 
@@ -140,13 +121,11 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
 
     setState(() {
       _files.add(file);
-      // إذا كانت أول صورة → تصبح الغلاف تلقائياً
       if (_total == 1) _coverIndex = 0;
     });
     _notify();
   }
 
-  // ── حذف صورة ─────────────────────────────────────────────────────────────
   void _removeAt(int combinedIndex) {
     if (widget.isUploading) return;
 
@@ -157,7 +136,6 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
         _files.removeAt(combinedIndex - _urls.length);
       }
 
-      // إعادة ضبط _coverIndex
       final newTotal = _total;
       if (newTotal == 0) {
         _coverIndex = 0;
@@ -172,7 +150,6 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
     _notify();
   }
 
-  // ── تعيين الغلاف ─────────────────────────────────────────────────────────
   void _setCover(int combinedIndex) {
     if (widget.isUploading) return;
     if (_coverIndex == combinedIndex) return;
@@ -180,7 +157,6 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
     _notify();
   }
 
-  // ── معاينة كاملة الشاشة ──────────────────────────────────────────────────
   void _preview(int combinedIndex) {
     final isUrl = combinedIndex < _urls.length;
     MediaPreviewDialog.show(
@@ -191,13 +167,10 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
     );
   }
 
-  // ── بناء صورة واحدة ──────────────────────────────────────────────────────
   Widget _buildThumb(int combinedIndex) {
     final isCover = combinedIndex == _coverIndex;
     final isUrl = combinedIndex < _urls.length;
 
-    // ✅ تقدم الرفع — يُحسب فقط للصور الجديدة (newFiles)، باستخدام index
-    // ضمن _files (وليس الـ combinedIndex المدمج)
     double? progress;
     if (!isUrl && widget.uploadProgress != null) {
       final fileIndex = combinedIndex - _urls.length;
@@ -210,7 +183,6 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // ── إطار الصورة ──────────────────────────────────────
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             width: _thumbSize,
@@ -250,8 +222,6 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
                     ),
             ),
           ),
-
-          // ── طبقة تقدم الرفع ───────────────────────────────────
           if (isUploadingThis)
             Positioned.fill(
               child: Container(
@@ -287,8 +257,6 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
                 ),
               ),
             ),
-
-          // ── علامة ✓ عند اكتمال الرفع ──────────────────────────
           if (progress != null && progress >= 1.0)
             Positioned.fill(
               child: Container(
@@ -297,12 +265,11 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
                   color: Colors.green.withValues(alpha: 0.25),
                 ),
                 child: const Center(
-                  child: Icon(Icons.check_circle, color: Colors.white, size: 30),
+                  child:
+                      Icon(Icons.check_circle, color: Colors.white, size: 30),
                 ),
               ),
             ),
-
-          // ── زر الحذف ────────────────────────────────────────
           if (!widget.isUploading)
             Positioned(
               top: -6,
@@ -322,12 +289,11 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
                       )
                     ],
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 14),
+                  child:
+                      const Icon(Icons.close, color: Colors.white, size: 14),
                 ),
               ),
             ),
-
-          // ── زر المعاينة (عدسة) ────────────────────────────────
           if (!isUploadingThis)
             Positioned(
               bottom: -6,
@@ -341,12 +307,11 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
                     color: Colors.black.withValues(alpha: 0.55),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.zoom_in, color: Colors.white, size: 14),
+                  child:
+                      const Icon(Icons.zoom_in, color: Colors.white, size: 14),
                 ),
               ),
             ),
-
-          // ── شارة الغلاف (تاج ذهبي) ──────────────────────────
           if (isCover && !isUploadingThis)
             Positioned(
               bottom: 0,
@@ -371,7 +336,8 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
                 child: const Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.star_rounded, color: Color(0xFFFFB300), size: 13),
+                    Icon(Icons.star_rounded,
+                        color: Color(0xFFFFB300), size: 13),
                     SizedBox(width: 3),
                     Text(
                       'واجهة',
@@ -390,7 +356,6 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
     );
   }
 
-  // ── زر إضافة صورة جديدة ──────────────────────────────────────────────────
   Widget _buildAddButton() {
     return GestureDetector(
       onTap: _addImage,
@@ -434,7 +399,6 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── التسمية والعداد ───────────────────────────────────
         Row(
           children: [
             Text(
@@ -480,12 +444,9 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
             ],
           ],
         ),
-
         const SizedBox(height: 10),
-
-        // ── قائمة الصور الأفقية ───────────────────────────────
         SizedBox(
-          height: _thumbSize + 12, // مساحة إضافية لـ overflow badge الحذف
+          height: _thumbSize + 12,
           child: _total == 0 && !_canAddMore
               ? const SizedBox.shrink()
               : ListView.separated(
@@ -500,15 +461,11 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
                   },
                 ),
         ),
-
         const SizedBox(height: 8),
-
-        // ── تلميح ────────────────────────────────────────────
         if (_total > 1)
           Row(
             children: [
-              Icon(Icons.info_outline,
-                  size: 13, color: Colors.grey.shade500),
+              Icon(Icons.info_outline, size: 13, color: Colors.grey.shade500),
               const SizedBox(width: 4),
               Text(
                 'اضغط على الصورة لاختيارها كواجهة، أو على 🔍 للمعاينة',
@@ -519,8 +476,7 @@ class _MultiImagePickerWidgetState extends State<MultiImagePickerWidget> {
         else if (_total == 0)
           Row(
             children: [
-              Icon(Icons.info_outline,
-                  size: 13, color: Colors.grey.shade500),
+              Icon(Icons.info_outline, size: 13, color: Colors.grey.shade500),
               const SizedBox(width: 4),
               Text(
                 'أضف صورة واحدة على الأقل',

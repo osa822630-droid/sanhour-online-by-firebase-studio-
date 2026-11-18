@@ -39,9 +39,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> _shuffledShops = [];
   bool _dataLoaded = false;
 
-  // ✅ Fix #30: شريحة «نوع النتيجة» — بتحدد أقسام الرئيسية اللي بتظهر.
-  // «الكل» = كل الأقسام. غير كده بيظهر قسم النوع المختار بس (الإعلانات والفئات
-  // دايمًا ظاهرين). محلات = المحلات المميزة + اخترنا لك · خدمات = طلبات الخدمات.
   static const String _typeAll = 'الكل';
   static const String _typeShops = 'محلات';
   static const String _typeProducts = 'منتجات';
@@ -62,7 +59,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // ✅ Fix #72: إنشاء الـ streams مرة واحدة في initState
     _jobsStream = FirebaseFirestore.instance
         .collection('job_ads')
         .where('isActive', isEqualTo: true)
@@ -93,18 +89,27 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // ── تحميل إعداد الموقع من Firestore ──────────────────────────────
+  // ── تحميل إعداد الموقع من Firestore (general + locations) ────────────
   Future<void> _loadLocationSettings() async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('settings')
-          .doc('general')
-          .get();
+      final results = await Future.wait([
+        FirebaseFirestore.instance.collection('settings').doc('general').get(),
+        FirebaseFirestore.instance
+            .collection('settings')
+            .doc('locations')
+            .get(),
+      ]);
       if (!mounted) return;
-      final data = doc.data() ?? {};
-      final show = data['showLocationFilter'] as bool? ?? false;
-      final regions =
-          List<String>.from(data['regions'] as List? ?? []);
+      final genData = results[0].data() ?? {};
+      final locData = results[1].data() ?? {};
+      final show = (genData['showLocationFilter'] as bool?) ??
+          (locData['showLocationFilter'] as bool?) ??
+          false;
+      final rawAreas =
+          locData['areas'] ?? locData['regions'] ?? genData['regions'];
+      final regions = rawAreas is List
+          ? rawAreas.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList()
+          : <String>[];
       setState(() {
         _showLocationFilter = show;
         _regions = regions;
@@ -132,14 +137,30 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ✅ إصلاح الجليتش: مقارنة بتوقيع فعلي (معرّفات المحلات) بدلاً من العدد
-  // فقط — العدد وحده كان يُسبب مشكلتين: (1) إعادة ترتيب متكررة ومزعجة أثناء
-  // التحديث كل ما وصلت بيانات جزئية بنفس عدد المحلات القديم تقريباً، و(2)
-  // عدم اكتشاف تغيّر المحلات الفعلية لو ظل العدد نفسه صدفة (محل عُلِّق
-  // واستُبدل بآخر). الآن يُعاد الترتيب فقط عند تغيّر المحلات فعلياً.
   String? _lastShuffleSignature;
 
-  // ✅ Fix #29: force = true بيعيد الخلط حتى لو المحلات ما اتغيّرتش (زرار «خلّط»).
+  bool _matchesUserInterests(String shopCategory) {
+    if (_userInterests.isEmpty || shopCategory.isEmpty) {
+      return false;
+    }
+    if (_userInterests.contains(shopCategory)) {
+      return true;
+    }
+    final catWords =
+        shopCategory.split(RegExp(r'\s+')).where((w) => w.length >= 3);
+    for (final interest in _userInterests) {
+      if (interest.contains(shopCategory) || shopCategory.contains(interest)) {
+        return true;
+      }
+      for (final word in catWords) {
+        if (interest.contains(word)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   void _buildShuffleList(ShopsProvider provider, {bool force = false}) {
     if (provider.shops.isEmpty) {
       _shuffledShops = [];
@@ -152,11 +173,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final rng = Random();
     final interested = provider.shops
-        .where((s) => _userInterests.contains(s.category))
+        .where((s) => _matchesUserInterests(s.category))
         .toList()
       ..shuffle(rng);
     final rest = provider.shops
-        .where((s) => !_userInterests.contains(s.category))
+        .where((s) => !_matchesUserInterests(s.category))
         .toList()
       ..shuffle(rng);
     _shuffledShops = [...interested, ...rest].take(20).toList();
@@ -164,21 +185,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _refreshData() async {
     final provider = context.read<ShopsProvider>();
-    // ✅ إصلاح الجليتش: لم نعد نمسح _shuffledShops هنا — كان هذا يُسبب
-    // اختفاء/إعادة ترتيب قسم "اخترنا لك" بشكل مزعج أثناء التحديث.
-    // _buildShuffleList الجديدة تكتشف التغيّر الفعلي تلقائياً بمجرد وصول
-    // بيانات جديدة حقيقية، ومؤشر RefreshIndicator نفسه يكفي كتغذية راجعة
-    // بصرية لحالة "جارٍ التحديث".
+    await _loadInterests();
+    await _loadLocationSettings();
     await CacheService().clearAllCache();
     await Future.wait([
-      // ✅ إصلاح: تمرير الفئة الحالية — كان التحديث يمسح فلتر الفئة
-      // المختارة بصمت في كل مرة (لأن عدم تمرير category يُعيد ضبطه لـ null)
       provider.fetchShops(category: provider.selectedCategory, refresh: true),
       provider.fetchProducts(refresh: true),
       provider.fetchOffers(refresh: true),
       provider.fetchCategories(refresh: true),
       provider.fetchAds(),
     ]);
+    if (mounted) {
+      setState(() {
+        _buildShuffleList(provider, force: true);
+      });
+    }
   }
 
   @override
@@ -197,7 +218,6 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (context, provider, _) {
                 _buildShuffleList(provider);
 
-                // ✅ Fix #109: عرض حالة الخطأ بدلاً من صفحة فارغة
                 if (provider.error != null && provider.shops.isEmpty) {
                   return Center(
                     child: Padding(
@@ -255,7 +275,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           // هامبرغر
                           GestureDetector(
-                            onTap: () => MainScreen.scaffoldKey.currentState
+                            onTap: () => (Scaffold.maybeOf(context) ??
+                                    MainScreen.scaffoldKey.currentState)
                                 ?.openDrawer(),
                             child: Padding(
                               padding: const EdgeInsets.only(left: 4),
@@ -278,19 +299,19 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (_showLocationFilter)
                             GestureDetector(
                               onTap: _showRegionPicker,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 4),
-                                child: const Icon(Icons.location_on_outlined,
+                              child: const Padding(
+                                padding:
+                                    EdgeInsets.symmetric(horizontal: 4),
+                                child: Icon(Icons.location_on_outlined,
                                     color: Colors.white70, size: 20),
                               ),
                             ),
 
                           // اسم التطبيق
-                          Expanded(
+                          const Expanded(
                             child: Column(
                               children: [
-                                const Text(
+                                Text(
                                   'سنهور أونلاين',
                                   style: TextStyle(
                                     color: Colors.white,
@@ -298,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     fontSize: 18,
                                   ),
                                 ),
-                                const Text(
+                                Text(
                                   'سنهور كلها في جيبك',
                                   style: TextStyle(
                                       color: Colors.white70, fontSize: 11),
@@ -327,7 +348,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           focusNode: _searchFocusNode,
                           onSearch: (q) =>
                               context.read<ShopsProvider>().search(q),
-                          // ✅ فلتر مدمج: الفئة
                           filters: provider.categories.isNotEmpty
                               ? [
                                   SearchFilter(
@@ -338,8 +358,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ...provider.categories
                                           .map((c) => c.name),
                                     ],
-                                    // الشريحة المحددة بتتبع حالة الـ provider الفعلية
-                                    // (الـ SearchFilter بيتبني من جديد مع كل rebuild)
                                     defaultOption:
                                         provider.selectedCategory ?? 'الكل',
                                   ),
@@ -359,18 +377,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               : [],
                           onFilterChanged: (id, val) {
                             if (id == 'category') {
-                              // ✅ Fix #30: فلتر فئة حقيقي بدل search(اسم الفئة) — اللي
-                              // كان بيدوّر بالاسم في اسم/وصف المحل وبيستبدل نص بحث
-                              // المستخدم. fetchShops(category) هو نفس مسار الفئة اللي
-                              // تحديث الرئيسية بيحافظ عليه، ونص البحث بيفضل مطبّق.
                               context.read<ShopsProvider>().fetchShops(
                                   category: val == 'الكل' ? null : val);
                             } else if (id == 'type') {
-                              // ✅ Fix #30: شريحة النوع ما كانش ليها معالج خالص
                               setState(() => _resultType = val);
                             }
                           },
-                          // ✅ البحث المتقدم من داخل شريط البحث
                           onAdvancedSearch: () => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -436,7 +448,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               provider.offers.isNotEmpty) ...[
                             _sectionHeader('🏷️ أحدث العروض',
                                 onViewAll: () =>
-                                    Navigator.pushNamed(context, '/offers')),
+                                    MainScreen.switchTab(MainScreen.offersTab)),
                             HorizontalList(
                               title: '🏷️ أحدث العروض',
                               items: provider.offers.take(10).toList(),
@@ -445,14 +457,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 20),
                           ],
 
-                          // ✅ إصلاح الكراش: كان هنا SliverToBoxAdapter
-                          // متداخل داخل Column عادي — تعارض نوع render
-                          // (RenderSliver داخل RenderBox) يُسبب كراش فوري
-                          // Flutter عند تحقق هذا الشرط. الحل: عنصر عادي فقط
-                          // (بدون غلاف Sliver) لأننا بالفعل داخل Column
                           if (provider.isLoading && provider.shops.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
                               child: ShimmerList(count: 4),
                             ),
 
@@ -463,7 +470,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             _emptyState(context, provider),
 
                           // ── سنهور ديلر ────────────────────────
-                          // (الديلر والوظائف مالهمش نوع في الشريحة → «الكل» بس)
                           if (_resultType == _typeAll)
                             _buildDealerSection(context),
 
@@ -520,8 +526,7 @@ class _HomeScreenState extends State<HomeScreen> {
               )),
           ListTile(
             title: const Text('كل المناطق'),
-            leading:
-                const Icon(Icons.clear, color: Colors.grey),
+            leading: const Icon(Icons.clear, color: Colors.grey),
             onTap: () {
               Navigator.pop(context);
               context.read<ShopsProvider>().filterByRegion(null);
@@ -534,8 +539,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── مساعدات UI ────────────────────────────────────────────────────
 
-  Widget _bar(double w) => Container(
-      width: w, height: 2.5, color: Colors.white);
+  Widget _bar(double w) =>
+      Container(width: w, height: 2.5, color: Colors.white);
 
   // ── سنهور ديلر (بيع وشراء المستعمل) ────────────────────────────────
   Widget _buildDealerSection(BuildContext context) {
@@ -576,8 +581,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 14),
                   ElevatedButton(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, '/dealer'),
+                    onPressed: () => Navigator.pushNamed(context, '/dealer'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: const Color(0xFF5E35B1),
@@ -594,8 +598,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            const Icon(Icons.sell_outlined,
-                color: Colors.white54, size: 72),
+            const Icon(Icons.sell_outlined, color: Colors.white54, size: 72),
           ]),
         ),
       ],
@@ -605,7 +608,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── فرص عمل ────────────────────────────────────────────────────────
   Widget _buildJobsPreviewSection(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      // ✅ Fix #72: استخدام stream محفوظ في state
       stream: _jobsStream,
       builder: (ctx, snap) {
         if (!snap.hasData || snap.data!.docs.isEmpty) {
@@ -616,9 +618,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _sectionHeader(
               '💼 فرص عمل متاحة',
-              onViewAll: () =>
-                  Navigator.pushNamed(context, '/ads_hub',
-                      arguments: {'tab': 1}),
+              onViewAll: () => Navigator.pushNamed(context, '/ads_hub',
+                  arguments: {'tab': 1}),
             ),
             SizedBox(
               height: 100,
@@ -627,57 +628,55 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                 itemCount: jobs.length,
                 itemBuilder: (_, i) {
-                  final data =
-                      jobs[i].data() as Map<String, dynamic>;
+                  final data = jobs[i].data() as Map<String, dynamic>;
                   final title = data['title'] as String? ?? '';
                   final category = data['category'] as String? ?? '';
-                  final location =
-                      data['location'] as String? ?? '';
-                  return Container(
-                    width: 200,
-                    margin: const EdgeInsets.only(left: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.deepPurple.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: Colors.deepPurple
-                              .withValues(alpha: 0.2)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(title,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 4),
-                        Text(location,
-                            style: TextStyle(
-                                color: Colors.grey[500],
-                                fontSize: 11),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.deepPurple
-                                .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
+                  final location = data['location'] as String? ?? '';
+                  return GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/ads_hub',
+                        arguments: {'tab': 1}),
+                    child: Container(
+                      width: 200,
+                      margin: const EdgeInsets.only(left: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.deepPurple.withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: Colors.deepPurple.withValues(alpha: 0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(title,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 13),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 4),
+                          Text(location,
+                              style: TextStyle(
+                                  color: Colors.grey[500], fontSize: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color:
+                                  Colors.deepPurple.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              category,
+                              style: const TextStyle(
+                                  color: Colors.deepPurple, fontSize: 10),
+                            ),
                           ),
-                          child: Text(
-                            category,
-                            style: const TextStyle(
-                                color: Colors.deepPurple,
-                                fontSize: 10),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -693,7 +692,6 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── طلبات الخدمات ──────────────────────────────────────────────────
   Widget _buildServicesPreviewSection(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      // ✅ Fix #72: استخدام stream محفوظ في state
       stream: _servicesStream,
       builder: (ctx, snap) {
         if (!snap.hasData || snap.data!.docs.isEmpty) {
@@ -704,80 +702,67 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _sectionHeader(
               '🔧 محتاج حاجة تتعمل؟',
-              onViewAll: () =>
-                  Navigator.pushNamed(context, '/ads_hub',
-                      arguments: {'tab': 2}),
+              onViewAll: () => Navigator.pushNamed(context, '/ads_hub',
+                  arguments: {'tab': 2}),
             ),
             SizedBox(
               height: 110,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding:
-                    const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                 itemCount: requests.length,
                 itemBuilder: (_, i) {
-                  final data = requests[i].data()
-                      as Map<String, dynamic>;
-                  final title =
-                      data['title'] as String? ?? '';
-                  // ignore: unused_local_variable
-                  final category =
-                      data['category'] as String? ?? '';
-                  final bidsCount =
-                      (data['bidsCount'] as int?) ?? 0;
-                  final urgent =
-                      data['urgent'] as bool? ?? false;
-                  return Container(
-                    width: 200,
-                    margin:
-                        const EdgeInsets.only(left: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: urgent
-                          ? Colors.red.withValues(alpha: 0.06)
-                          : Colors.teal.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: (urgent ? Colors.red : Colors.teal)
-                              .withValues(alpha: 0.25)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
-                      children: [
-                        if (urgent)
-                          const Padding(
-                            padding:
-                                EdgeInsets.only(bottom: 4),
-                            child: Text('⚡ عاجل',
-                                style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 11,
-                                    fontWeight:
-                                        FontWeight.bold)),
-                          ),
-                        Text(title,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis),
-                        const SizedBox(height: 6),
-                        Row(children: [
-                          Icon(Icons.people_outline,
-                              size: 13,
-                              color: Colors.teal),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$bidsCount عرض',
-                            style: TextStyle(
-                                color: Colors.teal,
-                                fontSize: 11),
-                          ),
-                        ]),
-                      ],
+                  final data = requests[i].data() as Map<String, dynamic>;
+                  final title = data['title'] as String? ?? '';
+                  final bidsCount = (data['bidsCount'] as int?) ?? 0;
+                  final urgent = data['urgent'] as bool? ?? false;
+                  return GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/ads_hub',
+                        arguments: {'tab': 2}),
+                    child: Container(
+                      width: 200,
+                      margin: const EdgeInsets.only(left: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: urgent
+                            ? Colors.red.withValues(alpha: 0.06)
+                            : Colors.teal.withValues(alpha: 0.07),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: (urgent ? Colors.red : Colors.teal)
+                                .withValues(alpha: 0.25)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (urgent)
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 4),
+                              child: Text('⚡ عاجل',
+                                  style: TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold)),
+                            ),
+                          Text(title,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 13),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 6),
+                          Row(children: [
+                            const Icon(Icons.people_outline,
+                                size: 13, color: Colors.teal),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$bidsCount عرض',
+                              style: const TextStyle(
+                                  color: Colors.teal, fontSize: 11),
+                            ),
+                          ]),
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -797,14 +782,13 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(title,
-              style: const TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.bold)),
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           if (onViewAll != null)
             TextButton(
               onPressed: onViewAll,
               child: const Text('عرض الكل',
-                  style: TextStyle(
-                      color: Color(0xFF5E35B1), fontSize: 13)),
+                  style: TextStyle(color: Color(0xFF5E35B1), fontSize: 13)),
             ),
         ],
       ),
@@ -814,9 +798,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _forYouSection(BuildContext context, ShopsProvider provider) {
     _buildShuffleList(provider);
     if (_shuffledShops.isEmpty) return const SizedBox.shrink();
-    final title = _userInterests.isNotEmpty
-        ? '✨ اخترنا لك'
-        : '🔀 تصفح عشوائي';
+    final title =
+        _userInterests.isNotEmpty ? '✨ اخترنا لك' : '🔀 تصفح عشوائي';
     return Column(
       children: [
         Padding(
@@ -828,20 +811,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.bold)),
               TextButton.icon(
-                // ✅ Fix #29: كان بيفضّي القائمة (والتوقيع ما اتغيّرش فما كانتش بتتبني
-                // تاني) فالقسم كله كان بيختفي. دلوقتي بيعيد الخلط فعلًا.
-                onPressed: () => setState(
-                    () => _buildShuffleList(provider, force: true)),
+                onPressed: () =>
+                    setState(() => _buildShuffleList(provider, force: true)),
                 icon: const Icon(Icons.shuffle,
                     size: 16, color: Color(0xFF5E35B1)),
                 label: const Text('خلّط',
-                    style: TextStyle(
-                        color: Color(0xFF5E35B1), fontSize: 13)),
+                    style:
+                        TextStyle(color: Color(0xFF5E35B1), fontSize: 13)),
               ),
             ],
           ),
         ),
-        HorizontalList(title: '✨ اخترنا لك', items: _shuffledShops, type: 'shop'),
+        HorizontalList(
+            title: '✨ اخترنا لك', items: _shuffledShops, type: 'shop'),
         const SizedBox(height: 20),
       ],
     );
@@ -867,8 +849,8 @@ class _HomeScreenState extends State<HomeScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF5E35B1),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 32, vertical: 12),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),

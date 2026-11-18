@@ -1,4 +1,3 @@
-
 // lib/services/api_service.dart
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -18,45 +17,40 @@ import 'package:sanhour_online/services/shop_service.dart';
 import 'package:sanhour_online/services/stats_service.dart';
 import 'package:sanhour_online/services/wishlist_service.dart';
 
-
-
 class ApiService {
-  
   // ==========================================================
   // 1. المصادقة والمستخدمين (Auth)
   // ==========================================================
-  
-  static Future<Map<String, dynamic>> login(String email, String password) => 
+
+  static Future<Map<String, dynamic>> login(String email, String password) =>
       AuthService.login(email, password);
 
-  static Future<Map<String, dynamic>> registerUser(Map<String, dynamic> userData) => 
+  static Future<Map<String, dynamic>> registerUser(
+          Map<String, dynamic> userData) =>
       AuthService.registerUser(userData);
 
-  // ✅ Phase 2 Fix #15: يُمرر uid لـ AuthService.getUserStream بدل تجاهله
   static Stream<DocumentSnapshot> getUserStream(String uid) =>
       AuthService.getUserStream(userId: uid);
 
-  static Future<void> signOut() => 
-      AuthService.signOut();
+  static Future<void> signOut() => AuthService.signOut();
 
-  static Future<List<Map<String, dynamic>>> getAllUsers() => 
+  static Future<List<Map<String, dynamic>>> getAllUsers() =>
       AuthService.getAllUsers();
 
-  static Future<void> toggleUserSuspension(String userId, bool currentStatus) => 
+  static Future<void> toggleUserSuspension(String userId, bool currentStatus) =>
       AuthService.toggleUserSuspension(userId, currentStatus);
 
-  static Future<void> toggleFavorite(String type, String itemId, {String? userId}) => 
+  static Future<void> toggleFavorite(String type, String itemId,
+          {String? userId}) =>
       AuthService.toggleFavorite(type, itemId, userId: userId);
 
   static Future<List<String>> getFavorites(String type, {String? userId}) =>
       AuthService.getFavorites(type, userId: userId);
 
-  // ✅ Phase 2 Fix #16: Add-only favorite — لا toggle (يُستخدم في mergeLocalFavoritesOnLogin)
   static Future<void> addFavoriteIfNotExists(String type, String itemId,
           {required String userId}) =>
       AuthService.addFavoriteIfNotExists(type, itemId, userId: userId);
 
-  // ✅ Phase 2 Fix #17: جلب المحلات/المنتجات/العروض بـ whereIn (بدل جلب الكل وتصفية في Dart)
   static Future<List<Shop>> getShopsByIds(List<String> ids) =>
       ShopService.getShopsByIds(ids);
 
@@ -66,30 +60,27 @@ class ApiService {
   static Future<List<Offer>> getOffersByIds(List<String> ids) =>
       ProductService.getOffersByIds(ids);
 
-  // static Future<bool> checkUsernameExists(String username) =>
-  //     AuthService.checkUsernameExists(username);
-
   // ==========================================================
   // 2. المحلات والفئات (Shops)
   // ==========================================================
-  
-  static Future<List<Shop>> getShops({String? category, String? query}) => 
+
+  static Future<List<Shop>> getShops({String? category, String? query}) =>
       ShopService.getShops(category: category, query: query);
 
-  static Future<List<Shop>> getRankedShops({String? category}) => 
+  static Future<List<Shop>> getRankedShops({String? category}) =>
       ShopService.getRankedShops(category: category);
 
-  static Future<List<Shop>> getMerchantShops(String ownerId) => 
-      ShopService.getMerchantShops(ownerId);
+  static Future<List<Shop>> getMerchantShops(String ownerId,
+          {String? linkedShopId}) =>
+      ShopService.getMerchantShops(ownerId, linkedShopId: linkedShopId);
 
-  static Future<void> validateActivationCode(String code) => 
+  static Future<void> validateActivationCode(String code) =>
       ShopService.validateActivationCode(code);
 
   static Future<String> createShop(
     Map<String, dynamic> shopData,
     File? logo,
     File? cover, {
-    // ✅ Fix #23: مسار الأدمن بدون كود تفعيل (الخدمة بتتحقق من الدور)
     bool adminBypass = false,
     void Function(double fraction)? onLogoProgress,
     void Function(double fraction)? onCoverProgress,
@@ -110,31 +101,32 @@ class ApiService {
       ShopService.updateShop(shopId, data, newLogo, newCover,
           onLogoProgress: onLogoProgress, onCoverProgress: onCoverProgress);
 
-  static Future<List<CategoryModel>> getCategories() => 
+  static Future<List<CategoryModel>> getCategories() =>
       ShopService.getCategories();
 
-  static Future<void> addCategory(CategoryModel category) => 
+  static Future<void> addCategory(CategoryModel category) =>
       ShopService.addCategory(category);
 
-  static Future<void> updateCategory(CategoryModel category) => 
+  static Future<void> updateCategory(CategoryModel category) =>
       ShopService.updateCategory(category);
 
-  static Future<void> deleteCategory(String id) => 
+  static Future<void> deleteCategory(String id) =>
       ShopService.deleteCategory(id);
-
 
   // ==========================================================
   // 3. المنتجات والعروض (Products)
   // ==========================================================
-  
-  static Future<List<Product>> getProducts({String? shopId}) => 
-      ProductService.getProducts(shopId: shopId);
 
-  static Future<List<Product>> getTopProducts({String? category}) => 
+  static Future<List<Product>> getProducts({
+    String? shopId,
+    bool includeHidden = false,
+  }) =>
+      ProductService.getProducts(shopId: shopId, includeHidden: includeHidden);
+
+  static Future<List<Product>> getTopProducts({String? category}) =>
       ProductService.getTopProducts(category: category);
 
-  static Future<List<Offer>> getTopOffers() => 
-      ProductService.getTopOffers();
+  static Future<List<Offer>> getTopOffers() => ProductService.getTopOffers();
 
   static Future<void> addProduct(
     Map<String, dynamic> data,
@@ -152,13 +144,16 @@ class ApiService {
       ProductService.updateProduct(id, data, newImages,
           onImageProgress: onImageProgress);
 
-  static Future<void> deleteProduct(String id) => 
+  static Future<void> deleteProduct(String id) =>
       ProductService.deleteProduct(id);
 
-  static Future<List<Offer>> getOffers({String? shopId}) => 
-      ProductService.getOffers(shopId: shopId);
+  static Future<List<Offer>> getOffers({
+    String? shopId,
+    bool includeInactive = false,
+  }) =>
+      ProductService.getOffers(
+          shopId: shopId, includeInactive: includeInactive);
 
-  // ✅ Fix #43: إضافة visibleOnly لإتاحة رؤية الخدمات المخفية للتاجر في لوحته
   static Future<List<Map<String, dynamic>>> getServices({
     required String shopId,
     bool visibleOnly = true,
@@ -167,15 +162,22 @@ class ApiService {
       Query q = FirebaseFirestore.instance
           .collection('services')
           .where('shopId', isEqualTo: shopId);
-      if (visibleOnly) q = q.where('isVisible', isEqualTo: true);
+      if (visibleOnly) {
+        q = q.where('isVisible', isEqualTo: true);
+      }
       final snap = await q.get();
-      return snap.docs.map((d) => {'id': d.id, ...d.data() as Map<String, dynamic>}).toList();
+      final list = snap.docs
+          .map((d) => {'id': d.id, ...d.data() as Map<String, dynamic>})
+          .toList();
+      if (visibleOnly) {
+        return list.where((item) => item['isShopHidden'] != true).toList();
+      }
+      return list;
     } catch (_) {
       return [];
     }
   }
 
-  // ✅ Fix #44: إضافة isShopHidden و ownerId لضمان عمل toggleShopSuspension على الخدمات
   static Future<void> addService(Map<String, dynamic> data) async {
     final ref = FirebaseFirestore.instance.collection('services').doc();
     await ref.set({
@@ -188,7 +190,8 @@ class ApiService {
     });
   }
 
-  static Future<void> updateService(String id, Map<String, dynamic> data) async {
+  static Future<void> updateService(
+      String id, Map<String, dynamic> data) async {
     await FirebaseFirestore.instance.collection('services').doc(id).update(data);
   }
 
@@ -196,10 +199,6 @@ class ApiService {
     await FirebaseFirestore.instance.collection('services').doc(id).delete();
   }
 
-  // ✅ Fix #42: حُذفت addRating — الوظيفة مُضمَّنة في ReviewService.addReview
-
-
-  // ✅ تحديث التوقيع لدعم صور متعددة + coverIndex + تتبع تقدم الرفع
   static Future<void> addOffer(
     Map<String, dynamic> data,
     List<File> images, {
@@ -219,8 +218,7 @@ class ApiService {
       ProductService.updateOffer(id, data, newImages,
           coverIndex: coverIndex, onImageProgress: onImageProgress);
 
-  static Future<void> deleteOffer(String id) => 
-      ProductService.deleteOffer(id);
+  static Future<void> deleteOffer(String id) => ProductService.deleteOffer(id);
 
   static Future<String> uploadImage(
     File file,
@@ -229,30 +227,32 @@ class ApiService {
   }) =>
       ProductService.uploadImage(file, folder, onProgress: onProgress);
 
-  static Future<Map<String, dynamic>> importProductsExcel(String shopId, String filePath) => 
+  static Future<Map<String, dynamic>> importProductsExcel(
+          String shopId, String filePath) =>
       ProductService.importProductsExcel(shopId, filePath);
 
-  static Future<void> bulkDeleteProducts(List<String> ids) => 
+  static Future<void> bulkDeleteProducts(List<String> ids) =>
       ProductService.bulkDeleteProducts(ids);
 
-  static Future<void> bulkUpdateProductCategory(List<String> ids, String category) => 
+  static Future<void> bulkUpdateProductCategory(
+          List<String> ids, String category) =>
       ProductService.bulkUpdateProductCategory(ids, category);
-
 
   // ==========================================================
   // 4. الإحصائيات (Stats)
   // ==========================================================
-  
-  static Future<void> logShopVisit(String shopId) => 
+
+  static Future<void> logShopVisit(String shopId) =>
       StatsService.logShopVisit(shopId);
 
-  static Future<void> logProductVisit(String id) => 
+  static Future<void> logProductVisit(String id) =>
       StatsService.logProductVisit(id);
 
-  static Future<void> logOfferVisit(String id) => 
+  static Future<void> logOfferVisit(String id) =>
       StatsService.logOfferVisit(id);
 
-  static Future<Map<String, dynamic>> getMerchantAdvancedStats(String shopId, {DateTime? start, DateTime? end}) => 
+  static Future<Map<String, dynamic>> getMerchantAdvancedStats(String shopId,
+          {DateTime? start, DateTime? end}) =>
       StatsService.getMerchantAdvancedStats(shopId, start: start, end: end);
 
   static Future<List<Map<String, dynamic>>> getTopItems({
@@ -260,27 +260,31 @@ class ApiService {
     required String type,
     required String sortBy,
     int limit = 100,
-  }) => StatsService.getTopItems(shopId: shopId, type: type, sortBy: sortBy, limit: limit);
+  }) =>
+      StatsService.getTopItems(
+          shopId: shopId, type: type, sortBy: sortBy, limit: limit);
 
   static Future<Map<String, int>> getItemRank({
     required String collection,
     required String id,
     required int currentViews,
     String? category,
-  }) => StatsService.getItemRank(collection: collection, id: id, currentViews: currentViews, category: category);
-
+  }) =>
+      StatsService.getItemRank(
+          collection: collection,
+          id: id,
+          currentViews: currentViews,
+          category: category);
 
   // ==========================================================
   // 5. الإعلانات (Ads)
   // ==========================================================
-  
-  static Future<List<AdModel>> getActiveAds() => 
-      AdService.getActiveAds();
 
-  static Future<void> incrementAdClickCount(String adId) => 
+  static Future<List<AdModel>> getActiveAds() => AdService.getActiveAds();
+
+  static Future<void> incrementAdClickCount(String adId) =>
       AdService.incrementAdClickCount(adId);
 
-  // ✅ تحديث التوقيع لدعم صور متعددة + coverIndex + تتبع تقدم الرفع
   static Future<void> createAd({
     required List<File> imageFiles,
     required String targetType,
@@ -306,116 +310,116 @@ class ApiService {
         onImageProgress: onImageProgress,
       );
 
-  static Future<String> generateAdCode() => 
-      AdService.generateAdCode();
-
+  static Future<String> generateAdCode() => AdService.generateAdCode();
 
   // ==========================================================
   // 6. الأدمن (Admin)
   // ==========================================================
-  
-  static Future<List<Map<String, dynamic>>> getAllCodes() => 
+
+  static Future<List<Map<String, dynamic>>> getAllCodes() =>
       AdminService.getAllCodes();
 
-  static Future<void> generateActivationCode(String adminId) => 
+  static Future<String> generateActivationCode(String adminId) =>
       AdminService.generateActivationCode(adminId);
 
-  static Future<void> submitComplaint(Map<String, dynamic> data) => 
+  static Future<void> submitComplaint(Map<String, dynamic> data) =>
       AdminService.submitComplaint(data);
 
-  static Future<List<Map<String, dynamic>>> getComplaints() => 
+  static Future<List<Map<String, dynamic>>> getComplaints() =>
       AdminService.getComplaints();
 
-  static Future<void> updateComplaintStatus(String id, String status) => 
+  static Future<void> updateComplaintStatus(String id, String status) =>
       AdminService.updateComplaintStatus(id, status);
 
   static Future<void> replyToComplaint({
     required String complaintId,
     required String reply,
     required String userId,
-  }) => AdminService.replyToComplaint(
-    complaintId: complaintId, 
-    reply: reply, 
-    userId: userId
-  );
+  }) =>
+      AdminService.replyToComplaint(
+          complaintId: complaintId, reply: reply, userId: userId);
 
-  static Future<void> deleteContent(String collection, String id) => 
+  static Future<void> deleteContent(String collection, String id) =>
       AdminService.deleteContent(collection, id);
-      
+
   static Future<void> deleteUser(String userId) =>
       AdminService.deleteUser(userId);
 
-  static Future<Map<String, int>> getAppStatistics() => 
+  static Future<Map<String, int>> getAppStatistics() =>
       AdminService.getAppStatistics();
-      
+
   static Future<Map<String, dynamic>> getAppSettings() =>
       AdminService.getAppSettings();
-      
+
   static Future<void> updateAppSettings(Map<String, dynamic> data) =>
       AdminService.updateAppSettings(data);
 
-  // ✅ Fix #17: مفتاح Gemini في settings_private (خارج الإعدادات العامة)
   static Future<String> getGeminiApiKey() => AdminService.getGeminiApiKey();
 
   static Future<void> saveGeminiApiKey(String key) =>
       AdminService.saveGeminiApiKey(key);
 
-  static Future<void> toggleShopSuspension(String shopId, bool currentStatus) => 
+  static Future<void> toggleShopSuspension(
+          String shopId, bool currentStatus) =>
       AdminService.toggleShopSuspension(shopId, currentStatus);
 
-  static Future<void> deleteShop(String shopId) => 
+  static Future<void> deleteShop(String shopId) =>
       AdminService.deleteShop(shopId);
 
-  // ✅ QA Fix #08: توحيد التوقيع مع AdminService — docId بدلاً من itemId + معاملات اختيارية
   static Future<void> deleteItemWithNotification({
     required String collection,
     required String itemId,
     String? ownerId,
     String? itemName,
     required String reason,
-  }) => AdminService.deleteItemWithNotification(
-    collection: collection,
-    docId: itemId,
-    reason: reason,
-    ownerId: ownerId,
-    itemName: itemName,
-  );
+  }) =>
+      AdminService.deleteItemWithNotification(
+        collection: collection,
+        docId: itemId,
+        reason: reason,
+        ownerId: ownerId,
+        itemName: itemName,
+      );
 
   // ==========================================================
   // 7. المراجعات والتقييمات (Reviews)
   // ==========================================================
 
-  static Future<void> addReview(Review review) => 
-      ReviewService.addReview(review);
+  static Future<void> addReview(Review review) => ReviewService.addReview(review);
 
-  static Future<List<Review>> getReviews(String targetId) => 
+  static Future<List<Review>> getReviews(String targetId) =>
       ReviewService.getReviews(targetId);
 
-  static Future<void> replyToReview(String reviewId, String reply) => 
+  static Future<void> replyToReview(String reviewId, String reply) =>
       ReviewService.replyToReview(reviewId, reply);
 
-  static Future<void> toggleProductFavorite(String productId, bool isFavorite) async {
+  static Future<void> toggleProductFavorite(
+      String productId, bool isFavorite) async {
     await AuthService.toggleFavorite('product', productId);
   }
 
-  static Future<void> toggleOfferFavorite(String offerId, bool isFavorite) async {
+  static Future<void> toggleOfferFavorite(
+      String offerId, bool isFavorite) async {
     await AuthService.toggleFavorite('offer', offerId);
   }
 
   // ==========================================================
   // 8. القوائم والمفضلة (Collections & Wishlist)
   // ==========================================================
-  
+
   static Future<void> createCollection(WishlistCollection collection) =>
       WishlistService.createCollection(collection);
 
-  static Stream<List<WishlistCollection>> getUserCollectionsStream(String userId) =>
+  static Stream<List<WishlistCollection>> getUserCollectionsStream(
+          String userId) =>
       WishlistService.getUserCollectionsStream(userId);
 
-  static Future<void> addItemToCollection(String collectionId, WishlistItem item) =>
+  static Future<void> addItemToCollection(
+          String collectionId, WishlistItem item) =>
       WishlistService.addItemToCollection(collectionId, item);
 
-  static Future<void> removeItemFromCollection(String collectionId, WishlistItem item) =>
+  static Future<void> removeItemFromCollection(
+          String collectionId, WishlistItem item) =>
       WishlistService.removeItemFromCollection(collectionId, item);
 
   static Future<void> deleteCollection(String collectionId) =>

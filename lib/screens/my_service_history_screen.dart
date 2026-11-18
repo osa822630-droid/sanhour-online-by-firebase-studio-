@@ -1,6 +1,6 @@
 // lib/screens/my_service_history_screen.dart
 // ✅ Fix #33: cursor-based pagination لكلا التابَّيْن (طلباتي / عروضي)
-// ✅ Fix #33: إضافة ScrollController + _loadMore عند الوصول لآخر القائمة
+// ✅ عرض العروض المقدمة عند النقر على الطلب وتطبيع أرقام الواتساب
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/service_request_model.dart';
 import '../models/service_bid_model.dart';
 import '../providers/auth_provider.dart';
+import '../utils/constants.dart';
 import '../widgets/app_footer.dart';
 
 class MyServiceHistoryScreen extends StatefulWidget {
@@ -19,15 +20,13 @@ class MyServiceHistoryScreen extends StatefulWidget {
       _MyServiceHistoryScreenState();
 }
 
-class _MyServiceHistoryScreenState
-    extends State<MyServiceHistoryScreen>
+class _MyServiceHistoryScreenState extends State<MyServiceHistoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabs;
   final _db = FirebaseFirestore.instance;
 
   static const int _pageSize = 15;
 
-  // ── Requests state ─────────────────────────────────────────────────
   final List<ServiceRequestModel> _myRequests = [];
   DocumentSnapshot? _lastReqDoc;
   bool _loadingRequests = true;
@@ -36,7 +35,6 @@ class _MyServiceHistoryScreenState
   String? _reqError;
   final ScrollController _reqScrollCtrl = ScrollController();
 
-  // ── Bids state ─────────────────────────────────────────────────────
   final List<ServiceBidModel> _myBids = [];
   DocumentSnapshot? _lastBidDoc;
   bool _loadingBids = true;
@@ -44,6 +42,7 @@ class _MyServiceHistoryScreenState
   bool _fetchingMoreBid = false;
   String? _bidError;
   final ScrollController _bidScrollCtrl = ScrollController();
+  final Map<String, Future<DocumentSnapshot>> _requestDocFutures = {};
 
   @override
   void initState() {
@@ -81,8 +80,6 @@ class _MyServiceHistoryScreenState
     _bidScrollCtrl.dispose();
     super.dispose();
   }
-
-  // ── Requests pagination ────────────────────────────────────────────
 
   Future<void> _loadRequests(String uid, {bool refresh = false}) async {
     if (refresh) {
@@ -131,8 +128,6 @@ class _MyServiceHistoryScreenState
     if (mounted) setState(() => _fetchingMoreReq = false);
   }
 
-  // ── Bids pagination ────────────────────────────────────────────────
-
   Future<void> _loadBids(String uid, {bool refresh = false}) async {
     if (refresh) {
       setState(() {
@@ -180,7 +175,12 @@ class _MyServiceHistoryScreenState
     if (mounted) setState(() => _fetchingMoreBid = false);
   }
 
-  // ── Build ──────────────────────────────────────────────────────────
+  Future<DocumentSnapshot> _getRequestDoc(String requestId) {
+    return _requestDocFutures.putIfAbsent(
+      requestId,
+      () => _db.collection('service_requests').doc(requestId).get(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +203,8 @@ class _MyServiceHistoryScreenState
           unselectedLabelColor: Colors.white70,
           tabs: [
             Tab(
-              text: 'طلباتي (${_myRequests.length}${_hasMoreRequests ? '+' : ''})',
+              text:
+                  'طلباتي (${_myRequests.length}${_hasMoreRequests ? '+' : ''})',
               icon: const Icon(Icons.request_page_outlined, size: 18),
             ),
             Tab(
@@ -223,8 +224,6 @@ class _MyServiceHistoryScreenState
     );
   }
 
-  // ── Requests Tab ───────────────────────────────────────────────────
-
   Widget _buildRequestsTab(bool isDark, String? uid) {
     if (_loadingRequests && _myRequests.isEmpty) {
       return const Center(child: CircularProgressIndicator());
@@ -237,7 +236,8 @@ class _MyServiceHistoryScreenState
           Text(_reqError!, textAlign: TextAlign.center),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: () => uid != null ? _loadRequests(uid, refresh: true) : null,
+            onPressed: () =>
+                uid != null ? _loadRequests(uid, refresh: true) : null,
             icon: const Icon(Icons.refresh),
             label: const Text('إعادة المحاولة'),
           ),
@@ -246,21 +246,22 @@ class _MyServiceHistoryScreenState
     }
     if (_myRequests.isEmpty) {
       return _emptyState('لم تنشر أي طلبات بعد',
-          'طلبات الخدمات التي تنشرها ستظهر هنا',
-          Icons.request_page_outlined);
+          'طلبات الخدمات التي تنشرها ستظهر هنا', Icons.request_page_outlined);
     }
     return RefreshIndicator(
-      onRefresh: () async => uid != null ? _loadRequests(uid, refresh: true) : null,
+      onRefresh: () async =>
+          uid != null ? _loadRequests(uid, refresh: true) : null,
       child: ListView.builder(
         controller: _reqScrollCtrl,
         padding: const EdgeInsets.all(12),
-        itemCount: _myRequests.length + (_hasMoreRequests ? 1 : 1),
+        itemCount: _myRequests.length + 1,
         itemBuilder: (ctx, i) {
           if (i == _myRequests.length) {
             if (_hasMoreRequests) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                child:
+                    Center(child: CircularProgressIndicator(strokeWidth: 2)),
               );
             }
             return const AppFooter();
@@ -270,8 +271,6 @@ class _MyServiceHistoryScreenState
       ),
     );
   }
-
-  // ── Bids Tab ───────────────────────────────────────────────────────
 
   Widget _buildBidsTab(bool isDark, String? uid) {
     if (_loadingBids && _myBids.isEmpty) {
@@ -302,13 +301,14 @@ class _MyServiceHistoryScreenState
       child: ListView.builder(
         controller: _bidScrollCtrl,
         padding: const EdgeInsets.all(12),
-        itemCount: _myBids.length + (_hasMoreBids ? 1 : 1),
+        itemCount: _myBids.length + 1,
         itemBuilder: (ctx, i) {
           if (i == _myBids.length) {
             if (_hasMoreBids) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                child:
+                    Center(child: CircularProgressIndicator(strokeWidth: 2)),
               );
             }
             return const AppFooter();
@@ -319,67 +319,180 @@ class _MyServiceHistoryScreenState
     );
   }
 
-  // ── Cards ──────────────────────────────────────────────────────────
-
   Widget _buildRequestCard(ServiceRequestModel r, bool isDark) {
     final statusColor = r.isOpen
         ? Colors.green
-        : r.isAccepted ? Colors.blue : Colors.grey;
+        : r.isAccepted
+            ? Colors.blue
+            : Colors.grey;
     final statusLabel = r.isOpen
         ? '🟢 مفتوح'
-        : r.isAccepted ? '✅ مقبول' : '🔴 مغلق';
+        : r.isAccepted
+            ? '✅ مقبول'
+            : '🔴 مغلق';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 2,
       color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.teal.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showRequestBidsSheet(r),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.teal.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(ServiceRequestModel.categoryLabel(r.category),
+                    style: const TextStyle(color: Colors.teal, fontSize: 11)),
               ),
-              child: Text(ServiceRequestModel.categoryLabel(r.category),
-                  style: const TextStyle(color: Colors.teal, fontSize: 11)),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+              const Spacer(),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(statusLabel,
+                    style: TextStyle(
+                        color: statusColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold)),
               ),
-              child: Text(statusLabel,
-                  style: TextStyle(
-                      color: statusColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold)),
-            ),
+            ]),
+            const SizedBox(height: 8),
+            Text(r.title,
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const SizedBox(height: 4),
+            Row(children: [
+              Icon(Icons.people_outline, size: 14, color: Colors.grey[500]),
+              const SizedBox(width: 4),
+              Text('${r.bidsCount} عرض مقدّم (اضغط للعرض)',
+                  style: const TextStyle(
+                      color: Color(0xFF5E35B1),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(width: 12),
+              Icon(Icons.location_on_outlined,
+                  size: 14, color: Colors.grey[500]),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(r.location,
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ]),
           ]),
-          const SizedBox(height: 8),
-          Text(r.title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 4),
-          Row(children: [
-            Icon(Icons.people_outline, size: 14, color: Colors.grey[500]),
-            const SizedBox(width: 4),
-            Text('${r.bidsCount} عرض مقدّم',
-                style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-            const SizedBox(width: 12),
-            Icon(Icons.location_on_outlined, size: 14, color: Colors.grey[500]),
-            const SizedBox(width: 4),
+        ),
+      ),
+    );
+  }
+
+  void _showRequestBidsSheet(ServiceRequestModel req) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.65,
+        maxChildSize: 0.9,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (_, ctrl) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'العروض المقدّمة على: ${req.title}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
             Expanded(
-              child: Text(r.location,
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                  overflow: TextOverflow.ellipsis),
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _db
+                    .collection('service_bids')
+                    .where('requestId', isEqualTo: req.id)
+                    .orderBy('createdAt', descending: false)
+                    .snapshots(),
+                builder: (_, snap) {
+                  if (!snap.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final bids = snap.data!.docs.map((d) {
+                    final data = Map<String, dynamic>.from(d.data() as Map);
+                    data['id'] = d.id;
+                    return ServiceBidModel.fromMap(data);
+                  }).toList();
+                  if (bids.isEmpty) {
+                    return const Center(child: Text('لا توجد عروض مقدمة بعد'));
+                  }
+                  return ListView.builder(
+                    controller: ctrl,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: bids.length,
+                    itemBuilder: (_, i) {
+                      final b = bids[i];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: ListTile(
+                          title: Text(
+                              '${b.providerName} — ${b.offeredPrice.toStringAsFixed(0)} جنيه',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: b.note.isNotEmpty ? Text(b.note) : null,
+                          trailing: b.isAccepted
+                              ? IconButton(
+                                  icon: const Icon(Icons.phone,
+                                      color: Colors.green),
+                                  onPressed: () async {
+                                    final clean = AppConstants.normalizePhone(
+                                        b.providerPhone);
+                                    final uri = Uri.parse('tel:$clean');
+                                    if (await canLaunchUrl(uri)) {
+                                      await launchUrl(uri);
+                                    }
+                                  },
+                                )
+                              : Text(
+                                  b.isPending ? 'قيد الانتظار' : 'مرفوض',
+                                  style: TextStyle(
+                                      color: b.isPending
+                                          ? Colors.orange
+                                          : Colors.grey,
+                                      fontSize: 12),
+                                ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ]),
-        ]),
+          ],
+        ),
       ),
     );
   }
@@ -457,7 +570,7 @@ class _MyServiceHistoryScreenState
                 ),
                 const SizedBox(height: 10),
                 FutureBuilder<DocumentSnapshot>(
-                  future: _db.collection('service_requests').doc(bid.requestId).get(),
+                  future: _getRequestDoc(bid.requestId),
                   builder: (_, snap) {
                     if (!snap.hasData || !snap.data!.exists) {
                       return const Text('جاري التحميل...',
@@ -469,7 +582,9 @@ class _MyServiceHistoryScreenState
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
-                            final uri = Uri.parse('tel:$clientPhone');
+                            final clean =
+                                AppConstants.normalizePhone(clientPhone);
+                            final uri = Uri.parse('tel:$clean');
                             if (await canLaunchUrl(uri)) launchUrl(uri);
                           },
                           icon: const Icon(Icons.phone, size: 16),
@@ -482,11 +597,12 @@ class _MyServiceHistoryScreenState
                       const SizedBox(width: 8),
                       OutlinedButton.icon(
                         onPressed: () async {
-                          final clean = clientPhone.replaceAll(RegExp(r'[^0-9]'), '');
-                          final number = clean.startsWith('20') ? clean : '2$clean';
+                          final number = AppConstants.normalizeWhatsAppPhone(
+                              clientPhone);
                           final uri = Uri.parse('https://wa.me/$number');
                           if (await canLaunchUrl(uri)) {
-                            launchUrl(uri, mode: LaunchMode.externalApplication);
+                            launchUrl(uri,
+                                mode: LaunchMode.externalApplication);
                           }
                         },
                         icon: const Icon(Icons.message, size: 16),
@@ -511,8 +627,7 @@ class _MyServiceHistoryScreenState
     );
   }
 
-  Widget _emptyState(String title, String subtitle, IconData icon) =>
-      Center(
+  Widget _emptyState(String title, String subtitle, IconData icon) => Center(
         child: Padding(
           padding: const EdgeInsets.all(40),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [

@@ -5,7 +5,7 @@
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
 		<key>CFBundleDisplayName</key>
-		<string>Sanhour Online</string>
+		<string>سنهور أونلاين</string>
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
@@ -47,5 +47,22 @@
 		<true/>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>NSCameraUsageDescription</key>
+		<string>يحتاج سنهور أونلاين إلى الكاميرا لالتقاط صور المحلات والمنتجات والإعلانات.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>يحتاج سنهور أونلاين إلى مكتبة الصور لاختيار صور المنتجات والعروض.</string>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>يحتاج سنهور أونلاين إلى حفظ الصور في مكتبة الصور.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>يحتاج سنهور أونلاين إلى الميكروفون لتشغيل البحث الصوتي باللهجة المصرية.</string>
+		<key>NSSpeechRecognitionUsageDescription</key>
+		<string>يحتاج سنهور أونلاين إلى ميزة التعرف على الكلام لتحويل البحث الصوتي إلى نص.</string>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>tel</string>
+			<string>whatsapp</string>
+			<string>https</string>
+			<string>http</string>
+		</array>
 	</dict>
 </plist>

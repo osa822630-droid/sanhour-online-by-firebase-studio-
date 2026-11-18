@@ -32,7 +32,8 @@ class _OffersScreenState extends State<OffersScreen> {
   }
 
   List<Offer> _filteredOffers(List<Offer> all) {
-    var result = List<Offer>.from(all);
+    // ✅ Decision #10: إخفاء العروض المنتهية تماماً من شاشة العروض للمشتري (بما فيها شريحة الكل)
+    var result = all.where((o) => !o.isExpired).toList();
 
     // فلتر نص البحث
     if (_searchQuery.isNotEmpty) {

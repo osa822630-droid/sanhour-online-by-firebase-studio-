@@ -37,12 +37,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final auth = context.read<AuthProvider>();
     final userId = auth.user?.id;
 
-    // ✅ Fix #14: الاستعلام موجَّه للمستخدم من الخادم (targetUserId) بدل قراءة
-    // آخر 60 إشعاراً لكل المستخدمين ثم الفلترة محلياً — القواعد ترفض أي
-    // استعلام غير مقيَّد بصاحب الإشعار (فكانت الشاشة تظهر فارغة)، وكان يهدر
-    // قراءات على مستندات ليست لهذا المستخدم. البث العام (all/merchants/
-    // customers) أصبح Push فقط عبر notification_queue ولا يمر بهذا الصندوق.
-    // (تُستدعى من initState قبل أول build، فلا حاجة لـ setState هنا.)
     if (userId == null || userId.isEmpty) {
       _isLoading = false;
       return;
@@ -78,23 +72,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final userId = context.read<AuthProvider>().user?.id;
     if (userId == null) return;
 
-    final unread = _notifications
-        .where((n) => n['isRead'] != true)
-        .toList();
+    final unread = _notifications.where((n) => n['isRead'] != true).toList();
     if (unread.isEmpty) return;
 
-    // ✅ Fix #68 #183: batch chunked ≤490 + تحديث الـ UI فوراً
-    // ✅ Fix #184: setState قبل await لتجنب context غير نشط
     setState(() {
       for (final n in unread) {
         n['isRead'] = true;
       }
     });
 
-    // ✅ Fix #183: تقسيم batch إذا تجاوز 490
     for (int i = 0; i < unread.length; i += 490) {
-      final chunk = unread.sublist(
-          i, (i + 490).clamp(0, unread.length));
+      final chunk = unread.sublist(i, (i + 490).clamp(0, unread.length));
       final batch = _db.batch();
       for (final n in chunk) {
         final id = n['id'] as String?;
@@ -121,27 +109,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (userId == null) return;
 
     try {
-      // إضافة المستخدم كمتعاون
       await _db.collection('wishlists').doc(collectionId).update({
         'collaborators': FieldValue.arrayUnion([userId]),
       });
 
-      // تحديث الدعوة
-      await _updateInviteStatus(
-          collectionId, userId, inviterId, 'accepted');
+      await _updateInviteStatus(collectionId, userId, inviterId, 'accepted');
 
-      // تعليم الإشعار كمقروء
       await _db.collection('notifications').doc(notif['id']).update({
         'isRead': true,
         'inviteStatus': 'accepted',
       });
 
-      // إشعار الإدارة/المرسل بالقبول
       if (inviterId != null) {
         await _db.collection('notifications').add({
           'title': '✅ ${auth.user?.name ?? 'مستخدم'} قبل دعوتك',
-          'body':
-              'انضم لقائمة "${data['collectionName'] ?? ''}"',
+          'body': 'انضم لقائمة "${data['collectionName'] ?? ''}"',
           'type': 'invite_accepted',
           'targetUserId': inviterId,
           'fromUserId': userId,
@@ -174,8 +156,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     try {
       final userId = context.read<AuthProvider>().user?.id;
-      await _updateInviteStatus(
-          collectionId, userId, inviterId, 'rejected');
+      await _updateInviteStatus(collectionId, userId, inviterId, 'rejected');
 
       await _db.collection('notifications').doc(notif['id']).update({
         'isRead': true,
@@ -203,7 +184,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         .where('collectionId', isEqualTo: collectionId)
         .where('inviteeId', isEqualTo: userId)
         .where('status', isEqualTo: 'pending')
-        .limit(1)
+        .limit(20)
         .get();
 
     for (final d in snap.docs) {
@@ -228,8 +209,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             if (unreadCount > 0) ...[
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.red,
                   borderRadius: BorderRadius.circular(12),
@@ -264,7 +245,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ? _buildEmptyState()
               : ListView(
                   children: [
-                    // ✅ Fix #207: تجميع الإشعارات حسب التاريخ (اليوم / أمس / هذا الأسبوع / أقدم)
                     ..._buildGroupedNotifications(isDark),
                     const AppFooter(),
                   ],
@@ -333,7 +313,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     DateTime? date;
     if (createdAt is Timestamp) date = createdAt.toDate();
 
-    // أيقونة ولون حسب النوع
     IconData icon;
     Color color;
     switch (type) {
@@ -346,16 +325,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         color = Colors.green;
         break;
       case 'offer':
+      case 'new_offer':
         icon = Icons.local_offer;
         color = Colors.orange;
         break;
       case 'system':
+      case 'subscription':
+      case 'admin_broadcast':
         icon = Icons.info;
         color = Colors.blue;
         break;
       case 'price_drop':
         icon = Icons.trending_down;
         color = Colors.red;
+        break;
+      case 'new_bid':
+      case 'bid_received':
+      case 'bid_accepted':
+        icon = Icons.handyman;
+        color = Colors.teal;
+        break;
+      case 'complaint_reply':
+        icon = Icons.support_agent;
+        color = Colors.indigo;
         break;
       default:
         icon = Icons.notifications;
@@ -368,12 +360,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Container(
       color: isRead
           ? Colors.transparent
-          : (isDark
-              ? const Color(0xFF1E1040)
-              : const Color(0xFFF0EEFF)),
+          : (isDark ? const Color(0xFF1E1040) : const Color(0xFFF0EEFF)),
       child: Column(
         children: [
           ListTile(
+            onTap: () => _onNotificationTap(n),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: Container(
@@ -387,8 +378,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ),
             title: Text(title,
                 style: TextStyle(
-                    fontWeight:
-                        isRead ? FontWeight.normal : FontWeight.bold,
+                    fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
                     fontSize: 14)),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,9 +387,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   const SizedBox(height: 3),
                   Text(body,
                       style: TextStyle(
-                          color: isDark
-                              ? Colors.grey[400]
-                              : Colors.grey[600],
+                          color:
+                              isDark ? Colors.grey[400] : Colors.grey[600],
                           fontSize: 12,
                           height: 1.4),
                       maxLines: 2,
@@ -408,8 +397,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 if (date != null) ...[
                   const SizedBox(height: 3),
                   Text(_formatDate(date),
-                      style: TextStyle(
-                          color: Colors.grey[500], fontSize: 11)),
+                      style:
+                          TextStyle(color: Colors.grey[500], fontSize: 11)),
                 ],
               ],
             ),
@@ -418,13 +407,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     width: 8,
                     height: 8,
                     decoration: const BoxDecoration(
-                        color: Color(0xFF5E35B1),
-                        shape: BoxShape.circle),
+                        color: Color(0xFF5E35B1), shape: BoxShape.circle),
                   )
                 : null,
           ),
 
-          // ── أزرار قبول/رفض الدعوة ──────────────────────────────
           if (isPendingInvite)
             Padding(
               padding: const EdgeInsets.fromLTRB(72, 0, 16, 12),
@@ -433,8 +420,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   child: OutlinedButton.icon(
                     onPressed: () => _rejectInvite(n),
                     icon: const Icon(Icons.close, size: 16),
-                    label: const Text('رفض',
-                        style: TextStyle(fontSize: 13)),
+                    label:
+                        const Text('رفض', style: TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
                       side: const BorderSide(color: Colors.red),
@@ -449,8 +436,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   child: ElevatedButton.icon(
                     onPressed: () => _acceptInvite(n),
                     icon: const Icon(Icons.check, size: 16),
-                    label: const Text('قبول',
-                        style: TextStyle(fontSize: 13)),
+                    label:
+                        const Text('قبول', style: TextStyle(fontSize: 13)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -463,7 +450,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ]),
             ),
 
-          // حالة الدعوة بعد الرد
           if (type == 'collection_invite' && inviteStatus != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(72, 0, 16, 10),
@@ -492,7 +478,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ]),
             ),
 
-          Divider(height: 1, indent: 72, color: Colors.grey.withValues(alpha: 0.2)),
+          Divider(
+              height: 1,
+              indent: 72,
+              color: Colors.grey.withValues(alpha: 0.2)),
         ],
       ),
     );
@@ -513,6 +502,135 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ],
       ),
     );
+  }
+
+  // ✅ توحيد معالجة التوجيه عند النقر على الإشعارات بكافة أنواعها ومساراتها
+  Future<void> _onNotificationTap(Map<String, dynamic> n) async {
+    final notifId = n['id'] as String?;
+    final isRead = n['isRead'] == true;
+    if (!isRead && notifId != null && notifId.isNotEmpty) {
+      setState(() {
+        n['isRead'] = true;
+      });
+      try {
+        await _db
+            .collection('notifications')
+            .doc(notifId)
+            .update({'isRead': true});
+      } catch (_) {}
+    }
+
+    if (!mounted) {
+      return;
+    }
+    final rawData = n['data'];
+    final data = rawData is Map
+        ? Map<String, dynamic>.from(rawData)
+        : <String, dynamic>{};
+    final type = (n['type'] as String? ?? '').trim();
+    final route = (data['route'] as String? ?? '').trim();
+
+    if (route.startsWith('collection:') ||
+        route.startsWith('collection_detail:')) {
+      final colId = route.split(':').last.trim();
+      if (colId.isNotEmpty) {
+        Navigator.pushNamed(context, '/collection/$colId');
+        return;
+      }
+    }
+    if (type == 'collection_invite' ||
+        type == 'invite_accepted' ||
+        route == 'collection_detail') {
+      final colId = (data['collectionId'] as String? ?? '').trim();
+      if (colId.isNotEmpty) {
+        Navigator.pushNamed(context, '/collection/$colId');
+      } else {
+        Navigator.pushNamed(context, '/favorites');
+      }
+      return;
+    }
+    if (type == 'complaint_reply' ||
+        route == 'my_complaints' ||
+        route == 'user_complaints') {
+      Navigator.pushNamed(context, '/my_complaints');
+      return;
+    }
+    if (route == 'merchant' || type == 'subscription') {
+      Navigator.pushNamed(context, '/merchant');
+      return;
+    }
+    if (route == 'job_ads' || type == 'job_ad') {
+      Navigator.pushNamed(context, '/job_ads');
+      return;
+    }
+    if (route == 'service_requests' ||
+        route.startsWith('service_request:') ||
+        type == 'new_bid' ||
+        type == 'bid_received' ||
+        type == 'bid_accepted') {
+      final reqId = (data['requestId'] as String? ??
+              (route.startsWith('service_request:')
+                  ? route.substring('service_request:'.length)
+                  : ''))
+          .trim();
+      if (type == 'new_bid' || type == 'bid_received') {
+        Navigator.pushNamed(context, '/my_service_history');
+      } else if (reqId.isNotEmpty) {
+        Navigator.pushNamed(context, '/service_request/$reqId');
+      } else {
+        Navigator.pushNamed(context, '/service_requests');
+      }
+      return;
+    }
+
+    final shopId = (data['shopId'] as String? ?? '').trim();
+    if (route.startsWith('shop:') ||
+        route.startsWith('shop_details:') ||
+        route == 'shop_details' ||
+        shopId.isNotEmpty) {
+      final targetShopId = shopId.isNotEmpty
+          ? shopId
+          : (route.contains(':') ? route.split(':').last.trim() : '');
+      if (targetShopId.isNotEmpty) {
+        Navigator.pushNamed(context, '/shop/$targetShopId');
+        return;
+      }
+    }
+
+    final offerId = (data['offerId'] as String? ?? '').trim();
+    if (route.startsWith('offer:') ||
+        route.startsWith('offer_details:') ||
+        route == 'offer_details' ||
+        type == 'new_offer' ||
+        type == 'offer' ||
+        offerId.isNotEmpty) {
+      final targetOfferId = offerId.isNotEmpty
+          ? offerId
+          : (route.contains(':') ? route.split(':').last.trim() : '');
+      if (targetOfferId.isNotEmpty) {
+        Navigator.pushNamed(context, '/offer/$targetOfferId');
+      } else {
+        Navigator.pushNamed(context, '/offers');
+      }
+      return;
+    }
+
+    final productId = (data['productId'] as String? ?? '').trim();
+    if (route.startsWith('product:') ||
+        route.startsWith('product_details:') ||
+        route == 'product_details' ||
+        type == 'price_drop' ||
+        productId.isNotEmpty) {
+      final targetProdId = productId.isNotEmpty
+          ? productId
+          : (route.contains(':') ? route.split(':').last.trim() : '');
+      if (targetProdId.isNotEmpty) {
+        Navigator.pushNamed(context, '/product/$targetProdId');
+      } else {
+        Navigator.pushNamed(context, '/offers');
+      }
+      return;
+    }
   }
 
   String _formatDate(DateTime d) {

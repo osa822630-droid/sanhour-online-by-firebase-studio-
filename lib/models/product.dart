@@ -1,8 +1,6 @@
 // lib/models/product.dart
-// ✅ Phase 1 Fix #06: إضافة 'searchKeywords' إلى toMap().
-// كان الحقل موجوداً في الكلاس ويُقرأ في fromMap()، لكنه لم يُحفظ عند الكتابة.
-// النتيجة: كل منتج جديد يُحفظ في Firestore بدون searchKeywords → لا يظهر في البحث أبدًا.
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/date_parser.dart';
 
 class Product {
   final String id;
@@ -12,8 +10,10 @@ class Product {
   final double price;
   final double originalPrice;
   final List<String> imageUrls;
+  final int coverImageIndex;
   final String category;
   final bool isFavorite;
+  final int favoriteCount;
   final double rating;
   final bool hasPriceDrop;
   final double oldPrice;
@@ -26,11 +26,10 @@ class Product {
   final int views;
   final int reviewCount;
   final bool isVisible;
+  final bool isShopHidden;
   final int sortOrder;
   final String listName;
-  // ✅ كلمات البحث — الآن تُحفظ وتُقرأ بشكل صحيح
   final List<String>? searchKeywords;
-  // ✅ تاريخ الإنشاء — ضروري لـ newProducts getter (Phase 1 Fix #11)
   final DateTime? createdAt;
 
   Product({
@@ -41,8 +40,10 @@ class Product {
     required this.price,
     this.originalPrice = 0.0,
     this.imageUrls = const [],
+    this.coverImageIndex = 0,
     this.category = '',
     this.isFavorite = false,
+    int? favoriteCount,
     this.rating = 0.0,
     this.hasPriceDrop = false,
     this.oldPrice = 0.0,
@@ -55,13 +56,22 @@ class Product {
     this.views = 0,
     this.reviewCount = 0,
     this.isVisible = true,
+    this.isShopHidden = false,
     this.sortOrder = 0,
     this.listName = '',
     this.searchKeywords,
     this.createdAt,
-  });
+  }) : favoriteCount = favoriteCount ?? (isFavorite ? 1 : 0);
 
-  int get favoriteCount => isFavorite ? 1 : 0;
+  /// يعود بصورة الغلاف المختارة للمنتج بأمان (يحترم [coverImageIndex])
+  String get displayImageUrl {
+    if (imageUrls.isEmpty) return '';
+    final idx = coverImageIndex.clamp(0, imageUrls.length - 1);
+    return imageUrls[idx];
+  }
+
+  /// للتوافق الخلفي مع أي كود يقرأ imageUrl
+  String get imageUrl => displayImageUrl;
 
   Map<String, dynamic> toMap() {
     return {
@@ -71,8 +81,11 @@ class Product {
       'price': price,
       'originalPrice': originalPrice,
       'imageUrls': imageUrls,
+      'coverImageIndex': coverImageIndex,
+      'imageUrl': displayImageUrl,
       'category': category,
       'isFavorite': isFavorite,
+      'favoriteCount': favoriteCount,
       'rating': rating,
       'hasPriceDrop': hasPriceDrop,
       'oldPrice': oldPrice,
@@ -85,13 +98,10 @@ class Product {
       'views': views,
       'reviewCount': reviewCount,
       'isVisible': isVisible,
+      'isShopHidden': isShopHidden,
       'sortOrder': sortOrder,
       'listName': listName,
-      // ✅ Phase 1 Fix #06: searchKeywords تُحفظ الآن في Firestore
       'searchKeywords': searchKeywords ?? <String>[],
-      // ✅ Item #39: كان createdAt مش بيتكتب خالص (أي كتابة بالـ map دي كانت بتفقد
-      // تاريخ الإنشاء). لو موجود بنحافظ عليه كـ Timestamp، ولو لسه null (منتج
-      // جديد) السيرفر هو اللي يحطّه (اتفاقية #25: الكتابة بـ serverTimestamp).
       'createdAt': createdAt != null
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
@@ -99,24 +109,25 @@ class Product {
   }
 
   factory Product.fromMap(Map<String, dynamic> map, String id) {
-    // ✅ قراءة آمنة لتاريخ الإنشاء — يدعم Timestamp وString وint
-    DateTime? parsedCreatedAt;
-    final rawCreatedAt = map['createdAt'];
-    if (rawCreatedAt != null) {
-      try {
-        if (rawCreatedAt.runtimeType.toString().contains('Timestamp')) {
-          // Firestore Timestamp
-          parsedCreatedAt = (rawCreatedAt as dynamic).toDate() as DateTime;
-        } else if (rawCreatedAt is String) {
-          parsedCreatedAt = DateTime.tryParse(rawCreatedAt);
-        } else if (rawCreatedAt is int) {
-          parsedCreatedAt =
-              DateTime.fromMillisecondsSinceEpoch(rawCreatedAt);
-        }
-      } catch (_) {
-        parsedCreatedAt = null;
-      }
+    final DateTime? parsedCreatedAt = DateParser.tryParse(map['createdAt']);
+
+    List<String> parsedImageUrls = [];
+    if (map['imageUrls'] is List) {
+      parsedImageUrls = List<String>.from(map['imageUrls'] as List);
     }
+    if (parsedImageUrls.isEmpty) {
+      final legacyUrl = map['imageUrl'] as String? ?? '';
+      if (legacyUrl.isNotEmpty) parsedImageUrls = [legacyUrl];
+    }
+
+    final int rawCover = (map['coverImageIndex'] as num?)?.toInt() ?? 0;
+    final int safeCoverIndex = parsedImageUrls.isEmpty
+        ? 0
+        : rawCover.clamp(0, parsedImageUrls.length - 1);
+
+    final bool fav = map['isFavorite'] as bool? ?? false;
+    final int favCount =
+        (map['favoriteCount'] as num?)?.toInt() ?? (fav ? 1 : 0);
 
     return Product(
       id: id,
@@ -125,9 +136,11 @@ class Product {
       description: map['description'] ?? '',
       price: (map['price'] as num?)?.toDouble() ?? 0.0,
       originalPrice: (map['originalPrice'] as num?)?.toDouble() ?? 0.0,
-      imageUrls: List<String>.from(map['imageUrls'] ?? []),
+      imageUrls: parsedImageUrls,
+      coverImageIndex: safeCoverIndex,
       category: (map['category'] as String?) ?? '',
-      isFavorite: map['isFavorite'] as bool? ?? false,
+      isFavorite: fav,
+      favoriteCount: favCount,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
       hasPriceDrop: map['hasPriceDrop'] as bool? ?? false,
       oldPrice: (map['oldPrice'] as num?)?.toDouble() ?? 0.0,
@@ -140,6 +153,7 @@ class Product {
       views: (map['views'] as num?)?.toInt() ?? 0,
       reviewCount: (map['reviewCount'] as num?)?.toInt() ?? 0,
       isVisible: map['isVisible'] as bool? ?? true,
+      isShopHidden: map['isShopHidden'] as bool? ?? false,
       sortOrder: (map['sortOrder'] as num?)?.toInt() ?? 0,
       listName: (map['listName'] as String?) ?? '',
       searchKeywords: map['searchKeywords'] != null
@@ -149,18 +163,10 @@ class Product {
     );
   }
 
-  // ✅ Item #39: بتُستخدم للتخزين المحلي (Hive cache) وده مبيقبلش Timestamp ولا
-  // FieldValue، فـ createdAt بيتحوّل لنص ISO-8601 (fromMap بيقراه بـ DateTime.tryParse)
-  // وبيتشال لو لسه null. الكتابة على Firestore بتستخدم toMap() مباشرة.
   Map<String, dynamic> toMapWithId() {
     final map = toMap();
     map['id'] = id;
-    final created = createdAt;
-    if (created != null) {
-      map['createdAt'] = created.toIso8601String();
-    } else {
-      map.remove('createdAt');
-    }
+    map['createdAt'] = createdAt?.toIso8601String();
     return map;
   }
 
@@ -172,8 +178,10 @@ class Product {
     double? price,
     double? originalPrice,
     List<String>? imageUrls,
+    int? coverImageIndex,
     String? category,
     bool? isFavorite,
+    int? favoriteCount,
     double? rating,
     bool? hasPriceDrop,
     double? oldPrice,
@@ -186,6 +194,7 @@ class Product {
     int? views,
     int? reviewCount,
     bool? isVisible,
+    bool? isShopHidden,
     int? sortOrder,
     String? listName,
     List<String>? searchKeywords,
@@ -199,8 +208,10 @@ class Product {
       price: price ?? this.price,
       originalPrice: originalPrice ?? this.originalPrice,
       imageUrls: imageUrls ?? this.imageUrls,
+      coverImageIndex: coverImageIndex ?? this.coverImageIndex,
       category: category ?? this.category,
       isFavorite: isFavorite ?? this.isFavorite,
+      favoriteCount: favoriteCount ?? this.favoriteCount,
       rating: rating ?? this.rating,
       hasPriceDrop: hasPriceDrop ?? this.hasPriceDrop,
       oldPrice: oldPrice ?? this.oldPrice,
@@ -213,6 +224,7 @@ class Product {
       views: views ?? this.views,
       reviewCount: reviewCount ?? this.reviewCount,
       isVisible: isVisible ?? this.isVisible,
+      isShopHidden: isShopHidden ?? this.isShopHidden,
       sortOrder: sortOrder ?? this.sortOrder,
       listName: listName ?? this.listName,
       searchKeywords: searchKeywords ?? this.searchKeywords,

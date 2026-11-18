@@ -1,8 +1,11 @@
 // lib/screens/tabs/admin_content_tab.dart
+// ✅ إضافة حد (Pagination limit) للاستماع الحي لكل قسم لتجنب تحميل آلاف الوثائق دفعة واحدة
+// ✅ توحيد قراءة حقول مقدمي الخدمات (categories / serviceCategory و isActive / isAvailable)
+// ✅ دعم الوضع الليلي (Dark Mode) بالكامل
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/api_service.dart';
-import '../../widgets/cached_image.dart'; // تأكد إن الودجت دي موجودة عندك
+import '../../widgets/cached_image.dart';
 
 class AdminContentTab extends StatefulWidget {
   const AdminContentTab({super.key});
@@ -16,11 +19,19 @@ class _AdminContentTabState extends State<AdminContentTab>
   late TabController _tabController;
   final TextEditingController _reasonController = TextEditingController();
 
+  static const int _pageSize = 50;
+  final Map<String, int> _limits = {
+    'shops': _pageSize,
+    'products': _pageSize,
+    'offers': _pageSize,
+    'service_providers': _pageSize,
+  };
+
   @override
   void initState() {
     super.initState();
-    // 3 أقسام: محلات، منتجات، عروض
-    _tabController = TabController(length: 3, vsync: this);
+    // 4 أقسام: محلات، منتجات، عروض، صنايعية وخدمات
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -32,20 +43,25 @@ class _AdminContentTabState extends State<AdminContentTab>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       children: [
         // شريط التبويبات الفرعي
         Container(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
           child: TabBar(
             controller: _tabController,
-            labelColor: Colors.deepPurple[900],
+            isScrollable: true,
+            labelColor: isDark ? Colors.white : Colors.deepPurple[900],
             unselectedLabelColor: Colors.grey,
-            indicatorColor: Colors.deepPurple[900],
+            indicatorColor:
+                isDark ? Colors.deepPurpleAccent : Colors.deepPurple[900],
             tabs: const [
               Tab(text: 'المحلات', icon: Icon(Icons.store)),
               Tab(text: 'المنتجات', icon: Icon(Icons.shopping_bag)),
               Tab(text: 'العروض', icon: Icon(Icons.local_offer)),
+              Tab(text: 'الصنايعية', icon: Icon(Icons.handyman)),
             ],
           ),
         ),
@@ -55,9 +71,10 @@ class _AdminContentTabState extends State<AdminContentTab>
           child: TabBarView(
             controller: _tabController,
             children: [
-              _buildShopsList(),
-              _buildProductsList(),
-              _buildOffersList(),
+              _buildShopsList(isDark),
+              _buildProductsList(isDark),
+              _buildOffersList(isDark),
+              _buildServiceProvidersList(isDark),
             ],
           ),
         ),
@@ -68,15 +85,16 @@ class _AdminContentTabState extends State<AdminContentTab>
   // ==========================================================
   // 1. قائمة المحلات (تعطيل + حذف)
   // ==========================================================
-  Widget _buildShopsList() {
+  Widget _buildShopsList(bool isDark) {
     return _buildStreamList(
       collection: 'shops',
       itemBuilder: (data) {
-        bool isSuspended = data['isSuspended'] ?? false;
+        final bool isSuspended = data['isSuspended'] ?? false;
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          // تمييز المحل المعطل بلون رمادي وإطار أحمر
-          color: isSuspended ? Colors.grey[100] : Colors.white,
+          color: isSuspended
+              ? (isDark ? const Color(0xFF251A1E) : Colors.grey[100])
+              : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: isSuspended
@@ -97,7 +115,9 @@ class _AdminContentTabState extends State<AdminContentTab>
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 decoration: isSuspended ? TextDecoration.lineThrough : null,
-                color: isSuspended ? Colors.grey : Colors.black,
+                color: isSuspended
+                    ? Colors.grey
+                    : (isDark ? Colors.white : Colors.black),
               ),
             ),
             subtitle: Text(
@@ -108,7 +128,6 @@ class _AdminContentTabState extends State<AdminContentTab>
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // زر التعطيل/التفعيل
                 IconButton(
                   icon: Icon(isSuspended
                       ? Icons.play_circle_fill
@@ -116,13 +135,13 @@ class _AdminContentTabState extends State<AdminContentTab>
                   color: isSuspended ? Colors.green : Colors.deepOrangeAccent,
                   tooltip: isSuspended ? 'تفعيل المحل' : 'تعطيل وإخفاء المحل',
                   onPressed: () =>
-                      _toggleShop(data['id'], isSuspended, data['name']),
+                      _toggleShop(data['id'], isSuspended, data['name'] ?? ''),
                 ),
-                // زر الحذف
                 IconButton(
                   icon: const Icon(Icons.delete_forever, color: Colors.red),
                   tooltip: 'حذف نهائي',
-                  onPressed: () => _confirmDeleteShop(data['id'], data['name']),
+                  onPressed: () =>
+                      _confirmDeleteShop(data['id'], data['name'] ?? ''),
                 ),
               ],
             ),
@@ -135,20 +154,28 @@ class _AdminContentTabState extends State<AdminContentTab>
   // ==========================================================
   // 2. قائمة المنتجات (حذف بسبب)
   // ==========================================================
-  Widget _buildProductsList() {
+  Widget _buildProductsList(bool isDark) {
     return _buildStreamList(
       collection: 'products',
       itemBuilder: (data) {
+        final rawUrls = data['imageUrls'];
+        final int coverIdx = (data['coverImageIndex'] is num)
+            ? (data['coverImageIndex'] as num).toInt()
+            : 0;
+        String imgUrl = '';
+        if (rawUrls is List && rawUrls.isNotEmpty) {
+          final safeIdx =
+              (coverIdx >= 0 && coverIdx < rawUrls.length) ? coverIdx : 0;
+          imgUrl = (rawUrls[safeIdx] ?? '').toString();
+        }
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
           child: ListTile(
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: CachedImage(
-                  imageUrl: (data['imageUrls'] != null &&
-                          (data['imageUrls'] as List).isNotEmpty)
-                      ? data['imageUrls'][0]
-                      : '',
+                  imageUrl: imgUrl,
                   width: 50,
                   height: 50,
                   fit: BoxFit.cover),
@@ -164,7 +191,7 @@ class _AdminContentTabState extends State<AdminContentTab>
                 collection: 'products',
                 itemId: data['id'],
                 itemName: data['name'] ?? 'منتج',
-                shopId: data['shopId'],
+                shopId: data['shopId'] ?? '',
               ),
             ),
           ),
@@ -176,17 +203,29 @@ class _AdminContentTabState extends State<AdminContentTab>
   // ==========================================================
   // 3. قائمة العروض (حذف بسبب)
   // ==========================================================
-  Widget _buildOffersList() {
+  Widget _buildOffersList(bool isDark) {
     return _buildStreamList(
       collection: 'offers',
       itemBuilder: (data) {
+        final rawUrls = data['imageUrls'];
+        final int coverIdx = (data['coverImageIndex'] is num)
+            ? (data['coverImageIndex'] as num).toInt()
+            : 0;
+        String imgUrl = (data['imageUrl'] ?? '').toString();
+        if (rawUrls is List && rawUrls.isNotEmpty) {
+          final safeIdx =
+              (coverIdx >= 0 && coverIdx < rawUrls.length) ? coverIdx : 0;
+          final candidate = (rawUrls[safeIdx] ?? '').toString();
+          if (candidate.isNotEmpty) imgUrl = candidate;
+        }
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
           child: ListTile(
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: CachedImage(
-                  imageUrl: data['imageUrl'] ?? '',
+                  imageUrl: imgUrl,
                   width: 50,
                   height: 50,
                   fit: BoxFit.cover),
@@ -195,7 +234,8 @@ class _AdminContentTabState extends State<AdminContentTab>
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             subtitle: Text('خصم ${data['discount']}%',
                 style: const TextStyle(
-                    color: Colors.deepOrangeAccent, fontWeight: FontWeight.bold)),
+                    color: Colors.deepOrangeAccent,
+                    fontWeight: FontWeight.bold)),
             trailing: IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               tooltip: 'حذف مع إشعار',
@@ -203,7 +243,7 @@ class _AdminContentTabState extends State<AdminContentTab>
                 collection: 'offers',
                 itemId: data['id'],
                 itemName: data['title'] ?? 'عرض',
-                shopId: data['shopId'],
+                shopId: data['shopId'] ?? '',
               ),
             ),
           ),
@@ -212,15 +252,152 @@ class _AdminContentTabState extends State<AdminContentTab>
     );
   }
 
+  // ==========================================================
+  // 4. قائمة الصنايعية ومقدمي الخدمات (توثيق + تفعيل + حذف)
+  // ==========================================================
+  Widget _buildServiceProvidersList(bool isDark) {
+    return _buildStreamList(
+      collection: 'service_providers',
+      itemBuilder: (data) {
+        final bool isVerified = data['isVerified'] == true;
+        // ✅ دعم الحقلين isActive (الجديد) و isAvailable (القديم)
+        final bool isAvailable =
+            (data['isActive'] as bool?) ?? (data['isAvailable'] as bool?) ?? true;
+        final String name = data['name'] ?? 'مقدم خدمة';
+        // ✅ دعم الحقلين categories (List) و serviceCategory (String)
+        String category = 'خدمات عامة';
+        if (data['categories'] is List &&
+            (data['categories'] as List).isNotEmpty) {
+          category = (data['categories'] as List).join('، ');
+        } else if ((data['serviceCategory'] ?? '').toString().isNotEmpty) {
+          category = data['serviceCategory'].toString();
+        }
+        final String phone = data['phone'] ?? '';
+
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: isVerified ? Colors.green.shade300 : Colors.amber.shade400,
+              width: 1,
+            ),
+          ),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor:
+                  isVerified ? Colors.green.shade50 : Colors.amber.shade50,
+              child: Icon(
+                isVerified ? Icons.verified_user : Icons.pending_actions,
+                color: isVerified ? Colors.green : Colors.amber.shade800,
+              ),
+            ),
+            title: Text(
+              name,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              '$category ${phone.isNotEmpty ? "• $phone" : ""}\n'
+              '${isVerified ? "✅ موثق" : "⏳ بانتظار التوثيق"} • ${isAvailable ? "متاح" : "غير متاح"}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            isThreeLine: true,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    isVerified ? Icons.verified : Icons.check_circle_outline,
+                    color: isVerified ? Colors.green : Colors.blueGrey,
+                  ),
+                  tooltip: isVerified ? 'إلغاء التوثيق' : 'توثيق مقدم الخدمة',
+                  onPressed: () =>
+                      _toggleProviderVerification(data['id'], isVerified, name),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  tooltip: 'حذف مقدم الخدمة',
+                  onPressed: () => _deleteServiceProvider(data['id'], name),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleProviderVerification(
+      String providerId, bool currentVerified, String name) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('service_providers')
+          .doc(providerId)
+          .update({
+        'isVerified': !currentVerified,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(!currentVerified
+                ? 'تم توثيق "$name" بنجاح ✅'
+                : 'تم إلغاء توثيق "$name"'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر التحديث: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteServiceProvider(String providerId, String name) async {
+    final confirm = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('حذف مقدم الخدمة'),
+            content: Text('هل تريد حذف حساب مقدم الخدمة "$name" نهائياً؟'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('إلغاء')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red, foregroundColor: Colors.white),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('حذف'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!confirm) return;
+    await ApiService.deleteContent('service_providers', providerId);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم حذف مقدم الخدمة')),
+      );
+    }
+  }
+
   // --- دوال مساعدة ---
 
-  Widget _buildStreamList(
-      {required String collection,
-      required Widget Function(Map<String, dynamic>) itemBuilder}) {
+  Widget _buildStreamList({
+    required String collection,
+    required Widget Function(Map<String, dynamic>) itemBuilder,
+  }) {
+    final currentLimit = _limits[collection] ?? _pageSize;
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection(collection)
           .orderBy('createdAt', descending: true)
+          .limit(currentLimit)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -245,11 +422,29 @@ class _AdminContentTabState extends State<AdminContentTab>
         }
 
         final docs = snapshot.data!.docs;
+        final hasMore = docs.length >= currentLimit;
+
         return ListView.builder(
           padding: const EdgeInsets.only(top: 8, bottom: 80),
-          itemCount: docs.length,
+          itemCount: docs.length + (hasMore ? 1 : 0),
           itemBuilder: (context, index) {
-            final data = docs[index].data() as Map<String, dynamic>;
+            if (index == docs.length) {
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _limits[collection] = currentLimit + _pageSize;
+                    });
+                  },
+                  icon: const Icon(Icons.expand_more),
+                  label: const Text('تحميل المزيد'),
+                ),
+              );
+            }
+            final data = Map<String, dynamic>.from(
+                docs[index].data() as Map<String, dynamic>);
             data['id'] = docs[index].id;
             return itemBuilder(data);
           },
@@ -382,15 +577,17 @@ class _AdminContentTabState extends State<AdminContentTab>
               }
               Navigator.pop(ctx);
 
-              // 1. جلب معرف التاجر (Owner ID) من المحل لأن المنتج مفيهوش Owner ID مباشر غالباً
+              // 1. جلب معرف التاجر (Owner ID) من المحل
               String ownerId = '';
               try {
-                final shopDoc = await FirebaseFirestore.instance
-                    .collection('shops')
-                    .doc(shopId)
-                    .get();
-                if (shopDoc.exists) {
-                  ownerId = shopDoc.data()?['ownerId'] ?? '';
+                if (shopId.isNotEmpty) {
+                  final shopDoc = await FirebaseFirestore.instance
+                      .collection('shops')
+                      .doc(shopId)
+                      .get();
+                  if (shopDoc.exists) {
+                    ownerId = shopDoc.data()?['ownerId'] ?? '';
+                  }
                 }
               } catch (e) {
                 debugPrint('Error getting owner: $e');
@@ -410,7 +607,6 @@ class _AdminContentTabState extends State<AdminContentTab>
                       content: Text('تم الحذف وإبلاغ التاجر ✅')));
                 }
               } else {
-                // لو معرفناش نجيب التاجر، نحذف وخلاص
                 await ApiService.deleteContent(collection, itemId);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

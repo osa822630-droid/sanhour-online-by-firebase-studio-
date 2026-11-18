@@ -1,8 +1,5 @@
 // lib/services/audit_log_service.dart
-// ✅ Phase 3 Fix #04: Admin Audit Trail
-// كل عملية حساسة يعملها الأدمن (حذف، تعليق، تفعيل كود، تعديل إعدادات)
-// تُسجَّل في مجموعة admin_audit_log في Firestore.
-// هذا مطلوب لـ App Store compliance والحوكمة الداخلية.
+// ✅ إضافة activationCodeDeleted وحفظ كل من timestamp و createdAt للتوافق مع كافة الفهارس
 import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,10 +15,10 @@ enum AuditAction {
   userDeleted,
   activationCodeGenerated,
   activationCodeUsed,
+  activationCodeDeleted,
   settingsUpdated,
   productDeleted,
   offerDeleted,
-  // ✅ Fix #40: قيم جديدة لأنواع المحتوى المختلفة
   reviewDeleted,
   adDeleted,
   complaintDeleted,
@@ -37,10 +34,6 @@ class AuditLogService {
 
   static const String _collection = 'admin_audit_log';
 
-  // ==========================================================
-  // دالة التسجيل الرئيسية
-  // ==========================================================
-
   /// يُسجِّل عملية حساسة في Firestore audit log.
   /// لا يُوقف تنفيذ الكود الأصلي إذا فشل — يُسجِّل خطأ فقط.
   static Future<void> log({
@@ -49,11 +42,11 @@ class AuditLogService {
     String? targetType,
     String? targetName,
     Map<String, dynamic>? metadata,
-    // ✅ Fix #8: قبول adminId صريح لدعم Mock users وتجنب الاعتماد على _auth.currentUser فقط
     String? adminId,
   }) async {
     try {
-      final adminUid = adminId ?? _auth.currentUser?.uid ?? 'mock_admin';
+      final adminUid = adminId ?? _auth.currentUser?.uid ?? 'admin';
+      final ts = FieldValue.serverTimestamp();
       await _firestore.collection(_collection).add({
         'action': action.name,
         'adminUid': adminUid,
@@ -62,7 +55,8 @@ class AuditLogService {
         'targetType': targetType,
         'targetName': targetName,
         'metadata': metadata ?? {},
-        'timestamp': FieldValue.serverTimestamp(),
+        'timestamp': ts,
+        'createdAt': ts,
         'platform': 'flutter_app',
       });
     } catch (e, s) {
@@ -71,12 +65,7 @@ class AuditLogService {
     }
   }
 
-  // ==========================================================
-  // Helper factories للأنواع الشائعة
-  // ==========================================================
-
-  static Future<void> logShopDeleted(String shopId, String shopName) =>
-      log(
+  static Future<void> logShopDeleted(String shopId, String shopName) => log(
         action: AuditAction.shopDeleted,
         targetId: shopId,
         targetType: 'shop',
@@ -116,19 +105,13 @@ class AuditLogService {
         metadata: {'generatedBy': generatedBy},
       );
 
-  static Future<void> logSettingsUpdated(Map<String, dynamic> changes) =>
-      log(
+  static Future<void> logSettingsUpdated(Map<String, dynamic> changes) => log(
         action: AuditAction.settingsUpdated,
         targetId: 'app_settings',
         targetType: 'settings',
         metadata: {'changes': changes},
       );
 
-  // ==========================================================
-  // جلب السجلات للأدمن
-  // ==========================================================
-
-  /// يجلب آخر [limit] سجل من الـ audit log
   static Future<List<Map<String, dynamic>>> getRecentLogs(
       {int limit = 50}) async {
     try {
@@ -148,9 +131,7 @@ class AuditLogService {
     }
   }
 
-  /// Stream للأدمن Dashboard — يعرض السجلات فوراً عند إضافة أي منها
-  static Stream<List<Map<String, dynamic>>> auditLogStream(
-      {int limit = 100}) {
+  static Stream<List<Map<String, dynamic>>> auditLogStream({int limit = 100}) {
     return _firestore
         .collection(_collection)
         .orderBy('timestamp', descending: true)

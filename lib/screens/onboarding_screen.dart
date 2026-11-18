@@ -57,13 +57,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       description:
           'تابع أحدث العروض من محلات سنهور واستفد من خصومات حصرية.',
     ),
+    // ✅ Item #46: تصحيح وصف سنهور ديلر ليعكس هويته كسوق للمستعمل بدلاً من التوصيل
     _OnboardingPage(
-      icon: Icons.delivery_dining,
+      icon: Icons.sell_rounded,
       color: Color(0xFF1B5E20),
-      title: 'سنهور ديلر',
-      subtitle: 'توصيل لباب بيتك',
+      title: 'سنهور ديلر (سوق المستعمل)',
+      subtitle: 'بيع واشتري المستعمل بسهولة',
       description:
-          'اطلب من أي محل وسيوصله الديلر لحد بابك بأسرع وقت وأقل سعر.',
+          'اعرض أجهزتك ومقتنياتك المستعملة للبيع أو تصفّح عروض أهل سنهور وتواصل مع البائع مباشرة.',
     ),
     _OnboardingPage(
       icon: Icons.handyman,

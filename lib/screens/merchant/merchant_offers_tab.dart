@@ -1,6 +1,6 @@
 // lib/screens/merchant/merchant_offers_tab.dart
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // للتحديث المباشر
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/date_helper.dart';
 import '../../services/api_service.dart';
 import '../../models/shop.dart';
@@ -24,20 +24,21 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
   String _searchQuery = '';
 
   List<Offer>? _allOffers;
-  // ✅ Fix #83: تخزين الـ future في state لمنع re-fetch عند كل rebuild
   late Future<List<Offer>> _offersFuture;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _offersFuture = ApiService.getOffers(shopId: widget.currentShop.id);
+    _offersFuture = ApiService.getOffers(
+        shopId: widget.currentShop.id, includeInactive: true);
   }
 
   void _refreshOffers() {
     setState(() {
       _allOffers = null;
-      _offersFuture = ApiService.getOffers(shopId: widget.currentShop.id);
+      _offersFuture = ApiService.getOffers(
+          shopId: widget.currentShop.id, includeInactive: true);
     });
   }
 
@@ -50,23 +51,24 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: Column(
         children: [
           // 1. شريط البحث والتبويبات
           Container(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
             padding: const EdgeInsets.only(top: 10),
             child: Column(
               children: [
-                // البحث
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
                       hintText: 'بحث في العروض...',
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      prefixIcon:
+                          const Icon(Icons.search, color: Colors.grey),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear),
@@ -83,7 +85,9 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
                           borderRadius: BorderRadius.circular(30),
                           borderSide: BorderSide.none),
                       filled: true,
-                      fillColor: Colors.grey[100],
+                      fillColor: isDark
+                          ? const Color(0xFF252538)
+                          : Colors.grey[100],
                     ),
                     onChanged: (val) => setState(() => _searchQuery = val),
                   ),
@@ -91,12 +95,13 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
 
                 const SizedBox(height: 10),
 
-                // التبويبات
                 TabBar(
                   controller: _tabController,
-                  labelColor: Colors.red[800],
+                  labelColor: isDark
+                      ? const Color(0xFFB39DDB)
+                      : const Color(0xFF5E35B1),
                   unselectedLabelColor: Colors.grey,
-                  indicatorColor: Colors.red[800],
+                  indicatorColor: const Color(0xFF5E35B1),
                   tabs: const [
                     Tab(text: 'نشط 🟢'),
                     Tab(text: 'منتهي / أرشيف 🔴'),
@@ -110,20 +115,19 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
           // 2. المحتوى
           Expanded(
             child: FutureBuilder<List<Offer>>(
-              // ✅ Fix #83: استخدام future محفوظ في state
               future: _offersFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting &&
                     _allOffers == null) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                // ✅ Fix #101: عرض حالة الخطأ بدلاً من blank screen
                 if (snapshot.hasError && _allOffers == null) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                        const Icon(Icons.error_outline,
+                            size: 48, color: Colors.red),
                         const SizedBox(height: 12),
                         const Text('تعذّر تحميل العروض',
                             style: TextStyle(color: Colors.red)),
@@ -146,19 +150,16 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
                   return _buildEmptyState();
                 }
 
-                // تقسيم العروض
                 final now = DateTime.now();
 
-                // تطبيق البحث
                 final searchResults = _allOffers!
                     .where((o) => o.title
                         .toLowerCase()
                         .contains(_searchQuery.toLowerCase()))
                     .toList();
 
-                // فصل النشط عن المنتهي
                 final activeOffers = searchResults
-                    .where((o) => o.validUntil.isAfter(now))
+                    .where((o) => !o.validUntil.isBefore(now))
                     .toList();
                 final expiredOffers = searchResults
                     .where((o) => o.validUntil.isBefore(now))
@@ -167,8 +168,10 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
                 return TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildOffersList(activeOffers, isActiveTab: true),
-                    _buildOffersList(expiredOffers, isActiveTab: false),
+                    _buildOffersList(activeOffers,
+                        isActiveTab: true, isDark: isDark),
+                    _buildOffersList(expiredOffers,
+                        isActiveTab: false, isDark: isDark),
                   ],
                 );
               },
@@ -179,10 +182,8 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
     );
   }
 
-  // --- Widgets ---
-
   Widget _buildEmptyState() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -197,7 +198,8 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
     );
   }
 
-  Widget _buildOffersList(List<Offer> offers, {required bool isActiveTab}) {
+  Widget _buildOffersList(List<Offer> offers,
+      {required bool isActiveTab, required bool isDark}) {
     if (offers.isEmpty) {
       return Center(
         child: Text(
@@ -207,30 +209,33 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80, top: 10),
-      itemCount: offers.length,
-      itemBuilder: (context, index) {
-        final offer = offers[index];
-        return _buildOfferItem(offer, isActiveTab);
-      },
+    return RefreshIndicator(
+      onRefresh: () async => _refreshOffers(),
+      child: ListView.builder(
+        padding: const EdgeInsets.only(bottom: 80, top: 10),
+        itemCount: offers.length,
+        itemBuilder: (context, index) {
+          final offer = offers[index];
+          return _buildOfferItem(offer, isActiveTab, isDark);
+        },
+      ),
     );
   }
 
-  Widget _buildOfferItem(Offer offer, bool isActiveTab) {
-    // ✅ Pro #221: DateHelper بدلاً من DateFormat مباشرة
+  Widget _buildOfferItem(Offer offer, bool isActiveTab, bool isDark) {
     final dateStr = DateHelper.day(offer.validUntil);
-    final isVisible = offer.isVisible;
+    final isVisible = offer.isVisible && offer.isActive;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      color: isVisible ? Colors.white : Colors.grey[100],
+      color: isVisible
+          ? (isDark ? const Color(0xFF1E1E2E) : Colors.white)
+          : (isDark ? const Color(0xFF151522) : Colors.grey[100]),
       elevation: isVisible ? 2 : 0,
       child: Column(
         children: [
           ListTile(
             contentPadding: const EdgeInsets.all(10),
-            // الصورة
             leading: Stack(
               children: [
                 ClipRRect(
@@ -238,23 +243,22 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
                   child: Opacity(
                     opacity: isVisible ? 1 : 0.6,
                     child: CachedImage(
-                      imageUrl: offer.imageUrl,
+                      imageUrl: offer.displayImageUrl,
                       width: 70,
                       height: 70,
                       fit: BoxFit.cover,
+                      fallbackIcon: Icons.local_offer_outlined,
                     ),
                   ),
                 ),
                 if (!isVisible)
                   const Positioned.fill(
                     child: Center(
-                        child:
-                            Icon(Icons.visibility_off, color: Colors.black54)),
+                        child: Icon(Icons.visibility_off,
+                            color: Colors.black54)),
                   ),
               ],
             ),
-
-            // التفاصيل
             title: Text(
               offer.title,
               style: TextStyle(
@@ -268,29 +272,27 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 4),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                      color: Colors.red[50],
-                      borderRadius: BorderRadius.circular(4)),
-                  child: Text('خصم ${offer.discount}%',
-                      style: TextStyle(
-                          color: Colors.red[800],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12)),
-                ),
+                if (offer.discount > 0)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(4)),
+                    child: Text('خصم ${offer.discount}%',
+                        style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12)),
+                  ),
                 const SizedBox(height: 4),
                 Text(isActiveTab ? 'ينتهي في: $dateStr' : 'انتهى في: $dateStr',
                     style: const TextStyle(fontSize: 11, color: Colors.grey)),
               ],
             ),
-
-            // القائمة الجانبية (3 نقاط)
             trailing: PopupMenuButton<String>(
               onSelected: (value) => _handleAction(value, offer),
               itemBuilder: (context) => [
-                // 1. تجميد/تفعيل (للعروض النشطة فقط)
                 if (isActiveTab)
                   PopupMenuItem(
                     value: 'toggle',
@@ -303,8 +305,6 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
                       ],
                     ),
                   ),
-
-                // 2. تعديل
                 const PopupMenuItem(
                   value: 'edit',
                   child: Row(
@@ -315,8 +315,6 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
                     ],
                   ),
                 ),
-
-                // 3. تكرار (مفيد جداً للمنتهية)
                 const PopupMenuItem(
                   value: 'duplicate',
                   child: Row(
@@ -327,10 +325,7 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
                     ],
                   ),
                 ),
-
                 const PopupMenuDivider(),
-
-                // 4. حذف
                 const PopupMenuItem(
                   value: 'delete',
                   child: Row(
@@ -344,12 +339,10 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
               ],
             ),
           ),
-
-          // زر التكرار السريع للعروض المنتهية
           if (!isActiveTab)
             Container(
               width: double.infinity,
-              color: Colors.red[50],
+              color: Colors.red.withValues(alpha: 0.08),
               child: TextButton.icon(
                 icon: const Icon(Icons.refresh, size: 16, color: Colors.red),
                 label: const Text('إعادة نشر العرض (تكرار)',
@@ -362,8 +355,6 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
     );
   }
 
-  // --- Actions Logic ---
-
   void _handleAction(String action, Offer offer) {
     switch (action) {
       case 'toggle':
@@ -374,12 +365,12 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
           context,
           MaterialPageRoute(
               builder: (_) => AddOfferScreen(
-                  shopId: widget.currentShop.id, offerToEdit: offer)),
+                  shopId: widget.currentShop.id,
+                  ownerId: widget.currentShop.ownerId,
+                  offerToEdit: offer)),
         ).then((_) => _refreshOffers());
         break;
       case 'duplicate':
-        // ✅ Fix #84: copyWith بدون id — AddOfferScreen يُنشئ عرضاً جديداً
-        // لا نُمرر id: null حتى لا يُعيد تعديل العرض الأصلي
         final newOffer = offer.copyWith(
           id: '',
           validUntil: DateTime.now().add(const Duration(days: 7)),
@@ -389,6 +380,7 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
           MaterialPageRoute(
             builder: (_) => AddOfferScreen(
               shopId: widget.currentShop.id,
+              ownerId: widget.currentShop.ownerId,
               offerToEdit: newOffer,
             ),
           ),
@@ -400,50 +392,32 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
     }
   }
 
-  // تجميد/تفعيل
   Future<void> _toggleVisibility(Offer offer) async {
-    // تحديث فوري (Optimistic)
-    setState(() {
-      // هنا بنعتمد على إعادة التحميل أو ممكن نحدث الليستة محلياً لو حبينا
-    });
-
+    final newVisible = !(offer.isVisible && offer.isActive);
     try {
-      // استخدام فايرستور مباشرة للتحديث السريع (أو ضيف updateOffer في ApiService)
       await FirebaseFirestore.instance
           .collection('offers')
           .doc(offer.id)
-          .update({'isVisible': !offer.isVisible});
+          .update({
+        'isVisible': newVisible,
+        'isActive': newVisible,
+      });
 
-      setState(() {}); // إعادة بناء لجلب البيانات الجديدة
+      _refreshOffers();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content:
-              Text(offer.isVisible ? 'تم تفعيل العرض ✅' : 'تم تجميد العرض ⏸️'),
+          content: Text(newVisible ? 'تم تفعيل العرض ✅' : 'تم تجميد العرض ⏸️'),
           duration: const Duration(seconds: 1),
         ));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('حدث خطأ، يُرجى المحاولة مرة أخرى'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('حدث خطأ، يُرجى المحاولة مرة أخرى'),
+            backgroundColor: Colors.red));
       }
     }
   }
-
-  // تكرار العرض
-  void duplicateOffer(Offer offer) {
-    final newOffer = offer.copyWith(id: null, validUntil: DateTime.now().add(const Duration(days: 7)));
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddOfferScreen(
-          shopId: widget.currentShop.id,
-          offerToEdit: newOffer,
-        ),
-      ),
-    ).then((_) => setState(() {}));
-  }
-
 
   void _confirmDelete(Offer offer) {
     showDialog(
@@ -453,14 +427,15 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
         content: const Text('هل أنت متأكد؟ لا يمكن التراجع.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
               Navigator.pop(ctx);
               await ApiService.deleteOffer(offer.id);
-              setState(() {});
+              _refreshOffers();
               if (mounted) {
                 ScaffoldMessenger.of(context)
                     .showSnackBar(const SnackBar(content: Text('تم الحذف')));

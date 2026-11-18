@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/shop.dart';
+import '../../utils/constants.dart';
 import '../../utils/logger.dart';
 
 class TeamManagementScreen extends StatefulWidget {
@@ -34,7 +35,8 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
 
       if (mounted) {
         setState(() {
-          _teamMembers = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          _teamMembers =
+              snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
           _isLoading = false;
         });
       }
@@ -46,9 +48,19 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
 
   Future<void> _addMember(String phone, String role) async {
     try {
-      // البحث عن المستخدم برقم الهاتف
-      final snap = await _firestore.collection('users')
-          .where('phone', isEqualTo: phone.startsWith('+2') ? phone : '+2$phone')
+      // ✅ البحث بكافة صيغ رقم الهاتف المصري (01... / +201... / 201...)
+      final candidates = AppConstants.phoneLookupCandidates(phone);
+      if (candidates.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('أدخل رقم هاتف مصري صحيح'),
+            backgroundColor: Colors.red));
+        return;
+      }
+
+      final snap = await _firestore
+          .collection('users')
+          .where('phone', whereIn: candidates)
           .limit(1)
           .get();
 
@@ -60,13 +72,12 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
         return;
       }
 
-      // ✅ Item #38: قواعد Firestore بتسمح بإضافة حساب عميل عادي (customer) بس —
-      // مش تاجر/مشرف/أدمن ولا حسابك إنت. بنفحصها هنا برسالة واضحة بدل خطأ عام.
       final target = snap.docs.first;
       if (target.data()['userType'] != 'customer') {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('لا يمكن إضافة هذا المستخدم: حسابه ليس حساب عميل عادي'),
+            content:
+                Text('لا يمكن إضافة هذا المستخدم: حسابه ليس حساب عميل عادي'),
             backgroundColor: Colors.red));
         return;
       }
@@ -80,7 +91,8 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('✅ تمت إضافة ${role == 'partner' ? 'الشريك' : 'العامل'}'),
+          content:
+              Text('✅ تمت إضافة ${role == 'partner' ? 'الشريك' : 'العامل'}'),
           backgroundColor: Colors.green));
       await _loadTeam();
     } catch (e) {
@@ -92,8 +104,6 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
   }
 
   Future<void> _removeMember(String userId) async {
-    // ✅ Item #38: التحديث ممكن يترفض بالقواعد (مثلاً عضو مش من فريق محلك أو مالك
-    // المحل نفسه) — كان بيطلع كاستثناء غير ممسوك بدل رسالة للمستخدم.
     try {
       await _firestore.collection('users').doc(userId).update({
         'linkedShopId': null,
@@ -117,67 +127,67 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
 
     showDialog(
       context: context,
-      builder: (_) => StatefulBuilder(builder: (ctx, setS) => AlertDialog(
-        title: const Text('إضافة عضو للفريق'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(
-            controller: phoneCtrl,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'رقم الهاتف',
-              prefixText: '+20 ',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text('الدور:', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          // ✅ groupValue/onChanged اتنقلوا من RadioListTile لـ RadioGroup (deprecated)
-          RadioGroup<String>(
-            groupValue: selectedRole,
-            onChanged: (v) {
-              if (v != null) setS(() => selectedRole = v);
-            },
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              // شريك
-              RadioListTile<String>.adaptive(
-                value: 'partner',
-                title: const Text('شريك'),
-                subtitle: const Text('صلاحيات كاملة كصاحب المحل',
-                    style: TextStyle(fontSize: 12)),
-                activeColor: const Color(0xFF5E35B1),
-              ),
-              // عامل
-              RadioListTile<String>.adaptive(
-                value: 'worker',
-                title: const Text('عامل'),
-                subtitle: const Text(
-                    'إضافة وتعديل المنتجات والعروض فقط\n(بدون إحصائيات أو اشتراكات)',
-                    style: TextStyle(fontSize: 12)),
-                activeColor: const Color(0xFF5E35B1),
-              ),
-            ]),
-          ),
-        ]),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('إلغاء')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1),
-                foregroundColor: Colors.white),
-            onPressed: () {
-              Navigator.pop(ctx);
-              if (phoneCtrl.text.trim().isNotEmpty) {
-                _addMember(phoneCtrl.text.trim(), selectedRole);
-              }
-            },
-            child: const Text('إضافة'),
-          ),
-        ],
-      )),
-    // ✅ Fix #70: dispose controller بعد إغلاق الـ dialog
+      builder: (_) => StatefulBuilder(
+          builder: (ctx, setS) => AlertDialog(
+                title: const Text('إضافة عضو للفريق'),
+                content: Column(mainAxisSize: MainAxisSize.min, children: [
+                  TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    textDirection: TextDirection.ltr,
+                    decoration: const InputDecoration(
+                      labelText: 'رقم الهاتف',
+                      hintText: '01xxxxxxxxx',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.phone_android),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('الدور:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  RadioGroup<String>(
+                    groupValue: selectedRole,
+                    onChanged: (v) {
+                      if (v != null) setS(() => selectedRole = v);
+                    },
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      RadioListTile<String>.adaptive(
+                        value: 'partner',
+                        title: const Text('شريك'),
+                        subtitle: const Text('صلاحيات كاملة كصاحب المحل',
+                            style: TextStyle(fontSize: 12)),
+                        activeColor: const Color(0xFF5E35B1),
+                      ),
+                      RadioListTile<String>.adaptive(
+                        value: 'worker',
+                        title: const Text('عامل'),
+                        subtitle: const Text(
+                            'إضافة وتعديل المنتجات والعروض فقط\n(بدون إحصائيات أو اشتراكات)',
+                            style: TextStyle(fontSize: 12)),
+                        activeColor: const Color(0xFF5E35B1),
+                      ),
+                    ]),
+                  ),
+                ]),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('إلغاء')),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF5E35B1),
+                        foregroundColor: Colors.white),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      if (phoneCtrl.text.trim().isNotEmpty) {
+                        _addMember(phoneCtrl.text.trim(), selectedRole);
+                      }
+                    },
+                    child: const Text('إضافة'),
+                  ),
+                ],
+              )),
     ).whenComplete(() => phoneCtrl.dispose());
   }
 
@@ -205,7 +215,8 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
                       itemCount: _teamMembers.length,
-                      itemBuilder: (_, i) => _buildMemberCard(_teamMembers[i]),
+                      itemBuilder: (_, i) =>
+                          _buildMemberCard(_teamMembers[i]),
                     ),
             ),
       floatingActionButton: FloatingActionButton.extended(
@@ -240,7 +251,8 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
           backgroundColor: isPartner
               ? const Color(0xFF5E35B1).withValues(alpha: 0.1)
@@ -252,7 +264,8 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
         ),
         title: Text(member['name'] ?? 'مستخدم',
             style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        subtitle:
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(member['phone'] ?? '', style: const TextStyle(fontSize: 12)),
           const SizedBox(height: 4),
           Container(
@@ -264,10 +277,12 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              isPartner ? '🤝 شريك — صلاحيات كاملة'
-                        : '👷 عامل — منتجات وعروض فقط',
+              isPartner
+                  ? '🤝 شريك — صلاحيات كاملة'
+                  : '👷 عامل — منتجات وعروض فقط',
               style: TextStyle(
-                color: isPartner ? const Color(0xFF5E35B1) : Colors.orange[800],
+                color:
+                    isPartner ? const Color(0xFF5E35B1) : Colors.orange[800],
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
@@ -293,8 +308,8 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
               onPressed: () => Navigator.pop(context),
               child: const Text('إلغاء')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red,
-                foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () {
               Navigator.pop(context);
               _removeMember(member['id']);

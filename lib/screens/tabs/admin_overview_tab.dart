@@ -1,8 +1,11 @@
 // lib/screens/tabs/admin_overview_tab.dart
+// ✅ إصلاح تمرير category: 'الكل' إلى ApiService.getTopProducts ليرسل null عند اختيار 'الكل'
+// ✅ استخدام displayImageUrl للمنتجات والعروض ودعم الوضع الليلي (Dark Mode)
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/api_service.dart';
+import '../../models/ad_model.dart';
 import '../../models/shop.dart';
 import '../../models/product.dart';
 import '../../models/offer.dart';
@@ -38,7 +41,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
   // 📊 البيانات الخام (يتم تحميلها وتصفيتها محلياً لتجنب كثرة الطلبات)
   List<Map<String, dynamic>> _allCodes = [];
   List<Map<String, dynamic>> _allUsers = [];
-  List<dynamic> _allAds = [];
+  List<AdModel> _allAds = [];
 
   @override
   void initState() {
@@ -46,40 +49,76 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
     _loadDashboardData();
   }
 
-  // ✅ QA Fix #24: استخدام count() بدلاً من جلب كل المستخدمين
   // ✅ QA Fix #15: دالة مساعدة آمنة لتحويل أي قيمة زمنية لـ DateTime
   DateTime _parseDate(dynamic raw) {
     if (raw == null) return DateTime.now();
     try {
+      if (raw is Timestamp) return raw.toDate();
       if (raw.runtimeType.toString().contains('Timestamp')) {
         return (raw as dynamic).toDate() as DateTime;
       }
+      if (raw is DateTime) return raw;
       if (raw is String) return DateTime.tryParse(raw) ?? DateTime.now();
-      if (raw is int)    return DateTime.fromMillisecondsSinceEpoch(raw);
+      if (raw is int) return DateTime.fromMillisecondsSinceEpoch(raw);
     } catch (_) {}
     return DateTime.now();
   }
 
+  double _resolveCodeValue(Map<String, dynamic> code) {
+    final explicitPrice = code['price'];
+    if (explicitPrice is num && explicitPrice > 0) {
+      return explicitPrice.toDouble();
+    }
+    final tier = (code['tier'] ?? '').toString();
+    if (tier == 'monthly') return 99.0;
+    if (tier == 'quarterly') return 249.0;
+    if (tier == 'yearly') return 799.0;
+
+    final type = (code['type'] ?? '').toString();
+    if (type == 'dealer_listing_fee') return 100.0;
+    if (type == 'ad_activation') return 50.0;
+    if (type == 'shop_activation' || type == 'shop_renewal') return 200.0;
+
+    final rawCode = (code['code'] ?? '').toString().toUpperCase();
+    if (rawCode.startsWith('SHP') ||
+        rawCode.startsWith('SHOP') ||
+        rawCode.startsWith('RNW')) {
+      return 200.0;
+    }
+    if (rawCode.startsWith('DLR')) return 100.0;
+    return 50.0;
+  }
+
   Future<void> _loadDashboardData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMsg = null;
+    });
     try {
       final firestore = FirebaseFirestore.instance;
       final results = await Future.wait([
         ApiService.getAllCodes(),
         ApiService.getActiveAds(),
         firestore.collection('users').count().get(),
-        firestore.collection('users')
+        firestore
+            .collection('users')
             .where('isSuspended', isEqualTo: true)
             .count()
+            .get(),
+        firestore
+            .collection('users')
+            .orderBy('createdAt', descending: true)
+            .limit(500)
             .get(),
       ]);
 
       _allCodes = results[0] as List<Map<String, dynamic>>;
-      _allAds   = results[1] as List<dynamic>;
-      _totalUsers      = (results[2] as AggregateQuerySnapshot).count ?? 0;
-      _suspendedUsers  = (results[3] as AggregateQuerySnapshot).count ?? 0;
-      // _allUsers ليست ضرورية بعد الآن للعداد — نحتفظ بها فارغة
-      _allUsers = [];
+      _allAds = List<AdModel>.from(results[1] as List);
+      _totalUsers = (results[2] as AggregateQuerySnapshot).count ?? 0;
+      _suspendedUsers = (results[3] as AggregateQuerySnapshot).count ?? 0;
+
+      final recentUsersSnap = results[4] as QuerySnapshot<Map<String, dynamic>>;
+      _allUsers = recentUsersSnap.docs.map((doc) => doc.data()).toList();
 
       _applyTimeFilter();
     } catch (e) {
@@ -124,15 +163,10 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
     _revenue = 0;
     _prevRevenue = 0;
 
-    for (var code in _allCodes) {
+    for (final code in _allCodes) {
       if (code['isUsed'] == true) {
-        // نفترض وجود حقل usedAt، لو مش موجود هنستخدم createdAt مؤقتاً
-        // في التطبيق الحقيقي لازم تخزن تاريخ الاستخدام 'usedAt'
-        // هنا سأستخدم createdAt للتبسيط
-        // ✅ QA Fix #15: _parseDate تدعم Timestamp و String و int
-        final date = _parseDate(code['createdAt']);
-
-        double val = code['code'].toString().startsWith('SHOP') ? 200 : 50;
+        final date = _parseDate(code['usedAt'] ?? code['createdAt']);
+        final val = _resolveCodeValue(code);
 
         if (date.isAfter(start) && date.isBefore(end)) {
           _revenue += val;
@@ -143,38 +177,35 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
       }
     }
 
-    // 2. حساب المستخدمين
-    _newUsers = 0;
-    _suspendedUsers = 0;
-    for (var user in _allUsers) {
-      // ✅ QA Fix #15: _parseDate آمنة مع Timestamp
-      final date = _parseDate(user['createdAt']);
-      if (date.isAfter(start) && date.isBefore(end)) {
-        _newUsers++;
-      }
-      // المحظورين (بغض النظر عن وقت التسجيل، نحسب عدد المحظورين حالياً)
-      // أو ممكن نحسب اللي اتحظروا في الفترة دي لو عندنا log
-      if (user['isSuspended'] == true) {
-        _suspendedUsers++;
+    // 2. حساب المستخدمين الجدد في الفترة المحددة (دون تصفير _suspendedUsers المحسوب من السيرفر)
+    if (_selectedTimeFrame == 'all' && _allUsers.isEmpty) {
+      _newUsers = _totalUsers;
+    } else {
+      _newUsers = 0;
+      for (final user in _allUsers) {
+        final date = _parseDate(user['createdAt']);
+        if (date.isAfter(start) && date.isBefore(end)) {
+          _newUsers++;
+        }
       }
     }
 
-    // 3. الإعلانات
+    // 3. الإعلانات ونقراتها (باستخدام حقل clickCount الصحيح من AdModel)
     _totalAds = 0;
     _adClicks = 0;
-    for (var ad in _allAds) {
-      final date =
-          DateTime.now();
+    for (final ad in _allAds) {
+      final date = ad.createdAt ?? ad.startDate;
       if (date.isAfter(start) && date.isBefore(end)) {
         _totalAds++;
-        // ✅ QA Fix #16: الحقل الصحيح في AdModel هو clicks وليس clickCount
-        _adClicks += ((ad.clicks ?? ad.clickCount ?? 0) as num).toInt();
+        _adClicks += ad.clickCount;
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -211,7 +242,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
         child: Column(
           children: [
             // 1. شريط الفلتر الزمني
-            _buildTimeFilterBar(),
+            _buildTimeFilterBar(isDark),
             const SizedBox(height: 20),
 
             // 2. كارت الأرباح
@@ -223,8 +254,8 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
               children: [
                 _buildStatCard('مستخدم جديد', '+$_newUsers', Icons.person_add,
                     Colors.purple),
-                _buildStatCard(
-                    'إعلان جديد', '+$_totalAds', Icons.campaign, Colors.deepOrangeAccent),
+                _buildStatCard('إعلان جديد', '+$_totalAds', Icons.campaign,
+                    Colors.deepOrangeAccent),
               ],
             ),
             const SizedBox(height: 10),
@@ -239,8 +270,8 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
             const SizedBox(height: 10),
             Row(
               children: [
-                _buildStatCard(
-                    'إجمالي المستخدمين', '$_totalUsers', Icons.people, Colors.teal),
+                _buildStatCard('إجمالي المستخدمين', '$_totalUsers',
+                    Icons.people, Colors.teal),
                 const Spacer(),
               ],
             ),
@@ -261,6 +292,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
               icon: Icons.store,
               color: Colors.deepPurple,
               reportType: 'shops',
+              isDark: isDark,
             ),
             _buildReportButton(
               context,
@@ -269,6 +301,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
               icon: Icons.shopping_bag,
               color: Colors.green,
               reportType: 'products',
+              isDark: isDark,
             ),
             _buildReportButton(
               context,
@@ -277,6 +310,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
               icon: Icons.local_offer,
               color: Colors.deepOrangeAccent,
               reportType: 'offers',
+              isDark: isDark,
             ),
           ],
         ),
@@ -286,13 +320,14 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
 
   // --- Widgets ---
 
-  Widget _buildTimeFilterBar() {
+  Widget _buildTimeFilterBar(bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300)),
+          border: Border.all(
+              color: isDark ? Colors.white24 : Colors.grey.shade300)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -400,10 +435,12 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
       required String subtitle,
       required IconData icon,
       required Color color,
-      required String reportType}) {
+      required String reportType,
+      required bool isDark}) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
+      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         contentPadding:
@@ -461,20 +498,19 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
     try {
       // 1. تحميل الأقسام للفلتر
       if (_categories.isEmpty) {
-        _categories =
-            await ApiService.getCategories(); // لازم تكون في ApiService
+        _categories = await ApiService.getCategories();
       }
 
-      // 2. تحميل البيانات بناءً على النوع والفلتر
+      // 2. تحميل البيانات بناءً على النوع والفلتر (مع استثناء 'الكل' لعدم البحث عن قسم حرفي اسمه 'الكل')
+      final String? catParam =
+          _selectedCategory == 'الكل' ? null : _selectedCategory;
+
       List<dynamic> data = [];
       if (widget.reportType == 'shops') {
-        data = await ApiService.getRankedShops(category: _selectedCategory);
+        data = await ApiService.getRankedShops(category: catParam);
       } else if (widget.reportType == 'products') {
-        data = await ApiService.getTopProducts(category: _selectedCategory);
+        data = await ApiService.getTopProducts(category: catParam);
       } else if (widget.reportType == 'offers') {
-        // للعروض: بنجيب الكل وبعدين نفلتر لو مفيش دالة فلتر مباشرة
-        // أو نستخدم دالة TopOffers اللي عملناها
-        // لو الـ Offer Model مفيهوش category، الفلتر ده مش هيشتغل كويس إلا لو عدلت الموديل
         data = await ApiService.getTopOffers();
       }
 
@@ -482,7 +518,6 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
       if (_sortBy == 'views') {
         data.sort((a, b) => (b.views ?? 0).compareTo(a.views ?? 0));
       } else if (_sortBy == 'rating') {
-        // تأكد ان الموديلات فيها rating
         data.sort((a, b) {
           double rateA =
               (a is Shop) ? (a.rating) : (a is Product ? a.rating : 0.0);
@@ -510,31 +545,37 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     String title = widget.reportType == 'shops'
         ? 'تقرير المحلات'
         : (widget.reportType == 'products' ? 'تقرير المنتجات' : 'تقرير العروض');
 
     return Scaffold(
-      appBar: AppBar(title: Text(title), backgroundColor: Colors.deepPurple[900]),
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: Colors.deepPurple[900],
+        foregroundColor: Colors.white,
+      ),
       body: Column(
         children: [
           // شريط الفلاتر
           Container(
             padding: const EdgeInsets.all(12),
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
             child: Column(
               children: [
                 // فلتر الأقسام
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _buildFilterChip('الكل'),
-                      ..._categories.map((c) => _buildFilterChip(c.name)),
-                    ],
+                if (widget.reportType != 'offers')
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip('الكل'),
+                        ..._categories.map((c) => _buildFilterChip(c.name)),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
+                if (widget.reportType != 'offers') const SizedBox(height: 10),
                 // فلتر الترتيب
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -576,7 +617,7 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
                         itemCount: _items.length,
                         itemBuilder: (context, index) {
                           final item = _items[index];
-                          return _buildRankItem(item, index + 1);
+                          return _buildRankItem(item, index + 1, isDark);
                         },
                       ),
           ),
@@ -602,7 +643,7 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
     );
   }
 
-  Widget _buildRankItem(dynamic item, int rank) {
+  Widget _buildRankItem(dynamic item, int rank, bool isDark) {
     String name = '';
     String sub = '';
     String img = '';
@@ -622,7 +663,7 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
     } else if (item is Product) {
       name = item.name;
       sub = '${item.price} ج.م';
-      img = item.imageUrls.isNotEmpty ? item.imageUrls.first : '';
+      img = item.displayImageUrl;
       if (_sortBy == 'rating') {
         metric = '${item.rating} ⭐';
       } else if (_sortBy == 'favorites') {
@@ -633,12 +674,17 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
     } else if (item is Offer) {
       name = item.title;
       sub = 'خصم ${item.discount}%';
-      img = item.imageUrl;
-      metric = '${item.views} 👁️';
+      img = item.displayImageUrl;
+      if (_sortBy == 'favorites') {
+        metric = '${item.favoriteCount} ❤️';
+      } else {
+        metric = '${item.views} 👁️';
+      }
     }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
+      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
       child: ListTile(
         leading: SizedBox(
           width: 80,
@@ -662,7 +708,8 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-              color: Colors.blue[50], borderRadius: BorderRadius.circular(8)),
+              color: Colors.blue.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8)),
           child: Text(metric,
               style: const TextStyle(
                   fontWeight: FontWeight.bold, color: Colors.blue)),

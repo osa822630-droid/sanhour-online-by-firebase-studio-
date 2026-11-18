@@ -1,7 +1,9 @@
 // lib/screens/tabs/admin_users_tab.dart
+// ✅ إصلاح كراش RangeError عند وجود مستخدم باسم فارغ ""
+// ✅ تخزين وعرض رسالة الخطأ عند فشل جلب المستخدمين ودعم الوضع الليلي (Dark Mode)
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // عشان التعامل مع Timestamps
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/api_service.dart';
 
 class AdminUsersTab extends StatefulWidget {
@@ -40,7 +42,10 @@ class _AdminUsersTabState extends State<AdminUsersTab>
   }
 
   Future<void> _loadUsers() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMsg = null;
+    });
     try {
       final users = await ApiService.getAllUsers();
       if (mounted) {
@@ -52,7 +57,12 @@ class _AdminUsersTabState extends State<AdminUsersTab>
       }
     } catch (e) {
       debugPrint('Error loading users: $e');
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMsg = 'تعذّر تحميل المستخدمين: $e';
+        });
+      }
     }
   }
 
@@ -79,8 +89,8 @@ class _AdminUsersTabState extends State<AdminUsersTab>
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       temp = temp.where((u) {
-        final name = (u['name'] ?? '').toLowerCase();
-        final username = (u['username'] ?? '').toLowerCase();
+        final name = (u['name'] ?? '').toString().toLowerCase();
+        final username = (u['username'] ?? '').toString().toLowerCase();
         final phone = (u['phone'] ?? '').toString();
         return name.contains(q) || username.contains(q) || phone.contains(q);
       }).toList();
@@ -93,14 +103,16 @@ class _AdminUsersTabState extends State<AdminUsersTab>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: isDark ? const Color(0xFF0E0E1A) : Colors.grey[100],
       body: Column(
         children: [
           // 1. شريط البحث
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'بحث (اسم، اسم مستخدم، هاتف)...',
@@ -118,7 +130,7 @@ class _AdminUsersTabState extends State<AdminUsersTab>
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
-                fillColor: Colors.grey[50],
+                fillColor: isDark ? const Color(0xFF252538) : Colors.grey[50],
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
               ),
               onChanged: (val) {
@@ -130,12 +142,13 @@ class _AdminUsersTabState extends State<AdminUsersTab>
 
           // 2. تبويبات الفلترة (Tabs)
           Container(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
             child: TabBar(
               controller: _filterController,
-              labelColor: Colors.deepPurple[900],
+              labelColor: isDark ? Colors.white : Colors.deepPurple[900],
               unselectedLabelColor: Colors.grey,
-              indicatorColor: Colors.deepPurple[900],
+              indicatorColor:
+                  isDark ? Colors.deepPurpleAccent : Colors.deepPurple[900],
               indicatorWeight: 3,
               labelStyle: const TextStyle(fontWeight: FontWeight.bold),
               tabs: _filters.map((f) => Tab(text: f)).toList(),
@@ -169,7 +182,8 @@ class _AdminUsersTabState extends State<AdminUsersTab>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                            const Icon(Icons.error_outline,
+                                size: 48, color: Colors.red),
                             const SizedBox(height: 12),
                             Text(_errorMsg!, textAlign: TextAlign.center),
                             const SizedBox(height: 16),
@@ -188,7 +202,7 @@ class _AdminUsersTabState extends State<AdminUsersTab>
                                 left: 16, right: 16, bottom: 80),
                             itemCount: _filteredUsers.length,
                             itemBuilder: (ctx, i) =>
-                                _buildUserCard(_filteredUsers[i]),
+                                _buildUserCard(_filteredUsers[i], isDark),
                           ),
           ),
         ],
@@ -198,10 +212,16 @@ class _AdminUsersTabState extends State<AdminUsersTab>
 
   // --- Widgets ---
 
-  Widget _buildUserCard(Map<String, dynamic> user) {
+  Widget _buildUserCard(Map<String, dynamic> user, bool isDark) {
     final bool isSuspended = user['isSuspended'] ?? false;
     final String role = user['userType'] ?? 'customer';
     final bool isMerchant = role == 'merchant';
+
+    // ✅ إصلاح RangeError عندما يكون user['name'] نصاً فارغاً ""
+    final String rawName = (user['name'] ?? '').toString().trim();
+    final String displayName = rawName.isNotEmpty ? rawName : 'بدون اسم';
+    final String avatarChar =
+        rawName.isNotEmpty ? rawName.substring(0, 1).toUpperCase() : '?';
 
     // تنسيق التاريخ
     String dateStr = '-';
@@ -227,7 +247,9 @@ class _AdminUsersTabState extends State<AdminUsersTab>
             : BorderSide.none,
       ),
       // لو محظور نغير لون الخلفية لحاجة باهتة
-      color: isSuspended ? Colors.grey[100] : Colors.white,
+      color: isSuspended
+          ? (isDark ? const Color(0xFF251A1E) : Colors.grey[100])
+          : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
 
@@ -240,9 +262,11 @@ class _AdminUsersTabState extends State<AdminUsersTab>
                   ? Colors.grey
                   : (isMerchant ? Colors.blue[100] : Colors.green[100]),
               child: Text(
-                (user['name'] ?? '?').toString().substring(0, 1).toUpperCase(),
+                avatarChar,
                 style: TextStyle(
-                    color: isMerchant ? Colors.deepPurple[900] : Colors.green[900],
+                    color: isMerchant
+                        ? Colors.deepPurple[900]
+                        : Colors.green[900],
                     fontWeight: FontWeight.bold,
                     fontSize: 22),
               ),
@@ -279,12 +303,14 @@ class _AdminUsersTabState extends State<AdminUsersTab>
           children: [
             Expanded(
               child: Text(
-                user['name'] ?? 'بدون اسم',
+                displayName,
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     // شطب الاسم لو محظور
                     decoration: isSuspended ? TextDecoration.lineThrough : null,
-                    color: isSuspended ? Colors.grey : Colors.black87),
+                    color: isSuspended
+                        ? Colors.grey
+                        : (isDark ? Colors.white : Colors.black87)),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -329,10 +355,10 @@ class _AdminUsersTabState extends State<AdminUsersTab>
           icon: const Icon(Icons.more_vert),
           onSelected: (value) {
             if (value == 'toggle_ban') {
-              _toggleUserSuspension(user['id'], isSuspended, user['name']);
+              _toggleUserSuspension(user['id'], isSuspended, displayName);
             }
             if (value == 'delete') {
-              _confirmDeleteUser(user['id'], user['name']);
+              _confirmDeleteUser(user['id'], displayName);
             }
           },
           itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[

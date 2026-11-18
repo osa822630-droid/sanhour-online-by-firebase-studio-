@@ -168,6 +168,10 @@ class DatabaseSeeder {
     // service_requests/{id}/service_bids يبقى لمسح بيانات قديمة زُرعت قبل التوحيد.
     'service_bids': [],
     'service_requests': ['service_bids'],
+    'notifications': [],
+    'complaints': [],
+    'wishlists': [],
+    'collection_invites': [],
   };
 
   /// ✅ Item #4: يمسح محتوى التطبيق نهائيًا (محلات، منتجات، فئات، عروض، إعلانات،
@@ -1265,7 +1269,7 @@ class DatabaseSeeder {
           'body': 'بوتيك الأناقة أضاف عرضاً جديداً — استغله قبل ما ينتهي!',
           'type': 'new_offer',
           'isRead': false,
-          'data': {'route': 'shop_detail', 'targetId': 'shop_fashion', 'channel': 'offers'},
+          'data': {'route': 'shop_details:shop_fashion', 'targetId': 'shop_fashion', 'channel': 'offers'},
           'createdAt': FieldValue.serverTimestamp(),
         },
         {
@@ -1365,7 +1369,10 @@ class DatabaseSeeder {
       await _db.collection('referrals').add({
         'referrerId': 'mock_merchant',
         'referredId': 'user_003',
+        'newUserId': 'user_003',
         'bonusDays': 7,
+        'referrerBonusDays': 7,
+        'appliedAt': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
       });
 

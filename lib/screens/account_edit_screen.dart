@@ -1,13 +1,15 @@
 // lib/screens/account_edit_screen.dart
-// شاشة تعديل الحساب — الاسم، اسم المستخدم، الصورة الشخصية
+// شاشة تعديل الحساب — الاسم، اسم المستخدم، الصورة الشخصية، وكود الدعوة
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../services/media_upload_service.dart';
+import '../services/referral_service.dart';
 
 class AccountEditScreen extends StatefulWidget {
   const AccountEditScreen({super.key});
@@ -24,14 +26,17 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
   File? _newPhoto;
   bool _isSaving = false;
   bool _isUploadingPhoto = false;
-  // ✅ نظام تقدم رفع الصورة الشخصية — null = لم يبدأ، 0.0–1.0 = نسبة الرفع
   double? _photoProgress;
   String _currentPhotoUrl = '';
+  String _referralCode = '';
+  int _referralCount = 0;
+  bool _loadingReferral = false;
 
   @override
   void initState() {
     super.initState();
     _prefillData();
+    _loadReferralInfo();
   }
 
   @override
@@ -47,6 +52,25 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
     _nameCtrl.text = user.name;
     _usernameCtrl.text = user.username;
     _currentPhotoUrl = user.profileImageUrl ?? '';
+  }
+
+  Future<void> _loadReferralInfo() async {
+    final user = context.read<AuthProvider>().user;
+    if (user == null || user.id.isEmpty) return;
+    setState(() => _loadingReferral = true);
+    try {
+      final code = await ReferralService.getOrCreateCode(user.id);
+      final count = await ReferralService.getReferralCount(user.id);
+      if (mounted) {
+        setState(() {
+          _referralCode = code;
+          _referralCount = count;
+          _loadingReferral = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingReferral = false);
+    }
   }
 
   Future<void> _pickPhoto() async {
@@ -88,8 +112,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
                     borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 16),
             const Text('اختر مصدر الصورة',
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             Row(children: [
               Expanded(
@@ -129,8 +152,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
           const SizedBox(height: 8),
           Text(label,
               style: const TextStyle(
-                  color: Color(0xFF5E35B1),
-                  fontWeight: FontWeight.w600)),
+                  color: Color(0xFF5E35B1), fontWeight: FontWeight.w600)),
         ]),
       ),
     );
@@ -143,9 +165,6 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
       _photoProgress = 0;
     });
     try {
-      // ✅ إصلاح الكراش: MediaUploadService بدل putFile الخام
-      // — تحقق من الحجم (≤10MB)، رسائل خطأ عربية، إعادة محاولة تلقائية
-      // — تتبع تقدم حقيقي عبر snapshotEvents
       final url = await MediaUploadService.uploadFile(
         file: _newPhoto!,
         folder: 'users/$userId',
@@ -190,28 +209,43 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
     final user = auth.user;
     if (user == null) return;
 
-    final username = _usernameCtrl.text.trim();
-    if (username.isNotEmpty) {
+    final rawUsername = _usernameCtrl.text.trim();
+    final usernameLower = rawUsername.toLowerCase();
+    final oldUsernameLower = user.username.trim().toLowerCase();
+
+    if (rawUsername.isNotEmpty) {
       final valid = RegExp(r'^[a-zA-Z0-9_\.]{3,20}$');
-      if (!valid.hasMatch(username)) {
+      if (!valid.hasMatch(rawUsername)) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text(
-              'اسم المستخدم: 3-20 حرف إنجليزي/رقم/_ أو . فقط'),
+          content: Text('اسم المستخدم: 3-20 حرف إنجليزي/رقم/_ أو . فقط'),
           backgroundColor: Colors.red,
         ));
         return;
       }
-      if (username != user.username) {
+      if (usernameLower != oldUsernameLower) {
         try {
+          final usernameDoc = await FirebaseFirestore.instance
+              .collection('usernames')
+              .doc(usernameLower)
+              .get();
+          if (usernameDoc.exists &&
+              usernameDoc.data()?['uid'] != user.id) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('اسم المستخدم محجوز. اختر اسماً آخر.'),
+              backgroundColor: Colors.red,
+            ));
+            return;
+          }
           final existing = await FirebaseFirestore.instance
               .collection('users')
-              .where('username', isEqualTo: username)
+              .where('username', isEqualTo: rawUsername)
               .limit(1)
               .get();
-          if (existing.docs.isNotEmpty) {
+          if (existing.docs.isNotEmpty &&
+              existing.docs.first.id != user.id) {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('اسم المستخدم محجوز. اختر اسماً آخر.'),
               backgroundColor: Colors.red,
             ));
@@ -222,7 +256,6 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
     }
 
     setState(() => _isSaving = true);
-    // ✅ Fix #148: استخدام AuthService.updateUserProfile بدلاً من Firestore مباشرة
     try {
       String photoUrl = _currentPhotoUrl;
       if (_newPhoto != null) {
@@ -230,19 +263,32 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
         if (uploaded != null) photoUrl = uploaded;
       }
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.id)
-          .update({
+      final db = FirebaseFirestore.instance;
+      final batch = db.batch();
+
+      // تحديث حجز اسم المستخدم ذرياً في مجموعة usernames
+      if (rawUsername.isNotEmpty && usernameLower != oldUsernameLower) {
+        batch.set(db.collection('usernames').doc(usernameLower), {
+          'uid': user.id,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        if (oldUsernameLower.isNotEmpty) {
+          batch.delete(db.collection('usernames').doc(oldUsernameLower));
+        }
+      }
+
+      batch.update(db.collection('users').doc(user.id), {
         'name': _nameCtrl.text.trim(),
-        if (username.isNotEmpty) 'username': username,
+        if (rawUsername.isNotEmpty) 'username': rawUsername,
         'profileImageUrl': photoUrl.isNotEmpty ? photoUrl : null,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
+      await batch.commit();
+
       auth.updateUserLocally(
         name: _nameCtrl.text.trim(),
-        username: username.isNotEmpty ? username : user.username,
+        username: rawUsername.isNotEmpty ? rawUsername : user.username,
         photoUrl: photoUrl.isNotEmpty ? photoUrl : null,
       );
 
@@ -251,8 +297,6 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
         content: Text('تم حفظ التغييرات بنجاح ✅'),
         backgroundColor: Colors.green,
       ));
-      // ✅ إصلاح: كان الإغلاق يحدث فوراً بعد عرض الرسالة، فتُدمَّر الرسالة مع
-      // الشاشة قبل أن يراها المستخدم فعلياً — تأخير بسيط يضمن ظهورها بوضوح
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -327,8 +371,8 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
                                             _avatar(user),
                                       )
                                     : _avatar(user),
-                            // ✅ طبقة تقدم رفع الصورة الشخصية
-                            if (_photoProgress != null && _photoProgress! < 1.0)
+                            if (_photoProgress != null &&
+                                _photoProgress! < 1.0)
                               Container(
                                 color: Colors.black.withValues(alpha: 0.55),
                                 child: Center(
@@ -370,15 +414,13 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: const BoxDecoration(
-                            color: Color(0xFF5E35B1),
-                            shape: BoxShape.circle),
+                            color: Color(0xFF5E35B1), shape: BoxShape.circle),
                         child: _isUploadingPhoto
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2))
+                                    color: Colors.white, strokeWidth: 2))
                             : const Icon(Icons.camera_alt,
                                 color: Colors.white, size: 16),
                       ),
@@ -425,38 +467,97 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
             _fieldLabel('رقم الهاتف'),
             const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 14),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color:
-                    isDark ? const Color(0xFF252535) : Colors.grey[100],
+                color: isDark ? const Color(0xFF252535) : Colors.grey[100],
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                    color: Colors.grey.withValues(alpha: 0.3)),
+                border:
+                    Border.all(color: Colors.grey.withValues(alpha: 0.3)),
               ),
               child: Row(children: [
                 Icon(Icons.phone, color: Colors.grey[500], size: 20),
                 const SizedBox(width: 12),
                 Text(user?.phone ?? '—',
-                    style: TextStyle(
-                        color: Colors.grey[600], fontSize: 15),
+                    style:
+                        TextStyle(color: Colors.grey[600], fontSize: 15),
                     textDirection: TextDirection.ltr),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                       color: Colors.grey.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6)),
                   child: const Text('للقراءة فقط',
-                      style:
-                          TextStyle(fontSize: 10, color: Colors.grey)),
+                      style: TextStyle(fontSize: 10, color: Colors.grey)),
                 ),
               ]),
             ),
             const SizedBox(height: 4),
             Text('لتغيير رقم الهاتف، تواصل مع الدعم الفني',
                 style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+
+            // ── بطاقة كود الدعوة الخاص بالمستخدم ───────────────────────
+            if (user != null && _referralCode.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              _fieldLabel('كود الدعوة الخاص بك'),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF5E35B1).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: const Color(0xFF5E35B1).withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.card_giftcard, color: Color(0xFF5E35B1)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SelectableText(
+                            _referralCode,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              letterSpacing: 1.2,
+                              color: Color(0xFF5E35B1),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'عدد الأصدقاء المدعوين: $_referralCount',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'نسخ الكود',
+                      icon: const Icon(Icons.copy,
+                          size: 20, color: Color(0xFF5E35B1)),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: _referralCode));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('تم نسخ كود الدعوة ✅'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (_loadingReferral) ...[
+              const SizedBox(height: 16),
+              const Center(child: LinearProgressIndicator()),
+            ],
 
             const SizedBox(height: 40),
 
@@ -479,8 +580,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
                             color: Colors.white, strokeWidth: 2))
                     : const Text('حفظ التغييرات',
                         style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold)),
+                            fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 24),

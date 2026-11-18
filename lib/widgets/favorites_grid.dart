@@ -28,8 +28,8 @@ class FavoritesGrid extends StatelessWidget {
                 Icon(Icons.favorite_border, size: 80, color: Colors.grey[400]),
                 const SizedBox(height: 16),
                 const Text(
-                  'Your favorite list is empty',
-                  style: TextStyle(fontSize: 18, color: Colors.grey),
+                  'قائمة المفضلة فارغة حالياً',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
               ],
             ),
@@ -41,7 +41,7 @@ class FavoritesGrid extends StatelessWidget {
           itemCount: items.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 0.8,
+            childAspectRatio: 0.72,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
           ),
@@ -64,21 +64,20 @@ class FavoritesGrid extends StatelessWidget {
     if (item is Shop) {
       imageUrl = item.imageUrl;
       title = item.name;
-      subtitle = '${item.rating} ★';
+      subtitle = '⭐ ${item.rating.toStringAsFixed(1)}';
       onTap = () => Navigator.push(
           context,
-          MaterialPageRoute(
-              builder: (_) => ShopDetailScreen(shop: item)));
+          MaterialPageRoute(builder: (_) => ShopDetailScreen(shop: item)));
     } else if (item is Product) {
-      imageUrl = item.imageUrls.isNotEmpty ? item.imageUrls.first : '';
+      imageUrl = item.displayImageUrl;
       title = item.name;
-      subtitle = '${item.price} EGP';
+      subtitle = '${item.price.toStringAsFixed(0)} ج.م';
       onTap = () => Navigator.push(
           context, MaterialPageRoute(builder: (_) => DetailScreen(item: item)));
     } else if (item is Offer) {
       imageUrl = item.imageUrl;
       title = item.title;
-      subtitle = '${item.discount}% Off';
+      subtitle = 'خصم ${item.discount}%';
       onTap = () => Navigator.push(
           context, MaterialPageRoute(builder: (_) => DetailScreen(item: item)));
     }
@@ -104,19 +103,25 @@ class FavoritesGrid extends StatelessWidget {
                   padding: const EdgeInsets.all(8.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         subtitle,
-                        style: TextStyle(
-                            color: Theme.of(context).primaryColor,
-                            fontSize: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF5E35B1),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -127,9 +132,11 @@ class FavoritesGrid extends StatelessWidget {
               top: 8,
               right: 8,
               child: CircleAvatar(
-                backgroundColor: Colors.white.withValues(alpha: 0.8),
+                radius: 16,
+                backgroundColor: Colors.black.withValues(alpha: 0.45),
                 child: IconButton(
-                  icon: const Icon(Icons.favorite, color: Colors.red, size: 20),
+                  padding: EdgeInsets.zero,
+                  icon: const Icon(Icons.favorite, color: Colors.red, size: 18),
                   onPressed: () => provider.toggleFavorite(item),
                 ),
               ),

@@ -1,5 +1,4 @@
 // lib/utils/app_theme.dart
-// ✅ Pro #220: مركزة ألوان التطبيق في مكان واحد لسهولة التغيير
 import 'package:flutter/material.dart';
 
 class AppColors {
@@ -7,7 +6,7 @@ class AppColors {
 
   // Primary
   static const primary        = Color(0xFF5E35B1);
-  static const primaryLight   = Color(0xFF9162E4);
+  static const primaryLight   = Color(0xFF7C4DFF);
   static const primaryDark    = Color(0xFF320B86);
 
   // Accent
@@ -20,9 +19,11 @@ class AppColors {
   static const warning        = Color(0xFFFF9800);
   static const info           = Color(0xFF2196F3);
 
-  // Neutral
+  // Neutral & Dark Surfaces
   static const surface        = Color(0xFFF8F7FF);
-  static const surfaceDark    = Color(0xFF1A1A2E);
+  static const surfaceDark    = Color(0xFF0E0E1A);
+  static const cardDark       = Color(0xFF1E1E2E);
+  static const inputDark      = Color(0xFF252538);
   static const textMuted      = Color(0xFF9E9E9E);
 
   // Category colors
@@ -36,67 +37,156 @@ class AppColors {
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get light => ThemeData(
-    useMaterial3: true,
-    colorSchemeSeed: AppColors.primary,
-    brightness: Brightness.light,
-    fontFamily: 'Cairo',
-    scaffoldBackgroundColor: AppColors.surface,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.primary,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      centerTitle: true,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
+  static ThemeData get light {
+    final base = ThemeData(
+      useMaterial3: true,
+      colorSchemeSeed: AppColors.primary,
+      brightness: Brightness.light,
+      fontFamily: 'Tajawal',
+      scaffoldBackgroundColor: AppColors.surface,
+    );
+
+    return base.copyWith(
+      textTheme: base.textTheme.apply(fontFamily: 'Tajawal'),
+      primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Tajawal'),
+      appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        elevation: 0,
+        centerTitle: true,
       ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    ),
-    // ✅ إصلاح API قديم: ThemeData.cardTheme يتوقع CardThemeData وليس
-    // CardTheme (تطبيع أنواع الثيمات Component theme normalization)
-    cardTheme: CardThemeData(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ),
-  );
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.grey[100],
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+        prefixIconColor: AppColors.primary,
+        labelStyle: const TextStyle(color: AppColors.primary),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 2,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        selectedColor: AppColors.primary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      progressIndicatorTheme:
+          const ProgressIndicatorThemeData(color: AppColors.primary),
+      dividerTheme: DividerThemeData(color: Colors.grey[200], thickness: 1),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
 
-  static ThemeData get dark => ThemeData(
-    useMaterial3: true,
-    colorSchemeSeed: AppColors.primary,
-    brightness: Brightness.dark,
-    fontFamily: 'Cairo',
-    scaffoldBackgroundColor: AppColors.surfaceDark,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Color(0xFF0E0E1A),
-      foregroundColor: Colors.white,
-      elevation: 0,
-      centerTitle: true,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primaryLight,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+  static ThemeData get dark {
+    final base = ThemeData(
+      useMaterial3: true,
+      colorSchemeSeed: AppColors.primary,
+      brightness: Brightness.dark,
+      fontFamily: 'Tajawal',
+      scaffoldBackgroundColor: AppColors.surfaceDark,
+      cardColor: AppColors.cardDark,
+    );
+
+    return base.copyWith(
+      textTheme: base.textTheme.apply(
+        fontFamily: 'Tajawal',
+        bodyColor: Colors.grey[200],
+        displayColor: Colors.white,
       ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    ),
-    // ✅ إصلاح API قديم: ThemeData.cardTheme يتوقع CardThemeData وليس CardTheme
-    cardTheme: CardThemeData(
-      elevation: 2,
-      color: const Color(0xFF1E1E2E),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ),
-  );
+      primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Tajawal'),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF16162A),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primaryLight,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.inputDark,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey[800]!, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppColors.primaryLight, width: 1.5),
+        ),
+        prefixIconColor: AppColors.primaryLight,
+        labelStyle: const TextStyle(color: AppColors.primaryLight),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 2,
+        color: AppColors.cardDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.cardDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.cardDark,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        selectedColor: AppColors.primaryLight,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
+      progressIndicatorTheme:
+          const ProgressIndicatorThemeData(color: AppColors.primaryLight),
+      dividerTheme: DividerThemeData(color: Colors.grey[800], thickness: 1),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
 }

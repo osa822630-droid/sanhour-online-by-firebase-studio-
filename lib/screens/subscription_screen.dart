@@ -21,30 +21,22 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   bool _isRenewing = false;
   String _selectedPlan = 'monthly';
 
-  // خطط الاشتراك
-  static const Map<String, Map<String, dynamic>> _plans = {
+  // ✅ خطط الاشتراك تقرأ الأسعار والأيام الموحدة من SubscriptionService.tiers
+  static Map<String, Map<String, dynamic>> get _plans => {
     'monthly': {
-      'label': 'شهري',
-      'price': 99,
-      'days': 30,
+      ...SubscriptionService.tiers['monthly']!,
       'icon': Icons.calendar_month,
-      'color': Color(0xFF5E35B1),
+      'color': const Color(0xFF5E35B1),
     },
     'quarterly': {
-      'label': 'ربع سنوي',
-      'price': 249,
-      'days': 90,
+      ...SubscriptionService.tiers['quarterly']!,
       'icon': Icons.event_repeat,
-      'color': Color(0xFF00897B),
-      'badge': 'وفر 16%',
+      'color': const Color(0xFF00897B),
     },
     'yearly': {
-      'label': 'سنوي',
-      'price': 799,
-      'days': 365,
+      ...SubscriptionService.tiers['yearly']!,
       'icon': Icons.workspace_premium,
-      'color': Color(0xFFE65100),
-      'badge': 'الأوفر',
+      'color': const Color(0xFFE65100),
     },
   };
 
@@ -362,7 +354,6 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
               value: key,
               activeColor: color,
               contentPadding: EdgeInsets.zero,
-              toggleable: true,
             ),
           ),
         ]),

@@ -13,31 +13,45 @@ import 'cached_image.dart';
 class HorizontalList extends StatelessWidget {
   final String title;
   final String type;
-  final List<dynamic>? items; // ✅ إضافة دعم لقائمة مخصصة
+  final List<dynamic>? items;
 
-  const HorizontalList({super.key, required this.title, required this.type, this.items});
+  const HorizontalList({
+    super.key,
+    required this.title,
+    required this.type,
+    this.items,
+  });
 
   @override
   Widget build(BuildContext context) {
-    if (items != null) return _buildList(context, items!); // ✅ استخدام القائمة الممررة مباشرة
+    if (items != null) return _buildList(context, items!);
 
     return Selector<ShopsProvider, List<dynamic>>(
       selector: (_, p) {
         switch (type) {
-          case 'best_shops': return p.bestShops;
-          case 'new_shops': return p.newShops;
-          case 'featured_shops': return p.featuredShops;
-          case 'best_products': return p.bestProducts;
-          case 'new_products': return p.newProducts;
+          case 'best_shops':
+            return p.bestShops;
+          case 'new_shops':
+            return p.newShops;
+          case 'featured_shops':
+            return p.featuredShops;
+          case 'best_products':
+            return p.bestProducts;
+          case 'new_products':
+            return p.newProducts;
           case 'best_offers':
           case 'featured_offers':
-          case 'all_offers': return p.bestOffers;
+          case 'all_offers':
+            return p.bestOffers;
           case 'ending_offers':
             final now = DateTime.now();
             return p.allOffers
-                .where((o) => o.validUntil.difference(now).inDays <= 7 && o.validUntil.isAfter(now))
+                .where((o) =>
+                    o.validUntil.difference(now).inDays <= 7 &&
+                    o.validUntil.isAfter(now))
                 .toList();
-          default: return [];
+          default:
+            return [];
         }
       },
       builder: (context, items, _) => _buildList(context, items),
@@ -53,10 +67,11 @@ class HorizontalList extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(title,
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
           ),
         SizedBox(
-          height: 200,
+          height: 204,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -92,38 +107,63 @@ class _HorizontalCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2))
+          ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-            child: SizedBox(height: 110, width: double.infinity,
-                child: CachedImage(imageUrl: shop.imageUrl, fit: BoxFit.cover)),
+            child: SizedBox(
+                height: 110,
+                width: double.infinity,
+                child: CachedImage(
+                    imageUrl: shop.imageUrl,
+                    width: 150,
+                    height: 110,
+                    fallbackIcon: Icons.storefront,
+                    fit: BoxFit.cover)),
           ),
-          Padding(padding: const EdgeInsets.all(8), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(shop.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            const SizedBox(height: 2),
-            Text(shop.category,
-                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 4),
-            Row(children: [
-              const Icon(Icons.star, color: Colors.amber, size: 13),
-              Text(' ${shop.rating.toStringAsFixed(1)}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
-              if (shop.isFeatured) ...[
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(color: Colors.amber[100], borderRadius: BorderRadius.circular(4)),
-                  child: const Text('مميز', style: TextStyle(fontSize: 9, color: Colors.orange)),
-                ),
-              ],
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(shop.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 2),
+              Text(shop.category,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 4),
+              Row(children: [
+                const Icon(Icons.star, color: Colors.amber, size: 13),
+                Text(' ${shop.rating.toStringAsFixed(1)}',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                if (shop.isFeatured) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                        color: Colors.amber.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4)),
+                    child: const Text('مميز',
+                        style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.orange,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ]),
             ]),
-          ])),
+          ),
         ]),
       ),
     );
@@ -139,39 +179,68 @@ class _HorizontalCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2))
+          ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             child: Stack(children: [
-              SizedBox(height: 110, width: double.infinity,
+              SizedBox(
+                  height: 110,
+                  width: double.infinity,
                   child: CachedImage(
-                      imageUrl: product.imageUrls.isNotEmpty ? product.imageUrls.first : '',
+                      imageUrl: product.displayImageUrl,
+                      width: 140,
+                      height: 110,
+                      fallbackIcon: Icons.shopping_bag_outlined,
                       fit: BoxFit.cover)),
               if (product.hasDiscount)
-                Positioned(top: 6, right: 6, child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(4)),
-                  child: Text('-${product.discountPercentage.toInt()}%',
-                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                )),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(4)),
+                    child: Text('-${product.discountPercentage.toInt()}%',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                ),
             ]),
           ),
-          Padding(padding: const EdgeInsets.all(8), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-            const SizedBox(height: 4),
-            Text('${product.price.toStringAsFixed(0)} جنيه',
-                style: const TextStyle(color: Color(0xFF5E35B1),
-                    fontWeight: FontWeight.bold, fontSize: 13)),
-            if (product.hasPriceDrop && product.oldPrice > 0)
-              Text(product.oldPrice.toStringAsFixed(0),
-                  style: const TextStyle(decoration: TextDecoration.lineThrough,
-                      fontSize: 10, color: Colors.grey)),
-          ])),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(product.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 12)),
+              const SizedBox(height: 4),
+              Text('${product.price.toStringAsFixed(0)} جنيه',
+                  style: const TextStyle(
+                      color: Color(0xFF5E35B1),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13)),
+              if (product.hasPriceDrop && product.oldPrice > 0)
+                Text(product.oldPrice.toStringAsFixed(0),
+                    style: const TextStyle(
+                        decoration: TextDecoration.lineThrough,
+                        fontSize: 10,
+                        color: Colors.grey)),
+            ]),
+          ),
         ]),
       ),
     );
@@ -188,37 +257,71 @@ class _HorizontalCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2))
+          ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             child: Stack(children: [
-              SizedBox(height: 100, width: double.infinity,
-                  child: CachedImage(imageUrl: offer.imageUrl, fit: BoxFit.cover)),
-              Positioned(top: 6, right: 6, child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
-                child: Text('${offer.discount}% خصم',
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-              )),
+              SizedBox(
+                  height: 100,
+                  width: double.infinity,
+                  child: CachedImage(
+                      imageUrl: offer.imageUrl,
+                      width: 160,
+                      height: 100,
+                      fallbackIcon: Icons.local_offer_outlined,
+                      fit: BoxFit.cover)),
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                      color: Colors.red, borderRadius: BorderRadius.circular(6)),
+                  child: Text('${offer.discount}% خصم',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold)),
+                ),
+              ),
               if (isExpiringSoon)
-                Positioned(bottom: 6, left: 6, child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(4)),
-                  child: const Text('ينتهي قريباً', style: TextStyle(color: Colors.white, fontSize: 9)),
-                )),
+                Positioned(
+                  bottom: 6,
+                  left: 6,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(4)),
+                    child: const Text('ينتهي قريباً',
+                        style: TextStyle(color: Colors.white, fontSize: 9)),
+                  ),
+                ),
             ]),
           ),
-          Padding(padding: const EdgeInsets.all(8), child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(offer.title, maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-            const SizedBox(height: 3),
-            Text('حتى: ${offer.validUntil.day}/${offer.validUntil.month}',
-                style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          ])),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(offer.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 12)),
+              const SizedBox(height: 3),
+              Text('حتى: ${offer.validUntil.day}/${offer.validUntil.month}',
+                  style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            ]),
+          ),
         ]),
       ),
     );

@@ -16,17 +16,15 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // حالة التحميل والبيانات العامة
   bool _isLoadingOverview = true;
   Map<String, dynamic>? _overviewData;
 
-  // متغيرات تبويبات التحليل (المنتجات والعروض)
   String _productsSort = 'views';
   String _offersSort = 'views';
   List<Map<String, dynamic>> _productsList = [];
   List<Map<String, dynamic>> _offersList = [];
-  
-  int _productsLimit = 10; // نبدأ بـ 10 بس عشان السرعة
+
+  int _productsLimit = 10;
   int _offersLimit = 10;
 
   @override
@@ -38,14 +36,12 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
     _loadItemsStats('offers');
   }
 
-  // ✅ Fix #57: dispose TabController لمنع memory leak
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
   }
 
-  // تحميل النظرة العامة
   Future<void> _loadOverviewStats() async {
     try {
       final data = await ApiService.getMerchantAdvancedStats(widget.shopId);
@@ -63,8 +59,6 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
     }
   }
 
-  // تحميل قوائم المنتجات/العروض
-  // ✅ QA Fix #11: تفعيل _isLoadingItems فعلياً
   Future<void> _loadItemsStats(String type, {bool loadMore = false}) async {
     if (loadMore) {
       setState(() {
@@ -76,7 +70,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
       });
     }
     if (!mounted) return;
-    
+
     try {
       final data = await ApiService.getTopItems(
         shopId: widget.shopId,
@@ -100,16 +94,18 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
-        // التبويبات العلوية
         Container(
-          color: Colors.white,
+          color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
           child: TabBar(
             controller: _tabController,
-            labelColor: Colors.deepPurple[900],
+            labelColor: isDark
+                ? const Color(0xFFB39DDB)
+                : const Color(0xFF5E35B1),
             unselectedLabelColor: Colors.grey,
-            indicatorColor: Colors.deepPurple[900],
+            indicatorColor: const Color(0xFF5E35B1),
             tabs: const [
               Tab(text: 'نظرة عامة'),
               Tab(text: 'المنتجات'),
@@ -117,15 +113,13 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
             ],
           ),
         ),
-
-        // المحتوى
         Expanded(
           child: TabBarView(
             controller: _tabController,
             children: [
-              _buildOverviewTab(),
-              _buildItemsAnalysisTab(type: 'products'),
-              _buildItemsAnalysisTab(type: 'offers'),
+              _buildOverviewTab(isDark),
+              _buildItemsAnalysisTab(type: 'products', isDark: isDark),
+              _buildItemsAnalysisTab(type: 'offers', isDark: isDark),
             ],
           ),
         ),
@@ -133,10 +127,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
     );
   }
 
-  // ==========================================================
-  // 1. تبويب النظرة العامة (Overview)
-  // ==========================================================
-  Widget _buildOverviewTab() {
+  Widget _buildOverviewTab(bool isDark) {
     if (_isLoadingOverview) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -144,17 +135,15 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
       return const Center(child: Text('لا توجد بيانات متاحة'));
     }
 
-    // تحويل البيانات للرسم البياني
     final List<ChartData> chartData =
         (_overviewData!['weeklyViews'] as List? ?? [])
             .map((e) => ChartData(
                   label: e['day'] ?? '',
                   value: double.parse(e['value'].toString()),
-                  color: Colors.deepPurple,
+                  color: const Color(0xFF5E35B1),
                 ))
             .toList();
 
-    // حساب أقصى قيمة للرسم البياني عشان السكيل
     double maxView = 0;
     for (var d in chartData) {
       if (d.value > maxView) {
@@ -163,20 +152,24 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
     }
     if (maxView == 0) {
       maxView = 10;
-    } // Default
+    }
+
+    final totalCompetitors =
+        ((_overviewData!['totalCompetitors'] as num?)?.toInt() ?? 1)
+            .clamp(1, 999999);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // كروت الأداء الرئيسية
           Row(
             children: [
               _statCard('زيارات المتجر', '${_overviewData!['totalViews']}',
                   Icons.store, Colors.blue),
-              _statCard('إجمالي المفضلة', '${_overviewData!['totalFavorites']}',
-                  Icons.favorite, Colors.red),
+              _statCard('إجمالي المفضلة',
+                  '${_overviewData!['totalFavorites']}', Icons.favorite,
+                  Colors.red),
             ],
           ),
           Row(
@@ -187,31 +180,40 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                   Icons.leaderboard, Colors.green),
             ],
           ),
-          // ✅ قسم 6: إحصائيات التفاعل (هاتف / واتساب / سوشيال)
           Row(
             children: [
-              _statCard('ضغطات الهاتف', '${_overviewData!['phoneClicks'] ?? 0}',
-                  Icons.phone, Colors.teal),
-              _statCard('ضغطات واتساب', '${_overviewData!['whatsappClicks'] ?? 0}',
-                  Icons.chat, Colors.green[700]!),
+              _statCard('ضغطات الهاتف',
+                  '${_overviewData!['phoneClicks'] ?? 0}', Icons.phone,
+                  Colors.teal),
+              _statCard('ضغطات واتساب',
+                  '${_overviewData!['whatsappClicks'] ?? 0}', Icons.chat,
+                  Colors.green[700]!),
             ],
           ),
           Row(
             children: [
               _statCard('فيسبوك', '${_overviewData!['facebookClicks'] ?? 0}',
                   Icons.facebook, Colors.blue[800]!),
-              _statCard('انستجرام', '${_overviewData!['instagramClicks'] ?? 0}',
+              _statCard('انستجرام',
+                  '${_overviewData!['instagramClicks'] ?? 0}',
                   Icons.camera_alt, Colors.purple),
+            ],
+          ),
+          Row(
+            children: [
+              _statCard('تيك توك', '${_overviewData!['tiktokClicks'] ?? 0}',
+                  Icons.video_collection, Colors.pink),
+              _statCard('تيليجرام', '${_overviewData!['telegramClicks'] ?? 0}',
+                  Icons.send, const Color(0xFF2CA5E0)),
             ],
           ),
 
           const SizedBox(height: 20),
 
-          // رسالة عن المنافسين
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-                color: Colors.green[50],
+                color: Colors.green.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8)),
             child: Row(
               children: [
@@ -219,8 +221,11 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'أنت تتنافس مع ${_overviewData!['totalCompetitors'] - 1} متاجر أخرى في نفس القسم.',
-                    style: TextStyle(color: Colors.deepPurple),
+                    'أنت تتنافس مع ${totalCompetitors - 1} متاجر أخرى في نفس القسم.',
+                    style: TextStyle(
+                        color: isDark
+                            ? Colors.green[300]
+                            : const Color(0xFF5E35B1)),
                   ),
                 ),
               ],
@@ -229,7 +234,6 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
 
           const SizedBox(height: 25),
 
-          // الرسم البياني
           const Text('الزيارات اليومية (آخر 7 أيام)',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 10),
@@ -237,13 +241,13 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
             height: 220,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-                color: Colors.white,
+                color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200)),
+                border: Border.all(
+                    color: isDark ? Colors.white12 : Colors.grey.shade200)),
             child: BarChartWidget(
-              // استخدمنا BarChart عشان أوضح للأيام
               data: chartData,
-              maxValue: maxView + (maxView * 0.2), // زيادة 20% هامش
+              maxValue: maxView + (maxView * 0.2),
               barColor: Colors.blueAccent,
             ),
           ),
@@ -252,19 +256,20 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
     );
   }
 
-  // ==========================================================
-  // 2. تبويب تحليل المنتجات/العروض
-  // ==========================================================
-  Widget _buildItemsAnalysisTab({required String type}) {
+  Widget _buildItemsAnalysisTab({required String type, required bool isDark}) {
     final items = type == 'products' ? _productsList : _offersList;
     String currentSort = type == 'products' ? _productsSort : _offersSort;
+    final maxViews = items.isNotEmpty
+        ? items
+            .map((i) => (i['views'] as num?)?.toInt() ?? 0)
+            .reduce((a, b) => a > b ? a : b)
+        : 1;
 
     return Column(
       children: [
-        // شريط الفرز
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: Colors.grey[50],
+          color: isDark ? const Color(0xFF1A1A2E) : Colors.grey[50],
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -274,10 +279,12 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                 value: currentSort,
                 underline: Container(),
                 style: TextStyle(
-                    color: Colors.deepPurple[900],
+                    color: isDark
+                        ? const Color(0xFFB39DDB)
+                        : const Color(0xFF5E35B1),
                     fontWeight: FontWeight.bold,
                     fontSize: 13),
-                items: [
+                items: const [
                   DropdownMenuItem(
                       value: 'views', child: Text('الأعلى مشاهدة 🔥')),
                   DropdownMenuItem(
@@ -292,15 +299,13 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                         _offersSort = val;
                       }
                     });
-                    _loadItemsStats(type); // إعادة تحميل بالترتيب الجديد
+                    _loadItemsStats(type);
                   }
                 },
               ),
             ],
           ),
         ),
-
-        // القائمة
         Expanded(
           child: items.isEmpty
               ? Center(
@@ -308,35 +313,27 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                       'لا توجد ${type == 'products' ? 'منتجات' : 'عروض'} حتى الآن'))
               : ListView.builder(
                   padding: const EdgeInsets.only(bottom: 20),
-                  itemCount: items.length + 1, // +1 لزر المزيد
+                  itemCount: items.length + 1,
                   itemBuilder: (context, index) {
                     if (index == items.length) {
-                      // زر عرض المزيد
                       return Padding(
                         padding: const EdgeInsets.all(20),
                         child: OutlinedButton(
                           onPressed: () =>
                               _loadItemsStats(type, loadMore: true),
-                          child: const Text('عرض المزيد (Load More)'),
+                          child: const Text('عرض المزيد'),
                         ),
                       );
                     }
-
-                    // ✅ QA Fix #10: احسب النسبة الحقيقية من maxViews
-                    final maxViews = items.isNotEmpty
-                        ? items.map((i) => (i['views'] as num?)?.toInt() ?? 0).reduce((a, b) => a > b ? a : b)
-                        : 1;
-                    return _buildRankedItemCard(index + 1, items[index], type, maxViews: maxViews);
+                    return _buildRankedItemCard(
+                        index + 1, items[index], type, isDark,
+                        maxViews: maxViews);
                   },
                 ),
         ),
       ],
     );
   }
-
-  // ==========================================================
-  // 3. الودجات المساعدة
-  // ==========================================================
 
   Widget _statCard(String title, String value, IconData icon, Color color) {
     return Expanded(
@@ -365,11 +362,13 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
   }
 
   Widget _buildRankedItemCard(
-      int rank, Map<String, dynamic> item, String type, {int maxViews = 1}) {
+      int rank, Map<String, dynamic> item, String type, bool isDark,
+      {int maxViews = 1}) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Stack(
           alignment: Alignment.topLeft,
           children: [
@@ -382,7 +381,6 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                 fit: BoxFit.cover,
               ),
             ),
-            // بادج الترتيب
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
@@ -401,7 +399,6 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
             maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: Row(
           children: [
-            // شريط بصري للمشاهدات (Visual Indicator)
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -409,15 +406,19 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                   const SizedBox(height: 5),
                   Row(
                     children: [
-                      Icon(Icons.visibility, size: 12, color: Colors.grey[600]),
+                      Icon(Icons.visibility,
+                          size: 12,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600]),
                       const SizedBox(width: 4),
                       Text('${item['views']} مشاهدة',
-                          style:
-                              TextStyle(fontSize: 12, color: Colors.grey[800])),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: isDark
+                                  ? Colors.grey[300]
+                                  : Colors.grey[800])),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  // ✅ QA Fix #10: نسبة حقيقية من maxViews في القائمة
                   LayoutBuilder(builder: (ctx, constraints) {
                     final views = (item['views'] as num?)?.toInt() ?? 0;
                     final widthFactor = maxViews > 0
@@ -427,14 +428,14 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                       height: 4,
                       width: constraints.maxWidth,
                       decoration: BoxDecoration(
-                          color: Colors.blue[100],
+                          color: isDark ? Colors.white12 : Colors.blue[100],
                           borderRadius: BorderRadius.circular(2)),
                       child: FractionallySizedBox(
                         alignment: Alignment.centerRight,
                         widthFactor: widthFactor,
                         child: Container(
                             decoration: BoxDecoration(
-                                color: Colors.deepPurple,
+                                color: const Color(0xFF5E35B1),
                                 borderRadius: BorderRadius.circular(2))),
                       ),
                     );

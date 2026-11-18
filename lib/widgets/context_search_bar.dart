@@ -1,12 +1,9 @@
 // lib/widgets/context_search_bar.dart
-// شريط بحث موحّد قابل للتخصيص لكل شاشة
-// يدعم: hint مخصّص، فلاتر inline، بحث صوتي، فتح البحث المتقدم
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 
-/// وصف فلتر واحد يُعرَض داخل شريط البحث
 class SearchFilter {
   final String id;
   final String label;
@@ -22,25 +19,12 @@ class SearchFilter {
 }
 
 class ContextSearchBar extends StatefulWidget {
-  /// النص التوضيحي داخل الحقل
   final String hint;
-
-  /// يُستدعى عند تغيير نص البحث (مع debounce 400ms)
   final ValueChanged<String> onSearch;
-
-  /// يُستدعى عند تغيير قيمة أي فلتر — id الفلتر + القيمة الجديدة
   final void Function(String filterId, String value)? onFilterChanged;
-
-  /// قائمة الفلاتر المتاحة (اختياري — تظهر زر filter عند وجودها)
   final List<SearchFilter> filters;
-
-  /// فتح شاشة البحث المتقدم (اختياري)
   final VoidCallback? onAdvancedSearch;
-
-  /// FocusNode خارجي للتحكم في التركيز من AppBar
   final FocusNode? focusNode;
-
-  /// هل يظهر الزر الأيمن (البحث المتقدم أو الفلاتر)؟
   final bool showFilterButton;
 
   const ContextSearchBar({
@@ -61,7 +45,7 @@ class ContextSearchBar extends StatefulWidget {
 class _ContextSearchBarState extends State<ContextSearchBar>
     with SingleTickerProviderStateMixin {
   late final TextEditingController _ctrl;
-  late final FocusNode _focusNode;
+  late FocusNode _focusNode;
   late final stt.SpeechToText _speech;
   late final AnimationController _filterAnim;
   late final Animation<double> _filterFade;
@@ -70,6 +54,7 @@ class _ContextSearchBarState extends State<ContextSearchBar>
   bool _isListening = false;
   bool _filtersExpanded = false;
   bool _hasActiveFilter = false;
+  final Map<String, String> _selectedFilterOptions = {};
 
   @override
   void initState() {
@@ -81,17 +66,40 @@ class _ContextSearchBarState extends State<ContextSearchBar>
       vsync: this,
       duration: const Duration(milliseconds: 220),
     );
-    _filterFade = CurvedAnimation(
-        parent: _filterAnim, curve: Curves.easeInOut);
+    _filterFade =
+        CurvedAnimation(parent: _filterAnim, curve: Curves.easeInOut);
+    _syncFilterOptions();
+  }
+
+  @override
+  void didUpdateWidget(covariant ContextSearchBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusNode != oldWidget.focusNode) {
+      if (oldWidget.focusNode == null) {
+        _focusNode.dispose();
+      }
+      _focusNode = widget.focusNode ?? FocusNode();
+    }
+    _syncFilterOptions();
+  }
+
+  void _syncFilterOptions() {
+    for (final filter in widget.filters) {
+      _selectedFilterOptions[filter.id] = filter.selectedOption;
+    }
+    _hasActiveFilter = _checkActiveFilters();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
     _ctrl.dispose();
-    _speech.stop();
+    if (_isListening) {
+      _speech.cancel();
+    } else {
+      _speech.stop();
+    }
     _filterAnim.dispose();
-    // لا نتصرف في _focusNode إذا أُعطيَ من الخارج
     if (widget.focusNode == null) _focusNode.dispose();
     super.dispose();
   }
@@ -106,6 +114,7 @@ class _ContextSearchBarState extends State<ContextSearchBar>
   }
 
   void _clear() {
+    _debounce?.cancel();
     _ctrl.clear();
     setState(() {});
     widget.onSearch('');
@@ -122,7 +131,16 @@ class _ContextSearchBarState extends State<ContextSearchBar>
       return;
     }
     if (!_isListening) {
-      final ok = await _speech.initialize();
+      final ok = await _speech.initialize(
+        onStatus: (status) {
+          if ((status == 'done' || status == 'notListening') && mounted) {
+            setState(() => _isListening = false);
+          }
+        },
+        onError: (_) {
+          if (mounted) setState(() => _isListening = false);
+        },
+      );
       if (ok && mounted) {
         setState(() => _isListening = true);
         _speech.listen(
@@ -131,15 +149,17 @@ class _ContextSearchBarState extends State<ContextSearchBar>
             _ctrl.text = val.recognizedWords;
             _ctrl.selection = TextSelection.fromPosition(
                 TextPosition(offset: _ctrl.text.length));
-            setState(() {});
-            widget.onSearch(val.recognizedWords);
+            _onChanged(val.recognizedWords);
+            if (val.finalResult && mounted) {
+              setState(() => _isListening = false);
+            }
           },
           listenOptions: stt.SpeechListenOptions(localeId: 'ar_EG'),
         );
       }
     } else {
       if (mounted) setState(() => _isListening = false);
-      _speech.stop();
+      await _speech.stop();
     }
   }
 
@@ -153,7 +173,10 @@ class _ContextSearchBarState extends State<ContextSearchBar>
   }
 
   bool _checkActiveFilters() {
-    return widget.filters.any((f) => f.selectedOption != f.options.first);
+    return widget.filters.any((f) {
+      final current = _selectedFilterOptions[f.id] ?? f.selectedOption;
+      return current != f.options.first;
+    });
   }
 
   @override
@@ -164,7 +187,6 @@ class _ContextSearchBarState extends State<ContextSearchBar>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // ── شريط البحث الرئيسي ───────────────────────────────────
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -197,21 +219,23 @@ class _ContextSearchBarState extends State<ContextSearchBar>
                   style: const TextStyle(fontSize: 14),
                   decoration: InputDecoration(
                     hintText: widget.hint,
-                    hintStyle: TextStyle(
-                        color: Colors.grey[400], fontSize: 13),
+                    hintStyle:
+                        TextStyle(color: Colors.grey[400], fontSize: 13),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    filled: false,
                     isDense: true,
-                    contentPadding:
-                        const EdgeInsets.symmetric(vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   onChanged: _onChanged,
                   onSubmitted: (v) {
+                    _debounce?.cancel();
                     widget.onSearch(v);
                     _focusNode.unfocus();
                   },
                 ),
               ),
-              // ── أيقونات اليمين ────────────────────────────────
               if (_ctrl.text.isNotEmpty)
                 GestureDetector(
                   onTap: _clear,
@@ -220,7 +244,6 @@ class _ContextSearchBarState extends State<ContextSearchBar>
                     child: Icon(Icons.close, size: 18, color: Colors.grey),
                   ),
                 ),
-              // بحث صوتي
               GestureDetector(
                 onTap: _listen,
                 child: Padding(
@@ -228,14 +251,14 @@ class _ContextSearchBarState extends State<ContextSearchBar>
                   child: Icon(
                     _isListening ? Icons.mic : Icons.mic_none,
                     size: 20,
-                    color: _isListening
-                        ? const Color(0xFF5E35B1)
-                        : Colors.grey,
+                    color:
+                        _isListening ? const Color(0xFF5E35B1) : Colors.grey,
                   ),
                 ),
               ),
-              // ── زر الفلاتر أو البحث المتقدم ─────────────────
-              if (widget.showFilterButton) ...[
+              if (widget.showFilterButton &&
+                  (widget.filters.isNotEmpty ||
+                      widget.onAdvancedSearch != null)) ...[
                 Container(
                   width: 1,
                   height: 22,
@@ -280,8 +303,6 @@ class _ContextSearchBarState extends State<ContextSearchBar>
             ],
           ),
         ),
-
-        // ── الفلاتر المنسدلة ─────────────────────────────────────
         if (widget.filters.isNotEmpty)
           FadeTransition(
             opacity: _filterFade,
@@ -298,7 +319,6 @@ class _ContextSearchBarState extends State<ContextSearchBar>
                         child: _buildFilterRow(filter, isDark),
                       ),
                     ),
-                    // زر البحث المتقدم (إذا توفر)
                     if (widget.onAdvancedSearch != null)
                       Align(
                         alignment: Alignment.centerRight,
@@ -323,6 +343,9 @@ class _ContextSearchBarState extends State<ContextSearchBar>
   }
 
   Widget _buildFilterRow(SearchFilter filter, bool isDark) {
+    final selectedOpt =
+        _selectedFilterOptions[filter.id] ?? filter.selectedOption;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -342,23 +365,24 @@ class _ContextSearchBarState extends State<ContextSearchBar>
             separatorBuilder: (_, __) => const SizedBox(width: 6),
             itemBuilder: (_, i) {
               final opt = filter.options[i];
-              final isSelected = filter.selectedOption == opt;
+              final isSelected = selectedOpt == opt;
               return GestureDetector(
                 onTap: () {
-                  setState(() => filter.selectedOption = opt);
-                  _hasActiveFilter = _checkActiveFilters();
+                  setState(() {
+                    filter.selectedOption = opt;
+                    _selectedFilterOptions[filter.id] = opt;
+                    _hasActiveFilter = _checkActiveFilters();
+                  });
                   widget.onFilterChanged?.call(filter.id, opt);
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? const Color(0xFF5E35B1)
-                        : (isDark
-                            ? Colors.grey[800]
-                            : Colors.grey[100]),
+                        : (isDark ? Colors.grey[800] : Colors.grey[100]),
                     borderRadius: BorderRadius.circular(20),
                     border: isSelected
                         ? null
@@ -369,14 +393,11 @@ class _ContextSearchBarState extends State<ContextSearchBar>
                     opt,
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: isSelected
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
                       color: isSelected
                           ? Colors.white
-                          : (isDark
-                              ? Colors.grey[300]
-                              : Colors.grey[700]),
+                          : (isDark ? Colors.grey[300] : Colors.grey[700]),
                     ),
                   ),
                 ),

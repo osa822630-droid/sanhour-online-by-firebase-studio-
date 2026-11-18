@@ -1,19 +1,12 @@
 // lib/services/admin_service.dart
-//
-// ✅ Phase 3 Fix #05: Cascading Delete مُرحَّل لـ Cloud Function.
-// قبل الإصلاح: deleteContent تُنفَّذ client-side — 200 منتج = 200+ sequential calls.
-// لو انقطع الإنترنت في المنتصف: المحل محذوف لكن المنتجات ظلّت (data inconsistency).
-//
-// الإصلاح:
-//   deleteShop() الآن تستدعي Cloud Function عبر HttpsCallable.
-//   الـ Cloud Function تُنفَّذ كـ batch server-side مع ضمان الاتساق.
-//   deleteContent() تبقى للحذف البسيط (غير المحلات) مع audit log.
-//
-// ✅ Phase 3 Fix #04: كل عملية حساسة تُسجَّل في AuditLogService.
+// ✅ إرجاع كافة حقول أكواد التفعيل في getAllCodes() لدعم حساب الإيرادات والفلاتر
+// ✅ إخفاء إعلانات المحل الممولة عند تعليق المحل وتقسيم دفعات التحديث بحد 400 عملية
+// ✅ إرسال إشعار للتاجر في notifications و notification_queue عند حذف منتج/عرض أو تعليق المحل
 import 'dart:developer' as developer;
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'audit_log_service.dart';
 
 class AdminService {
@@ -30,33 +23,38 @@ class AdminService {
           .collection('activation_codes')
           .orderBy('createdAt', descending: true)
           .get();
-      return snapshot.docs.map((doc) => {
-            'code': doc['code'],
-            'isUsed': doc['isUsed'],
-            'id': doc.id
-          }).toList();
+      return snapshot.docs.map((doc) {
+        final data = Map<String, dynamic>.from(doc.data());
+        data['id'] = doc.id;
+        data['code'] = data['code'] ?? doc.id;
+        data['isUsed'] = data['isUsed'] ?? false;
+        return data;
+      }).toList();
     } catch (e) {
       developer.log('getAllCodes error: $e', name: 'AdminService');
       return [];
     }
   }
 
-  static Future<void> generateActivationCode(String adminId) async {
+  static Future<String> generateActivationCode(String adminId) async {
     final part1 = _generateSecureString(4);
     final part2 = _generateSecureString(4);
     final code = 'SHOP-$part1-$part2';
 
-    await _firestore.collection('activation_codes').add({
+    await _firestore.collection('activation_codes').doc(code).set({
       'code': code,
       'isUsed': false,
       'generatedBy': adminId,
+      'price': 200,
       'createdAt': FieldValue.serverTimestamp(),
+      'expiresAt':
+          Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
       'type': 'shop_activation',
     });
 
-    // ✅ Phase 3 Fix #04: تسجيل في الـ audit log
     await AuditLogService.logActivationCodeGenerated(code,
         generatedBy: adminId);
+    return code;
   }
 
   // ==========================================================
@@ -64,9 +62,6 @@ class AdminService {
   // ==========================================================
 
   static Future<void> submitComplaint(Map<String, dynamic> data) async {
-    // ✅ Fix #26: الحالة الابتدائية الموحّدة للشكوى = 'pending' (نفس قيمة الشاشة وتاب
-    // الأدمن وشاشة «شكاويّ» والـ seeder). كانت 'new' هنا بس، فتاب «جديدة» عند الأدمن
-    // ما كانش بيلاقي أي شكوى جديدة (كانت بتظهر في «الكل» بس).
     await _firestore.collection('complaints').add({
       ...data,
       'status': 'pending',
@@ -93,13 +88,13 @@ class AdminService {
     });
   }
 
-  // ✅ QA Fix #09: توحيد اسم المعامل مع ApiService (userId بدلاً من adminId)
   static Future<void> replyToComplaint({
     required String complaintId,
     required String reply,
     required String userId,
   }) async {
     await _firestore.collection('complaints').doc(complaintId).update({
+      'reply': reply,
       'adminReply': reply,
       'repliedBy': userId,
       'repliedAt': FieldValue.serverTimestamp(),
@@ -111,33 +106,73 @@ class AdminService {
   // 3. الحذف
   // ==========================================================
 
-  /// ✅ Phase 3 Fix #05: حذف محل عبر Cloud Function — atomic + server-side.
-  /// يحذف المحل + منتجاته + عروضه + إعلاناته + تقييماته دفعة واحدة.
+  static Future<void> _deleteShopCascadeClientFallback(String shopId) async {
+    final shopRef = _firestore.collection('shops').doc(shopId);
+    final snapshots = await Future.wait([
+      _firestore.collection('products').where('shopId', isEqualTo: shopId).get(),
+      _firestore.collection('offers').where('shopId', isEqualTo: shopId).get(),
+      _firestore.collection('services').where('shopId', isEqualTo: shopId).get(),
+      _firestore.collection('ads').where('shopId', isEqualTo: shopId).get(),
+      _firestore.collection('reviews').where('targetId', isEqualTo: shopId).get(),
+      shopRef.collection('daily_stats').get(),
+      shopRef.collection('subscription_history').get(),
+    ]);
+
+    final refs = <DocumentReference>[];
+    for (final snap in snapshots) {
+      for (final doc in snap.docs) {
+        refs.add(doc.reference);
+      }
+    }
+    refs.add(shopRef);
+
+    for (int i = 0; i < refs.length; i += 400) {
+      final chunk = refs.sublist(i, (i + 400).clamp(0, refs.length));
+      final batch = _firestore.batch();
+      for (final ref in chunk) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
+  }
+
   static Future<void> deleteShop(String shopId,
       {String shopName = ''}) async {
     try {
       final callable = _functions.httpsCallable('deleteShopCascade');
       await callable.call({'shopId': shopId});
-
-      // ✅ Phase 3 Fix #04: تسجيل الحذف في audit log
       await AuditLogService.logShopDeleted(shopId, shopName);
     } on FirebaseFunctionsException catch (e) {
+      if (e.code == 'not-found' ||
+          e.code == 'unimplemented' ||
+          e.code == 'unavailable' ||
+          e.code == 'internal') {
+        developer.log(
+          'Cloud Function unavailable (${e.code}), using client cascade fallback.',
+          name: 'AdminService',
+        );
+        await _deleteShopCascadeClientFallback(shopId);
+        await AuditLogService.logShopDeleted(shopId, shopName);
+        return;
+      }
       developer.log(
           'deleteShop Cloud Function error: ${e.code} — ${e.message}',
           name: 'AdminService');
-      // ✅ رسالة user-friendly
       throw Exception(_mapFunctionError(e.code));
     } catch (e) {
-      developer.log('deleteShop error: $e', name: 'AdminService');
-      throw Exception('تعذّر حذف المحل. حاول مجدداً.');
+      try {
+        await _deleteShopCascadeClientFallback(shopId);
+        await AuditLogService.logShopDeleted(shopId, shopName);
+      } catch (fallbackErr) {
+        developer.log('deleteShop error: $fallbackErr', name: 'AdminService');
+        throw Exception('تعذّر حذف المحل. حاول مجدداً.');
+      }
     }
   }
 
-  /// حذف محتوى غير المحلات (منتج، عرض، إعلان، تقييم، شكوى)
   static Future<void> deleteContent(
       String collection, String docId) async {
     await _firestore.collection(collection).doc(docId).delete();
-    // ✅ Fix #40: تحديد AuditAction الصحيح لكل collection
     AuditAction action;
     switch (collection) {
       case 'products':
@@ -168,6 +203,12 @@ class AdminService {
   static Future<void> deleteUser(String userId,
       {String userName = ''}) async {
     await _firestore.collection('users').doc(userId).delete();
+    try {
+      final callable = _functions.httpsCallable('purgeAuthUser');
+      await callable.call({'userId': userId});
+    } catch (_) {
+      // في حال عدم نشر Cloud Function يستمر حذف وثيقة Firestore دون توقف
+    }
     await AuditLogService.log(
       action: AuditAction.userDeleted,
       targetId: userId,
@@ -211,23 +252,17 @@ class AdminService {
     await _firestore
         .collection('settings')
         .doc('general')
-        .update({...data, 'updatedAt': FieldValue.serverTimestamp()});
-    // ✅ Phase 3 Fix #04: تسجيل تعديل الإعدادات
+        .set({...data, 'updatedAt': FieldValue.serverTimestamp()},
+            SetOptions(merge: true));
     await AuditLogService.logSettingsUpdated(data);
   }
 
-  /// ✅ Fix #17: مفتاح Gemini في settings_private/gemini (حقل apiKey) بدل
-  /// settings/general المقروءة للعالم بلا تسجيل دخول. يرجع نصاً فارغاً إن لم
-  /// يُحفَظ بعد.
   static Future<String> getGeminiApiKey() async {
     final doc =
         await _firestore.collection('settings_private').doc('gemini').get();
     return (doc.data()?['apiKey'] as String?) ?? '';
   }
 
-  /// يحفظ المفتاح في settings_private/gemini ويمسح النسخة العامة القديمة من
-  /// settings/general إن وُجدت. المفتاح نفسه لا يُسجَّل في audit log (كان يُنسخ
-  /// حرفياً داخل changes مع باقي الإعدادات) — يُسجَّل فقط أنه تغيّر.
   static Future<void> saveGeminiApiKey(String key) async {
     await _firestore.collection('settings_private').doc('gemini').set({
       'apiKey': key,
@@ -238,9 +273,7 @@ class AdminService {
           .collection('settings')
           .doc('general')
           .update({'geminiApiKey': FieldValue.delete()});
-    } catch (_) {
-      // best-effort: وثيقة الإعدادات العامة قد لا تحمل النسخة القديمة
-    }
+    } catch (_) {}
     await AuditLogService.logSettingsUpdated({'geminiApiKey': 'updated'});
   }
 
@@ -251,14 +284,13 @@ class AdminService {
   static Future<void> toggleShopSuspension(
       String shopId, bool currentStatus,
       {String shopName = ''}) async {
-    // ✅ QA Fix #P2: تحديث المحل والمنتجات في نفس batch لضمان الاتساق
-    // ✅ Fix #39: تشمل offers وservices أيضاً لمنع ظهورها أثناء التعليق
     final newStatus = !currentStatus;
 
     final results = await Future.wait([
       _firestore.collection('products').where('shopId', isEqualTo: shopId).get(),
       _firestore.collection('offers').where('shopId', isEqualTo: shopId).get(),
       _firestore.collection('services').where('shopId', isEqualTo: shopId).get(),
+      _firestore.collection('ads').where('shopId', isEqualTo: shopId).get(),
     ]);
 
     final allOps = <Map<String, dynamic>>[
@@ -275,10 +307,14 @@ class AdminService {
           {'ref': doc.reference, 'data': {'isShopHidden': newStatus}}),
       ...results[2].docs.map((doc) =>
           {'ref': doc.reference, 'data': {'isShopHidden': newStatus}}),
+      // ✅ تعطيل الإعلانات الممولة التابعة للمحل عند تعليقه لمنع ظهور إعلان لمحل معطل
+      if (newStatus)
+        ...results[3].docs.map((doc) =>
+            {'ref': doc.reference, 'data': {'isActive': false}}),
     ];
 
-    for (int i = 0; i < allOps.length; i += 490) {
-      final chunk = allOps.sublist(i, (i + 490).clamp(0, allOps.length));
+    for (int i = 0; i < allOps.length; i += 400) {
+      final chunk = allOps.sublist(i, (i + 400).clamp(0, allOps.length));
       final batch = _firestore.batch();
       for (final op in chunk) {
         batch.update(
@@ -292,32 +328,49 @@ class AdminService {
     await AuditLogService.logShopSuspended(shopId, shopName,
         isSuspended: newStatus);
 
-    // ✅ Fix #41: إشعار التاجر عند تعليق أو إلغاء تعليق محله
     try {
       final shopDoc = await _firestore.collection('shops').doc(shopId).get();
       final ownerId = shopDoc.data()?['ownerId'] as String?;
-      if (ownerId != null) {
-        final userDoc = await _firestore.collection('users').doc(ownerId).get();
-        final fcmToken = userDoc.data()?['fcmToken'] as String?;
-        if (fcmToken != null) {
-          await _firestore.collection('notification_queue').add({
-            'title': newStatus ? '⚠️ تم تعليق محلك' : '✅ تم إلغاء تعليق محلك',
-            'body': newStatus
-                ? 'تم تعليق محل "$shopName" من قِبَل الإدارة. تواصل مع الدعم.'
-                : 'تم إلغاء تعليق محل "$shopName". يمكنك المتابعة الآن.',
-            'targetUserId': ownerId,
-            'fcmToken': fcmToken,
-            'data': {
-              'route': 'merchant',
-              'shopId': shopId,
-              'channel': 'shop_status',
-            },
-            'status': 'pending',
-            'createdAt': FieldValue.serverTimestamp(),
-            'expiresAt': Timestamp.fromDate(
-                DateTime.now().add(const Duration(hours: 24))),
-          });
-        }
+      final effectiveShopName = shopName.isNotEmpty
+          ? shopName
+          : (shopDoc.data()?['name'] as String? ?? 'متجرك');
+
+      if (ownerId != null && ownerId.isNotEmpty) {
+        final adminUid = FirebaseAuth.instance.currentUser?.uid ?? 'admin';
+        final title = newStatus ? '⚠️ تم تعليق محلك' : '✅ تم إلغاء تعليق محلك';
+        final body = newStatus
+            ? 'تم تعليق محل "$effectiveShopName" من قِبَل الإدارة. تواصل مع الدعم.'
+            : 'تم إلغاء تعليق محل "$effectiveShopName". يمكنك المتابعة الآن.';
+
+        await _firestore.collection('notifications').add({
+          'title': title,
+          'body': body,
+          'type': 'shop_status',
+          'targetUserId': ownerId,
+          'fromUserId': adminUid,
+          'data': {
+            'route': 'merchant',
+            'shopId': shopId,
+            'channel': 'shop_status',
+          },
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        await _firestore.collection('notification_queue').add({
+          'title': title,
+          'body': body,
+          'targetUserId': ownerId,
+          'data': {
+            'route': 'merchant',
+            'shopId': shopId,
+            'channel': 'shop_status',
+          },
+          'status': 'pending',
+          'createdAt': FieldValue.serverTimestamp(),
+          'expiresAt': Timestamp.fromDate(
+              DateTime.now().add(const Duration(hours: 24))),
+        });
       }
     } catch (e) {
       developer.log('toggleShopSuspension notification error: $e',
@@ -333,7 +386,6 @@ class AdminService {
         .collection('users')
         .doc(userId)
         .update({'isSuspended': newStatus});
-    // ✅ Phase 3 Fix #04
     await AuditLogService.logUserSuspended(userId, userName,
         isSuspended: newStatus);
   }
@@ -362,7 +414,6 @@ class AdminService {
     }
   }
 
-  // ✅ QA Fix #08: توسيع التوقيع ليتطابق مع ApiService — إضافة ownerId و itemName اختياريَّين
   static Future<void> deleteItemWithNotification({
     required String collection,
     required String docId,
@@ -371,6 +422,47 @@ class AdminService {
     String? itemName,
   }) async {
     await deleteContent(collection, docId);
-    // الإشعار يُرسَل من Cloud Function تلقائياً عند الحذف
+    if (ownerId != null && ownerId.isNotEmpty) {
+      try {
+        final adminUid = FirebaseAuth.instance.currentUser?.uid ?? 'admin';
+        final typeLabel = collection == 'products' ? 'المنتج' : 'العرض';
+        final nameLabel = (itemName != null && itemName.isNotEmpty)
+            ? '"$itemName"'
+            : '';
+        final title = '⚠️ تم حذف $typeLabel $nameLabel من قِبَل الإدارة';
+        final body = 'السبب: $reason';
+
+        await _firestore.collection('notifications').add({
+          'title': title,
+          'body': body,
+          'type': 'content_deleted',
+          'targetUserId': ownerId,
+          'fromUserId': adminUid,
+          'data': {
+            'route': 'merchant',
+            'channel': 'admin_alerts',
+          },
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        await _firestore.collection('notification_queue').add({
+          'title': title,
+          'body': body,
+          'targetUserId': ownerId,
+          'data': {
+            'route': 'merchant',
+            'channel': 'admin_alerts',
+          },
+          'status': 'pending',
+          'createdAt': FieldValue.serverTimestamp(),
+          'expiresAt': Timestamp.fromDate(
+              DateTime.now().add(const Duration(hours: 24))),
+        });
+      } catch (e) {
+        developer.log('deleteItemWithNotification error: $e',
+            name: 'AdminService');
+      }
+    }
   }
 }

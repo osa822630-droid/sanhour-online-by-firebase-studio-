@@ -1,9 +1,9 @@
 // lib/screens/categories_screen.dart
 // ✅ إعادة تصميم كاملة: نظام Chips هرمي بدلاً من الصفحات المنفصلة (PageView)
-// — اختيار فئة رئيسية يعرض محتواها كاملاً فوراً + شريط chips للفئات
+// — اختيار فئة رئيسية يعرض محتواها كاملاً فوراً من السيرفر + شريط chips للفئات
 // الفرعية أعلى القائمة. اختيار فئة فرعية يعرض شريط chips ثانٍ تحته مباشرةً
-// للفئات الفرعية الدقيقة (subSubCategories). كل هذا في شاشة واحدة بدون
-// تنقّل بين صفحات منفصلة.
+// للفئات الفرعية الدقيقة (subSubCategories).
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/shops_provider.dart';
@@ -30,16 +30,18 @@ class CategoriesScreen extends StatefulWidget {
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
   CategoryModel? _selectedCategory;
-  // null = شريحة "الكل" مُختارة (لا فلترة إضافية على هذا المستوى)
   String? _selectedSubCategory;
   String? _selectedSubSubCategory;
   String _sortBy = 'default';
+  List<Shop> _categoryShops = [];
+  bool _loadingCategoryShops = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.initialCategory != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _applyInitialCategory());
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _applyInitialCategory());
     }
   }
 
@@ -54,10 +56,38 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       }
     }
     if (match == null) return;
+    _selectCategory(match, subCategory: widget.initialSubCategory);
+  }
+
+  Future<void> _selectCategory(CategoryModel cat,
+      {String? subCategory, bool forceRefresh = false}) async {
     setState(() {
-      _selectedCategory = match;
-      _selectedSubCategory = widget.initialSubCategory;
+      _selectedCategory = cat;
+      _selectedSubCategory = subCategory;
+      _selectedSubSubCategory = null;
+      _loadingCategoryShops = true;
     });
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('shops')
+          .where('isSuspended', isEqualTo: false)
+          .where('category', isEqualTo: cat.name)
+          .limit(100)
+          .get();
+      if (!mounted) return;
+      final fetched =
+          snap.docs.map((d) => Shop.fromMap(d.data(), d.id)).toList();
+      setState(() {
+        _categoryShops = fetched;
+        _loadingCategoryShops = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingCategoryShops = false;
+      });
+    }
   }
 
   void _resetToGrid() {
@@ -65,14 +95,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       _selectedCategory = null;
       _selectedSubCategory = null;
       _selectedSubSubCategory = null;
+      _categoryShops = [];
     });
   }
 
   void _selectSubCategory(String? sub) {
     setState(() {
-      // ✅ اختيار "الكل" (sub == null) أو فئة فرعية جديدة يُعيد ضبط المستوى
-      // الأعمق (الفئة الفرعية الدقيقة) دائماً — منطقي أن تختفي الخيارات
-      // الدقيقة القديمة عند تغيير الفئة الفرعية الأب
       _selectedSubCategory = sub;
       _selectedSubSubCategory = null;
     });
@@ -95,7 +123,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         backgroundColor: const Color(0xFF5E35B1),
         foregroundColor: Colors.white,
         centerTitle: true,
-        // ✅ عند اختيار فئة، السهم يرجع لشبكة الفئات بدلاً من الخروج من الشاشة
         leading: _selectedCategory != null
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
@@ -168,11 +195,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           final cat = cats[i];
           final catColor = Color(cat.colorValue);
           return GestureDetector(
-            onTap: () => setState(() {
-              _selectedCategory = cat;
-              _selectedSubCategory = null;
-              _selectedSubSubCategory = null;
-            }),
+            onTap: () => _selectCategory(cat),
             child: Container(
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
@@ -226,12 +249,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         : (cat.subSubCategories[_selectedSubCategory] ?? const <String>[]);
 
     return RefreshIndicator(
-      onRefresh: () => provider.fetchShops(
-          category: cat.name, refresh: true),
+      onRefresh: () => _selectCategory(cat,
+          subCategory: _selectedSubCategory, forceRefresh: true),
       color: const Color(0xFF5E35B1),
       child: CustomScrollView(
         slivers: [
-          // ── شريط الفئات الفرعية (المستوى الأول) ──────────────────
           if (cat.subCategories.isNotEmpty)
             SliverToBoxAdapter(
               child: _buildChipRow(
@@ -242,11 +264,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               ),
             ),
 
-          // ── شريط الفئات الفرعية الدقيقة (المستوى الثاني) ──────────
-          // ✅ يظهر فقط إذا اختار المستخدم فئة فرعية مُحدَّدة (وليس "الكل")
-          // ولها فعلاً فئات دقيقة مُعرَّفة
-          // ✅ إصلاح: SliverToBoxAdapter مباشرةً بدون أي غلاف Padding/Box حوله
-          // — التباعد يُدار داخل _buildChipRow نفسها عبر isSecondLevel
           if (_selectedSubCategory != null && subSubs.isNotEmpty)
             SliverToBoxAdapter(
               child: _buildChipRow(
@@ -258,7 +275,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               ),
             ),
 
-          // ── عداد النتائج ────────────────────────────────────────
+          if (_loadingCategoryShops)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+            ),
+
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -269,8 +293,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             ),
           ),
 
-          // ── النتائج أو حالة الفراغ ───────────────────────────────
-          if (shops.isEmpty)
+          if (shops.isEmpty && !_loadingCategoryShops)
             SliverFillRemaining(
               hasScrollBody: false,
               child: _buildEmptyShops(),
@@ -289,7 +312,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  /// صف شرائح (chips) قابل للف على أكثر من سطر — دائماً يبدأ بشريحة "الكل"
   Widget _buildChipRow({
     required List<String> options,
     required String? selected,
@@ -297,7 +319,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     required bool isDark,
     bool isSecondLevel = false,
   }) {
-    final color = isSecondLevel ? const Color(0xFF00897B) : const Color(0xFF5E35B1);
+    final color =
+        isSecondLevel ? const Color(0xFF00897B) : const Color(0xFF5E35B1);
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(16, isSecondLevel ? 0 : 12, 16, 10),
@@ -306,13 +329,15 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         runSpacing: 8,
         children: [
           _chip('الكل', selected == null, color, () => onSelect(null)),
-          ...options.map((o) => _chip(o, selected == o, color, () => onSelect(o))),
+          ...options
+              .map((o) => _chip(o, selected == o, color, () => onSelect(o))),
         ],
       ),
     );
   }
 
-  Widget _chip(String label, bool isSelected, Color color, VoidCallback onTap) {
+  Widget _chip(
+      String label, bool isSelected, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -347,10 +372,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           child: SizedBox(
             width: 56,
             height: 56,
-            child: CachedImage(imageUrl: shop.imageUrl),
+            child: CachedImage(
+              imageUrl: shop.imageUrl,
+              fallbackIcon: Icons.storefront_outlined,
+            ),
           ),
         ),
-        title: Text(shop.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(shop.name,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -362,11 +391,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             Row(children: [
               const Icon(Icons.star, size: 13, color: Colors.amber),
               const SizedBox(width: 3),
-              Text(shop.rating.toStringAsFixed(1), style: const TextStyle(fontSize: 12)),
+              Text(shop.rating.toStringAsFixed(1),
+                  style: const TextStyle(fontSize: 12)),
             ]),
           ],
         ),
-        trailing: const Icon(Icons.arrow_back_ios, size: 14, color: Colors.grey),
+        trailing:
+            const Icon(Icons.arrow_back_ios, size: 14, color: Colors.grey),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => ShopDetailScreen(shop: shop)),
@@ -389,10 +420,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const AdvancedSearchScreen())),
+            onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const AdvancedSearchScreen())),
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1), foregroundColor: Colors.white),
+                backgroundColor: const Color(0xFF5E35B1),
+                foregroundColor: Colors.white),
             child: const Text('بحث متقدم'),
           ),
         ]),
@@ -415,30 +449,36 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             icon: const Icon(Icons.refresh),
             label: const Text('إعادة المحاولة'),
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1), foregroundColor: Colors.white),
+                backgroundColor: const Color(0xFF5E35B1),
+                foregroundColor: Colors.white),
           ),
         ]),
       ),
     );
   }
 
-  /// عنوان الفلتر النشط حالياً — لعرضه في العداد وحالة الفراغ
-  String? get _activeFilterLabel => _selectedSubSubCategory ?? _selectedSubCategory;
+  String? get _activeFilterLabel =>
+      _selectedSubSubCategory ?? _selectedSubCategory;
 
-  /// ✅ فلترة تقريبية بالاسم/الوصف للفئة الفرعية والدقيقة — نموذج المحل
-  /// الحالي لا يخزّن حقل فئة فرعية منفصلاً، فنعتمد على تطابق النص كأفضل حل
-  /// متاح دون تعديل بنية بيانات المحلات. الفلترة الأساسية (الفئة الرئيسية)
-  /// دقيقة تماماً لأنها تعتمد على حقل shop.category المخزَّن فعلياً.
   List<Shop> _filterAndSortShops(ShopsProvider provider) {
-    var shops = provider.shops
-        .where((s) => s.category == _selectedCategory!.name)
-        .toList();
+    // دمج المحلات التي تم جلبها للفئة مع المحلات الموجودة في المزود دون تكرار
+    final seen = <String>{};
+    final combined = <Shop>[];
+    for (final s in [
+      ..._categoryShops,
+      ...provider.shops.where((s) => s.category == _selectedCategory!.name)
+    ]) {
+      if (seen.add(s.id)) combined.add(s);
+    }
 
+    var shops = combined;
     final term = _activeFilterLabel;
     if (term != null) {
       final normalized = term.trim();
       shops = shops.where((s) {
-        return s.name.contains(normalized) || s.description.contains(normalized);
+        return s.name.contains(normalized) ||
+            s.description.contains(normalized) ||
+            (s.searchKeywords?.any((k) => k.contains(normalized)) ?? false);
       }).toList();
     }
 
@@ -447,7 +487,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         shops.sort((a, b) => b.rating.compareTo(a.rating));
         break;
       case 'views':
-        shops.sort((a, b) => b.uniqueVisitors.compareTo(a.uniqueVisitors));
+        shops.sort((a, b) {
+          final va = a.uniqueVisitors > 0 ? a.uniqueVisitors : a.views;
+          final vb = b.uniqueVisitors > 0 ? b.uniqueVisitors : b.views;
+          return vb.compareTo(va);
+        });
         break;
       case 'favorites':
         shops.sort((a, b) => b.favoriteCount.compareTo(a.favoriteCount));

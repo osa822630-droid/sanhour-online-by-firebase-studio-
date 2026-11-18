@@ -1,9 +1,11 @@
 // lib/services/subscription_service.dart
-// ✅ استخراج منطق الاشتراك من subscription_screen إلى service مستقلة
-// يُيسِّر الاختبار ويُزيل Firestore مباشرةً من الـ widget layer
+// ✅ توحيد بادئة كود التجديد إلى RNW-XXXX-XXXX مع دعم الأكواد السابقة REN-
+// ✅ ربط مدة التجديد (days) والباقة (tier) والسعر (price) بوثيقة الكود في Firestore لمنع التلاعب بالمدة من الواجهة
 import 'dart:developer' as developer;
+import 'dart:math' show Random;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/notification_service.dart';
+import '../services/audit_log_service.dart';
 
 class SubscriptionResult {
   final bool success;
@@ -24,6 +26,35 @@ class SubscriptionService {
 
   static final _db = FirebaseFirestore.instance;
 
+  /// ✅ الباقات الموحدة للاشتراكات في التطبيق
+  static const Map<String, Map<String, dynamic>> tiers = {
+    'monthly': {
+      'label': 'شهري',
+      'price': 99,
+      'days': 30,
+    },
+    'quarterly': {
+      'label': 'ربع سنوي',
+      'price': 249,
+      'days': 90,
+      'badge': 'وفر 16%',
+    },
+    'yearly': {
+      'label': 'سنوي',
+      'price': 799,
+      'days': 365,
+      'badge': 'الأوفر',
+    },
+  };
+
+  /// ✅ دالة نقية لحساب تاريخ انتهاء الاشتراك الجديد
+  static DateTime calculateNewExpiry(DateTime? currentEnd, int planDays) {
+    final now = DateTime.now();
+    final base =
+        (currentEnd != null && currentEnd.isAfter(now)) ? currentEnd : now;
+    return base.add(Duration(days: planDays));
+  }
+
   // ── 1. جلب بيانات اشتراك المحل ──────────────────────────────────
   static Future<Map<String, dynamic>?> getSubscription(String shopId) async {
     try {
@@ -35,38 +66,62 @@ class SubscriptionService {
     }
   }
 
-  // ✅ Fix #21: أنواع الأكواد المقبولة لتجديد الاشتراك. القاعدة الثابتة: `type`
-  // إجباري في كل استعلام تحقق من `activation_codes`. shop_renewal هو نوع التجديد،
-  // و shop_activation هو اللي بيولّده تاب الأدمن فعلياً دلوقتي (مفيش مولّد
-  // لـ shop_renewal) — فالاتنين مقبولين عشان التجديد الشغّال يفضل شغّال. أي نوع
-  // تاني (ad_activation / dealer_listing_fee) مرفوض: كود إعلان ما يجدّدش محل.
+  static const String renewalCodeType = 'shop_renewal';
   static const List<String> _renewalCodeTypes = [
-    'shop_renewal',
-    'shop_activation',
+    renewalCodeType,
   ];
 
-  /// ✅ Fix #21: يحدد وثيقة كود تجديد غير مستخدم، أو null لو الكود غلط/مستخدم/نوعه
-  /// مرفوض. استعلام equality لكل نوع مقبول (من غير index مركّب).
-  ///
-  /// الـ SDK ما بيدعمش query جوه transaction، فالنتيجة دي "تحديد للوثيقة" بس وغير
-  /// ملزمة: الفصل الذري بيتم في [renew] بإعادة قراءة الوثيقة بـ tx.get.
+  /// توليد كود تجديد اشتراك متجر (RNW-XXXX-XXXX) بمعرّف المستند = نص الكود
+  static Future<String> generateRenewalCode({
+    String adminId = 'admin',
+    String tier = 'monthly',
+  }) async {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final rng = Random.secure();
+    String part() =>
+        List.generate(4, (_) => chars[rng.nextInt(chars.length)]).join();
+    final code = 'RNW-${part()}-${part()}';
+    final tierSpec = tiers[tier] ?? tiers['monthly']!;
+
+    await _db.collection('activation_codes').doc(code).set({
+      'code': code,
+      'type': renewalCodeType,
+      'tier': tier,
+      'days': tierSpec['days'],
+      'price': tierSpec['price'],
+      'isUsed': false,
+      'generatedBy': adminId,
+      'createdAt': FieldValue.serverTimestamp(),
+      'expiresAt':
+          Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
+    });
+
+    await AuditLogService.logActivationCodeGenerated(code,
+        generatedBy: adminId);
+    return code;
+  }
+
   static Future<DocumentReference<Map<String, dynamic>>?> _findUnusedCode(
     String code,
   ) async {
-    for (final type in _renewalCodeTypes) {
-      final snap = await _db
-          .collection('activation_codes')
-          .where('code', isEqualTo: code)
-          .where('type', isEqualTo: type)
-          .where('isUsed', isEqualTo: false)
-          .limit(1)
-          .get();
-      if (snap.docs.isNotEmpty) return snap.docs.first.reference;
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) {
+      return null;
     }
-    return null;
+    final directRef = _db.collection('activation_codes').doc(normalized);
+    final directDoc = await directRef.get();
+    if (!directDoc.exists) {
+      return null;
+    }
+    final data = directDoc.data();
+    if (data == null ||
+        data['isUsed'] == true ||
+        !_renewalCodeTypes.contains(data['type'])) {
+      return null;
+    }
+    return directRef;
   }
 
-  // ── 2. التحقق من كود التفعيل (non-binding pre-check) ──────────
   static Future<bool> isCodeValid(String code) async {
     try {
       final codeRef = await _findUnusedCode(code);
@@ -76,8 +131,7 @@ class SubscriptionService {
     }
   }
 
-  // ── 3. تجديد الاشتراك ذرياً ─────────────────────────────────────
-  // ✅ التحقق من الكود وحرقه وتحديث المحل في transaction ذرية واحدة
+  // ── 3. تجديد الاشتراك ذرياً مع احترام الباقة والمدة المخزنة في الكود نفسه ──
   static Future<SubscriptionResult> renew({
     required String shopId,
     required String userId,
@@ -94,29 +148,23 @@ class SubscriptionService {
 
     try {
       final now = DateTime.now();
-      DateTime currentEnd = now;
-      if (currentShopData?['subscriptionEndDate'] != null) {
-        final existing =
+      DateTime? existingEnd;
+      if (currentShopData?['subscriptionEndDate'] is Timestamp) {
+        existingEnd =
             (currentShopData!['subscriptionEndDate'] as Timestamp).toDate();
-        if (existing.isAfter(now)) currentEnd = existing;
       }
-      final newEnd = currentEnd.add(Duration(days: planDays));
 
-      // ✅ Fix #21: كان الاستعلام عن الكود جوه الـ transaction من غير tx.get، فمكنش
-      // جزء من قراءاتها: تجديدين متزامنين بنفس الكود يلاقوه الاتنين "غير مستخدم"
-      // ويحرقوه (كتابتين "عمياء" مبتتعارضش) فيتجدد الاشتراك مرتين بكود واحد. الـ SDK
-      // ما بيدعمش query جوه transaction، فالنمط الصح (زي AdService.redeemAdCode):
-      // نحدد الوثيقة بالاستعلام هنا (بنوع مقبول للتجديد)، وجوه الـ transaction
-      // نعيد قراءتها بـ tx.get ونتحقق تاني ثم نحرق — فأي حرق متزامن بيجبر الـ SDK
-      // يعيد المحاولة ويلاقي الكود اتحرق بالفعل.
       final codeRef = await _findUnusedCode(activationCode.trim());
       if (codeRef == null) {
         throw Exception('كود التفعيل غير صحيح أو مستخدم مسبقاً');
       }
 
+      late DateTime resolvedNewEnd;
+      late String resolvedPlanKey;
+      late int resolvedPrice;
+
       // ── Transaction ذرية ─────────────────────────────────────────
       await _db.runTransaction((tx) async {
-        // 1. إعادة قراءة الكود بـ tx.get والتحقق ذرياً (لسه غير مستخدم + نوعه مقبول)
         final freshCode = await tx.get(codeRef);
         final freshData = freshCode.data();
         if (!freshCode.exists ||
@@ -125,8 +173,29 @@ class SubscriptionService {
             !_renewalCodeTypes.contains(freshData['type'])) {
           throw Exception('كود التفعيل غير صحيح أو مستخدم مسبقاً');
         }
+        final codeExpiresAt = freshData['expiresAt'];
+        if (codeExpiresAt is Timestamp &&
+            codeExpiresAt.toDate().isBefore(DateTime.now())) {
+          throw Exception('انتهت صلاحية كود التجديد');
+        }
 
-        // 2. حرق الكود
+        // ✅ التحقق من الباقة والمدة المخزنة داخل وثيقة الكود لمنع استخدام كود شهري على باقة سنوية
+        final String? codeTier = freshData['tier'] as String?;
+        final int? codeDays = (freshData['days'] as num?)?.toInt();
+        final int? codePrice = (freshData['price'] as num?)?.toInt();
+
+        if (codeTier != null && tiers.containsKey(codeTier)) {
+          resolvedPlanKey = codeTier;
+          resolvedPrice = codePrice ?? (tiers[codeTier]!['price'] as int);
+          final effectiveDays = codeDays ?? (tiers[codeTier]!['days'] as int);
+          resolvedNewEnd = calculateNewExpiry(existingEnd, effectiveDays);
+        } else {
+          resolvedPlanKey = planKey;
+          resolvedPrice = codePrice ?? planPrice;
+          final effectiveDays = codeDays ?? planDays;
+          resolvedNewEnd = calculateNewExpiry(existingEnd, effectiveDays);
+        }
+
         tx.update(codeRef, {
           'isUsed': true,
           'usedBy': userId,
@@ -134,30 +203,29 @@ class SubscriptionService {
           'shopId': shopId,
         });
 
-        // 3. تحديث بيانات المحل
         tx.update(_db.collection('shops').doc(shopId), {
-          'subscriptionPlan': planKey,
+          'subscriptionPlan': resolvedPlanKey,
           'subscriptionStartDate': Timestamp.fromDate(now),
-          'subscriptionEndDate': Timestamp.fromDate(newEnd),
+          'subscriptionEndDate': Timestamp.fromDate(resolvedNewEnd),
           'subscriptionStatus': 'active',
           'lastRenewalAt': FieldValue.serverTimestamp(),
           'renewedBy': userId,
         });
       });
 
-      // ── سجل الاشتراكات (خارج الـ transaction — غير حرج) ─────────
+      // ── سجل الاشتراكات ───────────────────────────────────────────
       try {
         await _db
             .collection('shops')
             .doc(shopId)
             .collection('subscription_history')
             .add({
-          'plan': planKey,
-          'price': planPrice,
+          'plan': resolvedPlanKey,
+          'price': resolvedPrice,
           'startDate': Timestamp.fromDate(now),
-          'endDate': Timestamp.fromDate(newEnd),
+          'endDate': Timestamp.fromDate(resolvedNewEnd),
           'renewedBy': userId,
-          'activationCode': activationCode.trim(),
+          'activationCode': activationCode.trim().toUpperCase(),
           'createdAt': FieldValue.serverTimestamp(),
         });
       } catch (e) {
@@ -168,7 +236,7 @@ class SubscriptionService {
       try {
         final shopName = currentShopData?['name'] as String? ?? 'متجرك';
         await NotificationService().scheduleSubscriptionReminders(
-          expiryDate: newEnd,
+          expiryDate: resolvedNewEnd,
           shopId: shopId,
           shopName: shopName,
         );
@@ -176,14 +244,14 @@ class SubscriptionService {
         developer.log('scheduleReminders error (non-critical): $e');
       }
 
-      return SubscriptionResult.ok(newEnd);
+      return SubscriptionResult.ok(resolvedNewEnd);
     } on Exception catch (e) {
       final msg = e.toString().replaceAll('Exception: ', '');
       developer.log('renewSubscription error: $msg');
       return SubscriptionResult.fail(msg);
     } catch (e) {
       developer.log('renewSubscription unexpected error: $e');
-      return SubscriptionResult.fail('حدث خطأ غير متوقع. حاول مجدداً.');
+      return const SubscriptionResult.fail('حدث خطأ غير متوقع. حاول مجدداً.');
     }
   }
 }

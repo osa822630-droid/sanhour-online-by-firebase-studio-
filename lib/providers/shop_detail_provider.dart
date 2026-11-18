@@ -30,6 +30,12 @@ class ShopDetailProvider with ChangeNotifier {
   bool get isLoading      => _isLoading;
   String? get errorMsg    => _errorMsg;
   List<Product> get products  => List.unmodifiable(_products);
+  List<String> get productLists => _products
+      .map((p) => p.listName)
+      .whereType<String>()
+      .where((l) => l.trim().isNotEmpty)
+      .toSet()
+      .toList();
   List<Offer>   get offers    => List.unmodifiable(_offers);
   List<Review>  get reviews   => List.unmodifiable(_reviews);
   List<Map<String, dynamic>> get services => List.unmodifiable(_services);
@@ -48,7 +54,16 @@ class ShopDetailProvider with ChangeNotifier {
         ApiService.getReviews(shop.id),
         ApiService.getServices(shopId: shop.id),
       ]);
-      _products  = results[0] as List<Product>;
+      final loadedProducts = List<Product>.from(results[0] as List<Product>);
+      loadedProducts.sort((a, b) {
+        if (a.sortOrder != null && b.sortOrder != null) {
+          return a.sortOrder!.compareTo(b.sortOrder!);
+        }
+        if (a.sortOrder != null) return -1;
+        if (b.sortOrder != null) return 1;
+        return b.createdAt.compareTo(a.createdAt);
+      });
+      _products  = loadedProducts;
       _offers    = results[1] as List<Offer>;
       _reviews   = results[2] as List<Review>;
       _services  = results[3] as List<Map<String, dynamic>>;

@@ -1,10 +1,12 @@
 // lib/screens/merchant/edit_shop_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../models/shop.dart';
 import '../../providers/shops_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/image_helper.dart';
 import '../../widgets/cached_image.dart';
@@ -34,24 +36,27 @@ class _EditShopScreenState extends State<EditShopScreen> {
   late TextEditingController _instagramCtrl;
   late TextEditingController _tiktokCtrl;
   late TextEditingController _telegramCtrl;
+  late TextEditingController _ownerTargetCtrl;
 
   File? _newLogoFile;
   File? _newCoverFile;
   String _selectedCategory = '';
+  List<String> _approvedRegions = [
+    'وسط البلد',
+    'الشارع العام',
+    'شارع البحر',
+    'الموقف',
+    'سنهور القبلية',
+  ];
 
-  // ✅ نظام تقدم رفع اللوجو/الغلاف
   double? _logoProgress;
   double? _coverProgress;
 
-  // ✅ حالة معرض وسائط المحل (صور + فيديو) — تُحدَّث من MediaGalleryPickerWidget
   MediaGalleryState? _mediaState;
 
-  // ✅ تقدم رفع كل صورة/فيديو جديد في المعرض — المفتاح index ضمن
-  // newImages/newVideos على الترتيب
   final Map<int, double> _galleryImageProgress = {};
   final Map<int, double> _galleryVideoProgress = {};
 
-  /// المتوسط الإجمالي لتقدم رفع معرض الوسائط (صور + فيديو معاً)
   double get _overallGalleryProgress {
     final state = _mediaState;
     if (state == null) return 0;
@@ -77,19 +82,50 @@ class _EditShopScreenState extends State<EditShopScreen> {
     _descCtrl = TextEditingController(text: widget.shop.description);
     _hoursCtrl = TextEditingController(text: widget.shop.workingHours);
     _facebookCtrl = TextEditingController(text: widget.shop.facebookUrl ?? '');
-    _instagramCtrl = TextEditingController(text: widget.shop.instagramUrl ?? '');
+    _instagramCtrl =
+        TextEditingController(text: widget.shop.instagramUrl ?? '');
     _tiktokCtrl = TextEditingController(text: widget.shop.tiktokUrl ?? '');
     _telegramCtrl = TextEditingController(text: widget.shop.telegramUrl ?? '');
+    _ownerTargetCtrl =
+        TextEditingController(text: widget.shop.pendingOwnerPhone ?? '');
     _selectedCategory = widget.shop.category;
+    _loadApprovedRegions();
+  }
+
+  Future<void> _loadApprovedRegions() async {
+    try {
+      final results = await Future.wait([
+        FirebaseFirestore.instance
+            .collection('settings')
+            .doc('locations')
+            .get(),
+        FirebaseFirestore.instance.collection('settings').doc('general').get(),
+      ]);
+      final locData = results[0].data() ?? {};
+      final genData = results[1].data() ?? {};
+      final raw =
+          locData['areas'] ?? locData['regions'] ?? genData['regions'];
+      if (raw is List && raw.isNotEmpty && mounted) {
+        setState(() {
+          _approvedRegions = raw.map((e) => e.toString()).toSet().toList();
+        });
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
-    _nameCtrl.dispose(); _phoneCtrl.dispose();
-    _whatsappCtrl.dispose(); _locationCtrl.dispose();
-    _descCtrl.dispose(); _hoursCtrl.dispose();
-    _facebookCtrl.dispose(); _instagramCtrl.dispose();
-    _tiktokCtrl.dispose(); _telegramCtrl.dispose();
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _whatsappCtrl.dispose();
+    _locationCtrl.dispose();
+    _descCtrl.dispose();
+    _hoursCtrl.dispose();
+    _facebookCtrl.dispose();
+    _instagramCtrl.dispose();
+    _tiktokCtrl.dispose();
+    _telegramCtrl.dispose();
+    _ownerTargetCtrl.dispose();
     super.dispose();
   }
 
@@ -98,7 +134,8 @@ class _EditShopScreenState extends State<EditShopScreen> {
     if (source == null) return;
     if (!mounted) return;
     final file = await ImageHelper.pickAndCrop(
-      context: context, source: source,
+      context: context,
+      source: source,
       ratio: isLogo ? ImageRatio.square : ImageRatio.cover,
       hint: isLogo
           ? '💡 يُنصح بإضافة شعار (لوجو) المحل — مربع 1:1'
@@ -106,12 +143,12 @@ class _EditShopScreenState extends State<EditShopScreen> {
     );
     if (file != null) {
       setState(() {
-      if (isLogo) {
-        _newLogoFile = file;
-      } else {
-        _newCoverFile = file;
-      }
-    });
+        if (isLogo) {
+          _newLogoFile = file;
+        } else {
+          _newCoverFile = file;
+        }
+      });
     }
   }
 
@@ -140,10 +177,12 @@ class _EditShopScreenState extends State<EditShopScreen> {
           'instagramUrl': _instagramCtrl.text.trim(),
           'tiktokUrl': _tiktokCtrl.text.trim(),
           'telegramUrl': _telegramCtrl.text.trim(),
+          if (context.read<AuthProvider>().userRole == UserRole.admin &&
+              _ownerTargetCtrl.text.trim().isNotEmpty)
+            'targetOwnerIdentifier': _ownerTargetCtrl.text.trim(),
         },
         _newLogoFile,
         _newCoverFile,
-        // ✅ نظام تقدم رفع اللوجو/الغلاف
         onLogoProgress: (f) {
           if (!mounted) return;
           setState(() => _logoProgress = f);
@@ -154,7 +193,6 @@ class _EditShopScreenState extends State<EditShopScreen> {
         },
       );
 
-      // ✅ تحديث معرض وسائط المحل — فقط إذا تغيّر شيء فعلياً (إضافة/حذف)
       final media = _mediaState;
       if (media != null &&
           (media.newImages.isNotEmpty ||
@@ -179,19 +217,17 @@ class _EditShopScreenState extends State<EditShopScreen> {
       }
 
       if (!mounted) return;
-      // ✅ تحديث الـ Provider
       context.read<ShopsProvider>().fetchShops(refresh: true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم تحديث بيانات المتجر ✅'),
+        const SnackBar(
+            content: Text('تم تحديث بيانات المتجر ✅'),
             backgroundColor: Colors.green),
       );
-      // ✅ إصلاح: تأخير بسيط قبل الإغلاق حتى تظهر رسالة النجاح فعلياً
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      // ✅ MediaUploadException يحمل رسالة عربية جاهزة للعرض مباشرة
       final msg = e is MediaUploadException
           ? e.userMessage
           : 'فشل الحفظ، تحقق من البيانات وحاول مجدداً';
@@ -211,14 +247,21 @@ class _EditShopScreenState extends State<EditShopScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ الفئات من Provider
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final categories = context.watch<ShopsProvider>().categories;
     final catNames = categories.isNotEmpty
         ? categories.map((c) => c.name).toList()
-        : ['مأكولات ومشروبات', 'ملابس', 'أجهزة إلكترونية', 'خدمات طبية', 'أخرى'];
-    if (!catNames.contains(_selectedCategory) && catNames.isNotEmpty) {
-      _selectedCategory = catNames.first;
-    }
+        : [
+            'مأكولات ومشروبات',
+            'ملابس',
+            'أجهزة إلكترونية',
+            'خدمات طبية',
+            'أخرى'
+          ];
+    final effectiveCategory = catNames.contains(_selectedCategory)
+        ? _selectedCategory
+        : catNames.first;
+    if (_selectedCategory.isEmpty) _selectedCategory = effectiveCategory;
 
     return Scaffold(
       appBar: AppBar(
@@ -238,15 +281,18 @@ class _EditShopScreenState extends State<EditShopScreen> {
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               const SizedBox(height: 10),
               Row(children: [
-                // اللوجو
-                Expanded(child: GestureDetector(
+                Expanded(
+                    child: GestureDetector(
                   onTap: _isLoading ? null : () => _pickImage(isLogo: true),
                   child: Container(
                     height: 110,
                     decoration: BoxDecoration(
-                      color: Colors.grey[100],
+                      color: isDark
+                          ? const Color(0xFF252538)
+                          : Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!),
+                      border: Border.all(
+                          color: isDark ? Colors.white24 : Colors.grey[300]!),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
@@ -256,12 +302,20 @@ class _EditShopScreenState extends State<EditShopScreen> {
                           _newLogoFile != null
                               ? Image.file(_newLogoFile!, fit: BoxFit.cover)
                               : widget.shop.imageUrl.isNotEmpty
-                                  ? CachedImage(imageUrl: widget.shop.imageUrl, fit: BoxFit.cover)
-                                  : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                      const Icon(Icons.add_a_photo, color: Colors.grey),
-                                      Text('الشعار', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                                    ]),
-                          // ✅ طبقة تقدم رفع اللوجو
+                                  ? CachedImage(
+                                      imageUrl: widget.shop.imageUrl,
+                                      fit: BoxFit.cover)
+                                  : Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                          const Icon(Icons.add_a_photo,
+                                              color: Colors.grey),
+                                          Text('الشعار',
+                                              style: TextStyle(
+                                                  color: Colors.grey[500],
+                                                  fontSize: 12)),
+                                        ]),
                           if (_logoProgress != null && _logoProgress! < 1.0)
                             _buildUploadOverlay(_logoProgress!),
                         ],
@@ -270,41 +324,57 @@ class _EditShopScreenState extends State<EditShopScreen> {
                   ),
                 )),
                 const SizedBox(width: 10),
-                // الغلاف
-                Expanded(flex: 2, child: GestureDetector(
-                  onTap: _isLoading ? null : () => _pickImage(isLogo: false),
-                  child: Container(
-                    height: 110,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          _newCoverFile != null
-                              ? Image.file(_newCoverFile!, fit: BoxFit.cover)
-                              : widget.shop.coverUrl.isNotEmpty
-                                  ? CachedImage(imageUrl: widget.shop.coverUrl, fit: BoxFit.cover)
-                                  : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                      const Icon(Icons.add_photo_alternate, color: Colors.grey),
-                                      Text('صورة الغلاف', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                                    ]),
-                          // ✅ طبقة تقدم رفع الغلاف
-                          if (_coverProgress != null && _coverProgress! < 1.0)
-                            _buildUploadOverlay(_coverProgress!),
-                        ],
+                Expanded(
+                    flex: 2,
+                    child: GestureDetector(
+                      onTap:
+                          _isLoading ? null : () => _pickImage(isLogo: false),
+                      child: Container(
+                        height: 110,
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? const Color(0xFF252538)
+                              : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color:
+                                  isDark ? Colors.white24 : Colors.grey[300]!),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              _newCoverFile != null
+                                  ? Image.file(_newCoverFile!,
+                                      fit: BoxFit.cover)
+                                  : widget.shop.coverUrl.isNotEmpty
+                                      ? CachedImage(
+                                          imageUrl: widget.shop.coverUrl,
+                                          fit: BoxFit.cover)
+                                      : Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                              const Icon(
+                                                  Icons.add_photo_alternate,
+                                                  color: Colors.grey),
+                                              Text('صورة الغلاف',
+                                                  style: TextStyle(
+                                                      color: Colors.grey[500],
+                                                      fontSize: 12)),
+                                            ]),
+                              if (_coverProgress != null &&
+                                  _coverProgress! < 1.0)
+                                _buildUploadOverlay(_coverProgress!),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                )),
+                    )),
               ]),
               const SizedBox(height: 16),
 
-              // ✅ قسم معرض وسائط المحل (صور + فيديوهات) — جديد
               const Divider(),
               const SizedBox(height: 8),
               MediaGalleryPickerWidget(
@@ -317,9 +387,9 @@ class _EditShopScreenState extends State<EditShopScreen> {
                 onChanged: (state) => setState(() => _mediaState = state),
               ),
 
-              // ✅ شريط تقدم معرض الوسائط الإجمالي
-              if (_isLoading && (_mediaState?.newImages.isNotEmpty == true ||
-                  _mediaState?.newVideos.isNotEmpty == true)) ...[
+              if (_isLoading &&
+                  (_mediaState?.newImages.isNotEmpty == true ||
+                      _mediaState?.newVideos.isNotEmpty == true)) ...[
                 const SizedBox(height: 10),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
@@ -346,28 +416,59 @@ class _EditShopScreenState extends State<EditShopScreen> {
 
               // ─── البيانات الأساسية ────────────────────────────────────
               _buildField('اسم المتجر *', _nameCtrl, Icons.store_outlined,
-                  validator: (v) => v!.trim().isEmpty ? 'مطلوب' : null),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'مطلوب' : null),
               const SizedBox(height: 12),
 
               DropdownButtonFormField<String>(
-                initialValue: catNames.contains(_selectedCategory) ? _selectedCategory : catNames.first,
-                decoration: const InputDecoration(labelText: 'التصنيف *',
+                initialValue: effectiveCategory,
+                decoration: const InputDecoration(
+                    labelText: 'التصنيف *',
                     prefixIcon: Icon(Icons.category_outlined)),
-                items: catNames.map((n) => DropdownMenuItem(value: n, child: Text(n))).toList(),
+                items: catNames
+                    .map((n) => DropdownMenuItem(value: n, child: Text(n)))
+                    .toList(),
                 onChanged: (v) => setState(() => _selectedCategory = v!),
-                validator: (v) => (v == null || v.isEmpty) ? 'مطلوب' : null,
+                validator: (v) =>
+                    (v == null || v.isEmpty) ? 'مطلوب' : null,
               ),
               const SizedBox(height: 12),
 
               _buildField('رقم الهاتف *', _phoneCtrl, Icons.phone_outlined,
                   type: TextInputType.phone,
-                  validator: (v) => v!.length < 10 ? 'رقم غير صحيح' : null),
+                  validator: (v) => (v == null || v.trim().length < 10)
+                      ? 'رقم غير صحيح'
+                      : null),
               const SizedBox(height: 12),
-              _buildField('العنوان', _locationCtrl, Icons.location_on_outlined),
+              DropdownButtonFormField<String>(
+                key: ValueKey(_approvedRegions.join(',')),
+                initialValue:
+                    _approvedRegions.contains(_locationCtrl.text.trim())
+                        ? _locationCtrl.text.trim()
+                        : null,
+                decoration: const InputDecoration(
+                  labelText: 'اختر المنطقة المعتمدة',
+                  prefixIcon: Icon(Icons.map_outlined),
+                ),
+                items: _approvedRegions
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() => _locationCtrl.text = v);
+                  }
+                },
+              ),
               const SizedBox(height: 12),
-              _buildField('الوصف', _descCtrl, Icons.description_outlined, maxLines: 3),
+              _buildField('العنوان / المنطقة', _locationCtrl,
+                  Icons.location_on_outlined),
               const SizedBox(height: 12),
-              _buildField('مواعيد العمل', _hoursCtrl, Icons.access_time_outlined),
+              _buildField(
+                  'الوصف', _descCtrl, Icons.description_outlined,
+                  maxLines: 3),
+              const SizedBox(height: 12),
+              _buildField(
+                  'مواعيد العمل', _hoursCtrl, Icons.access_time_outlined),
               const SizedBox(height: 16),
 
               const Text('روابط التواصل الاجتماعي',
@@ -379,26 +480,57 @@ class _EditShopScreenState extends State<EditShopScreen> {
               _buildField('فيسبوك', _facebookCtrl, FontAwesomeIcons.facebook,
                   type: TextInputType.url, isFa: true),
               const SizedBox(height: 12),
-              _buildField('انستجرام', _instagramCtrl, FontAwesomeIcons.instagram,
+              _buildField(
+                  'انستجرام', _instagramCtrl, FontAwesomeIcons.instagram,
                   type: TextInputType.url, isFa: true),
               const SizedBox(height: 12),
               _buildField('تيك توك', _tiktokCtrl, FontAwesomeIcons.tiktok,
                   type: TextInputType.url, isFa: true),
               const SizedBox(height: 12),
-              _buildField('تيليجرام', _telegramCtrl, FontAwesomeIcons.telegram,
+              _buildField(
+                  'تيليجرام', _telegramCtrl, FontAwesomeIcons.telegram,
                   type: TextInputType.url, isFa: true),
+              if (context.watch<AuthProvider>().userRole == UserRole.admin) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                const Text('تعيين / تغيير مالك المحل (خاص بالأدمن)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _ownerTargetCtrl,
+                  decoration: InputDecoration(
+                    labelText:
+                        'رقم هاتف أو يوزر المالك (أو اكتب "بدون" لإلغاء المالك)',
+                    helperText: widget.shop.ownerId.isEmpty
+                        ? (widget.shop.pendingOwnerPhone != null
+                            ? 'منتظر تسجيل الرقم: ${widget.shop.pendingOwnerPhone}'
+                            : 'المحل حالياً بدون مالك')
+                        : 'معرّف المالك الحالي: ${widget.shop.ownerId}',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.manage_accounts_outlined,
+                        color: Color(0xFF5E35B1)),
+                  ),
+                ),
+              ],
               const SizedBox(height: 28),
 
               SizedBox(
-                width: double.infinity, height: 52,
+                width: double.infinity,
+                height: 52,
                 child: ElevatedButton.icon(
                   onPressed: _isLoading ? null : _save,
                   icon: _isLoading
-                      ? const SizedBox(width: 18, height: 18,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.save_rounded),
                   label: const Text('حفظ التعديلات',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      style: TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 30),
@@ -409,7 +541,6 @@ class _EditShopScreenState extends State<EditShopScreen> {
     );
   }
 
-  /// ✅ طبقة شفافة تعرض دائرة تقدم رفع فوق أي حاوية صورة
   Widget _buildUploadOverlay(double progress) {
     return Container(
       color: Colors.black.withValues(alpha: 0.5),
@@ -431,7 +562,9 @@ class _EditShopScreenState extends State<EditShopScreen> {
             Text(
               '${(progress * 100).round()}%',
               style: const TextStyle(
-                  color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -439,17 +572,22 @@ class _EditShopScreenState extends State<EditShopScreen> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController ctrl, dynamic icon,
-      {TextInputType? type, int maxLines = 1,
-       FormFieldValidator<String>? validator, bool isFa = false}) {
+  Widget _buildField(String label, TextEditingController ctrl, IconData icon,
+      {TextInputType? type,
+      int maxLines = 1,
+      FormFieldValidator<String>? validator,
+      bool isFa = false}) {
     return TextFormField(
-      controller: ctrl, keyboardType: type, maxLines: maxLines,
+      controller: ctrl,
+      keyboardType: type,
+      maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: isFa
-            ? Padding(padding: const EdgeInsets.all(12),
-                child: FaIcon(icon as IconData, size: 18))
-            : Icon(icon as IconData),
+            ? Padding(
+                padding: const EdgeInsets.all(12),
+                child: FaIcon(icon, size: 18))
+            : Icon(icon),
       ),
       validator: validator,
     );
