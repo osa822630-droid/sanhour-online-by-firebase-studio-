@@ -16,13 +16,13 @@ dependencies:
   intl: ^0.20.2
   google_fonts: ^8.0.2
 
-  # --- 2. Firebase (Backend) ---
-  firebase_core: ^4.4.0
-  firebase_auth: ^6.1.4
-  cloud_firestore: ^6.1.2
-  firebase_storage: ^13.0.0
-  firebase_messaging: ^16.1.1
-  firebase_analytics: ^12.1.2
+  # --- 2. Firebase (Backend — Pinned to FlutterFire BoM v4.12.0 for Kotlin 2.1 compatibility) ---
+  firebase_core: 4.7.0
+  firebase_auth: 6.4.0
+  cloud_firestore: 6.3.0
+  firebase_storage: 13.3.0
+  firebase_messaging: 16.2.0
+  firebase_analytics: 12.3.0
 
   # --- 3. State Management & Storage ---
   provider: ^6.1.2
@@ -56,10 +56,10 @@ dependencies:
   package_info_plus: ^9.0.0
   image_cropper: ^12.2.0
   http: ^1.6.0
-  firebase_app_check: ^0.4.3
-  firebase_crashlytics: ^5.2.0
+  firebase_app_check: 0.4.3
+  firebase_crashlytics: 5.2.0
   app_links: ^6.4.1
-  cloud_functions: ^6.2.0
+  cloud_functions: 6.2.0
   flutter_secure_storage: ^10.0.0
   video_player: ^2.10.1
 

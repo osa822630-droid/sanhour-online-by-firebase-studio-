@@ -21,6 +21,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.44.7'
           cache: true
 
       - name: Versions
@@ -35,7 +36,7 @@ jobs:
         id: analyze
         run: |
           set +e
-          flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings > analyze.txt 2>&1
+          flutter analyze --no-pub --no-fatal-infos > analyze.txt 2>&1
           code=$?
           echo "exit code: $code" >> analyze.txt
           cat analyze.txt
@@ -45,33 +46,44 @@ jobs:
       - name: flutter test
         id: unit_test
         run: |
-          flutter test --no-pub
+          set +e
+          flutter test --no-pub > test.txt 2>&1
+          tcode=$?
+          echo "exit code: $tcode" >> test.txt
+          cat test.txt
+          echo "code=$tcode" >> "$GITHUB_OUTPUT"
+          exit 0
 
-      - name: Publish analyze report
+      - name: Publish analyze & test report
         if: always()
         uses: actions/github-script@v7
         env:
           ANALYZE_CODE: ${{ steps.analyze.outputs.code }}
+          TEST_CODE: ${{ steps.unit_test.outputs.code }}
         with:
           script: |
             const fs = require('fs');
-            let text = fs.existsSync('analyze.txt') ? fs.readFileSync('analyze.txt', 'utf8') : '(no analyze.txt)';
-            if (text.length > 60000) text = text.slice(0, 60000) + '\n... (truncated)';
-            const code = process.env.ANALYZE_CODE || 'n/a';
+            const aText = fs.existsSync('analyze.txt') ? fs.readFileSync('analyze.txt', 'utf8') : '(no analyze.txt)';
+            const tText = fs.existsSync('test.txt') ? fs.readFileSync('test.txt', 'utf8') : '(no test.txt)';
+            let combined = '=== FLUTTER ANALYZE ===\n' + aText + '\n\n=== FLUTTER TEST ===\n' + tText;
+            if (combined.length > 60000) combined = combined.slice(0, 60000) + '\n... (truncated)';
+            const aCode = process.env.ANALYZE_CODE || 'n/a';
+            const tCode = process.env.TEST_CODE || 'n/a';
+            const ok = (aCode === '0' && tCode === '0');
             await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: 'flutter-analyze-report',
               head_sha: context.sha,
               status: 'completed',
-              conclusion: code === '0' ? 'success' : 'failure',
+              conclusion: ok ? 'success' : 'failure',
               output: {
-                title: 'flutter analyze (exit ' + code + ')',
-                summary: 'exit code ' + code,
-                text: '```\n' + text + '\n```',
+                title: `analyze (exit ${aCode}) & test (exit ${tCode})`,
+                summary: `analyze=${aCode}, test=${tCode}`,
+                text: '```\n' + combined + '\n```',
               },
             });
 
-      - name: Fail if analyzer found errors
-        if: steps.analyze.outputs.code != '0'
+      - name: Fail if analyzer or unit tests found errors
+        if: steps.analyze.outputs.code != '0' || steps.unit_test.outputs.code != '0'
         run: exit 1

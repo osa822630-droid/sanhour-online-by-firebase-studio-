@@ -11,7 +11,6 @@ import 'package:sanhour_online/models/user.dart';
 import 'package:sanhour_online/services/deep_link_service.dart';
 import 'package:sanhour_online/services/subscription_service.dart';
 import 'package:sanhour_online/utils/constants.dart';
-import 'package:sanhour_online/widgets/empty_state_widget.dart';
 import 'package:sanhour_online/widgets/error_state_widget.dart';
 import 'package:sanhour_online/widgets/stat_card.dart';
 
@@ -134,6 +133,8 @@ void main() {
         'price': 250.0,
         'oldPrice': 300.0,
         'hasPriceDrop': true,
+        'hasDiscount': true,
+        'discountPercentage': 16.5,
         'sortOrder': 1,
         'listName': 'الأكثر مبيعاً',
       }, 'prod_1');
@@ -141,6 +142,7 @@ void main() {
       expect(p.id, equals('prod_1'));
       expect(p.sortOrder, equals(1));
       expect(p.listName, equals('الأكثر مبيعاً'));
+      expect(p.hasPriceDrop, isTrue);
       expect(p.hasDiscount, isTrue);
     });
 

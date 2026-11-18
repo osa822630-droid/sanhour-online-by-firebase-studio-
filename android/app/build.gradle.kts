@@ -14,29 +14,25 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
-val releaseStorePath = keystoreProperties.getProperty("storeFile")?.trim()
-val releaseStoreFile = if (!releaseStorePath.isNullOrEmpty()) file(releaseStorePath) else null
-val hasValidReleaseKeystore = releaseStoreFile != null && releaseStoreFile.exists()
-
 android {
     namespace = "com.sanhour.online"
-    compileSdk = maxOf(flutter.compileSdkVersion, 35)
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
         isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
     defaultConfig {
         applicationId = "com.sanhour.online"
         minSdk = maxOf(flutter.minSdkVersion, 24)
-        targetSdk = maxOf(flutter.targetSdkVersion, 35)
+        targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
@@ -48,11 +44,11 @@ android {
     }
 
     signingConfigs {
-        if (hasValidReleaseKeystore) {
+        if (keystorePropertiesFile.exists()) {
             create("release") {
                 keyAlias = keystoreProperties.getProperty("keyAlias")?.trim()
                 keyPassword = keystoreProperties.getProperty("keyPassword")?.trim()
-                storeFile = releaseStoreFile
+                storeFile = keystoreProperties.getProperty("storeFile")?.trim()?.let { file(it) }
                 storePassword = keystoreProperties.getProperty("storePassword")?.trim()
             }
         }
@@ -62,10 +58,10 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
-            signingConfig = if (hasValidReleaseKeystore) {
-                signingConfigs.getByName("release")
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
             } else {
-                signingConfigs.getByName("debug")
+                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }

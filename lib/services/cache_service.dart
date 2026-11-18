@@ -328,7 +328,7 @@ class CacheService {
       }
       return Map<String, dynamic>.from(cached['data'] as Map);
     } catch (e) {
-      developer.log('getCachedUserData error: \$e', name: 'CacheService');
+      developer.log('getCachedUserData error: $e', name: 'CacheService');
       return null;
     }
   }

@@ -24,8 +24,8 @@ class SubscriptionResult {
 class SubscriptionService {
   SubscriptionService._();
 
-  static final _db = FirebaseFirestore.instance;
-  static final _functions = FirebaseFunctions.instance;
+  static FirebaseFirestore get _db => FirebaseFirestore.instance;
+  static FirebaseFunctions get _functions => FirebaseFunctions.instance;
 
   static const Map<String, Map<String, dynamic>> tiers = {
     'monthly': {

@@ -12,7 +12,6 @@ import '../providers/favorites_provider.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/cached_image.dart';
 import '../services/deep_link_service.dart';
-import '../utils/constants.dart';
 
 class CollectionDetailScreen extends StatefulWidget {
   final WishlistCollection collection;

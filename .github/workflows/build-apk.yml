@@ -43,6 +43,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: '3.44.7'
           cache: true
 
       - name: Verify Flutter & Dart versions
@@ -70,20 +71,49 @@ jobs:
           fi
 
       - name: Build Android APK
+        id: build_step
         run: |
+          set -o pipefail
           MODE="${{ github.event.inputs.build_mode }}"
           if [ -z "$MODE" ]; then MODE="$DEFAULT_BUILD_MODE"; fi
           SPLIT="${{ github.event.inputs.split_per_abi }}"
           if [ -z "$SPLIT" ]; then SPLIT="$DEFAULT_SPLIT_ABI"; fi
           echo "Building APK with MODE=$MODE, SPLIT=$SPLIT"
           if [ "$MODE" = "debug" ]; then
-            flutter build apk --debug --no-tree-shake-icons -v
+            flutter build apk --debug --no-tree-shake-icons 2>&1 | tee build_apk.log
           else
-            flutter build apk --release --no-tree-shake-icons -v
+            flutter build apk --release --no-tree-shake-icons 2>&1 | tee build_apk.log
             if [ "$SPLIT" = "true" ]; then
-              flutter build apk --release --split-per-abi --no-tree-shake-icons -v
+              flutter build apk --release --split-per-abi --no-tree-shake-icons 2>&1 | tee -a build_apk.log
             fi
           fi
+
+      - name: Publish APK Build Report Check Run
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let raw = fs.existsSync('build_apk.log') ? fs.readFileSync('build_apk.log', 'utf8') : '(build_apk.log not generated — earlier step failed)';
+            const lines = raw.split('\n');
+            const errLines = lines.filter(l => /FAILURE:|What went wrong:|Error:|Exception:|Could not|Execution failed|e: /i.test(l)).slice(-80);
+            const tailLines = lines.slice(-120);
+            let report = '=== KEY DIAGNOSTICS ===\n' + (errLines.length ? errLines.join('\n') : '(No error lines matched)') + '\n\n=== LOG TAIL (Last 120 Lines) ===\n' + tailLines.join('\n');
+            if (report.length > 60000) report = report.slice(-60000);
+            const ok = '${{ steps.build_step.outcome }}' === 'success';
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'apk-build-report',
+              head_sha: context.sha,
+              status: 'completed',
+              conclusion: ok ? 'success' : 'failure',
+              output: {
+                title: ok ? 'APK Build Succeeded' : 'APK Build Failed — See Error Log',
+                summary: `Build step outcome: ${{ steps.build_step.outcome }}`,
+                text: '```\n' + report + '\n```',
+              },
+            });
 
       - name: Prepare APK output folder
         run: |
