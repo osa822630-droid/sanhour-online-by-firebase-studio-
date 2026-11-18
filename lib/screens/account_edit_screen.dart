@@ -237,20 +237,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
             ));
             return;
           }
-          final existing = await FirebaseFirestore.instance
-              .collection('users')
-              .where('username', isEqualTo: rawUsername)
-              .limit(1)
-              .get();
-          if (existing.docs.isNotEmpty &&
-              existing.docs.first.id != user.id) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('اسم المستخدم محجوز. اختر اسماً آخر.'),
-              backgroundColor: Colors.red,
-            ));
-            return;
-          }
+
         } catch (_) {}
       }
     }

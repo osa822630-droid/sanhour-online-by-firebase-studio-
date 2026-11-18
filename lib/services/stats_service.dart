@@ -177,6 +177,7 @@ class StatsService {
 
       final globalRankQuery = await _firestore
           .collection('shops')
+          .where('isSuspended', isEqualTo: false)
           .where('views', isGreaterThan: currentViews)
           .count()
           .get();
@@ -184,6 +185,7 @@ class StatsService {
 
       final categoryRankQuery = await _firestore
           .collection('shops')
+          .where('isSuspended', isEqualTo: false)
           .where('category', isEqualTo: category)
           .where('views', isGreaterThan: currentViews)
           .count()
@@ -192,6 +194,7 @@ class StatsService {
 
       final totalCompetitorsQuery = await _firestore
           .collection('shops')
+          .where('isSuspended', isEqualTo: false)
           .where('category', isEqualTo: category)
           .count()
           .get();
@@ -328,14 +331,31 @@ class StatsService {
   // 4. بادجات الترتيب (Ranking Badges) - ميزة جديدة 🔥
   // ==========================================================
 
+  static Query<Map<String, dynamic>> _applyPublicRuleFilters(
+      String collection, Query<Map<String, dynamic>> q) {
+    if (collection == 'shops') {
+      return q.where('isSuspended', isEqualTo: false);
+    } else if (collection == 'products') {
+      return q
+          .where('isVisible', isEqualTo: true)
+          .where('isShopHidden', isEqualTo: false);
+    } else if (collection == 'offers') {
+      return q
+          .where('isActive', isEqualTo: true)
+          .where('isShopHidden', isEqualTo: false);
+    }
+    return q;
+  }
+
   static Future<Map<String, int>> getItemRank({
     required String collection,
     required String id,
     required int currentViews,
     String? category,
   }) async {
-    final globalCount = await _firestore
-        .collection(collection)
+    final baseQuery =
+        _applyPublicRuleFilters(collection, _firestore.collection(collection));
+    final globalCount = await baseQuery
         .where('views', isGreaterThan: currentViews)
         .count()
         .get();
@@ -344,8 +364,7 @@ class StatsService {
     int categoryRank = 0;
 
     if (category != null && category.isNotEmpty) {
-      final categoryCount = await _firestore
-          .collection(collection)
+      final categoryCount = await baseQuery
           .where('category', isEqualTo: category)
           .where('views', isGreaterThan: currentViews)
           .count()

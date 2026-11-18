@@ -384,20 +384,28 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
   Future<void> _cascadeCategoryRename(String oldName, String newName) async {
     if (oldName.isEmpty || newName.isEmpty || oldName == newName) return;
     final firestore = FirebaseFirestore.instance;
-    for (final collectionName in const ['shops', 'products']) {
-      final snap = await firestore
-          .collection(collectionName)
-          .where('category', isEqualTo: oldName)
-          .get();
-      if (snap.docs.isEmpty) continue;
-      for (var i = 0; i < snap.docs.length; i += 400) {
-        final chunk = snap.docs.skip(i).take(400);
-        final batch = firestore.batch();
-        for (final doc in chunk) {
-          batch.update(doc.reference, {'category': newName});
+    for (final collectionName in const [
+      'shops',
+      'products',
+      'job_ads',
+      'service_requests',
+      'dealer_listings',
+    ]) {
+      try {
+        final snap = await firestore
+            .collection(collectionName)
+            .where('category', isEqualTo: oldName)
+            .get();
+        if (snap.docs.isEmpty) continue;
+        for (var i = 0; i < snap.docs.length; i += 400) {
+          final chunk = snap.docs.skip(i).take(400);
+          final batch = firestore.batch();
+          for (final doc in chunk) {
+            batch.update(doc.reference, {'category': newName});
+          }
+          await batch.commit();
         }
-        await batch.commit();
-      }
+      } catch (_) {}
     }
   }
 

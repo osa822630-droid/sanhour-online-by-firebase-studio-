@@ -1,6 +1,8 @@
 // lib/screens/tabs/admin_settings_tab.dart
 // ✅ إزالة المتغير الميت _isSeeding وعرض رسائل الخطأ عند فشل تفعيل/إلغاء التحديث الإجباري أو تحديث الثيم
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/notification_service.dart';
 import '../../services/database_seeder.dart';
@@ -589,10 +591,11 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
             _divider(),
             const SizedBox(height: 24),
 
-            // ── أدوات المطور ─────────────────────────────────────────
+            // ── أدوات المطور (مقصورة على السوبر أدمن فقط F-006) ─────────────────────
+            if (context.watch<AuthProvider>().user?.isSuperAdmin == true) ...[
             _sectionTitle(
                 'Developer Tools',
-                'أدوات خطرة — للمطورين فقط',
+                'أدوات خطرة — للسوبر أدمن فقط',
                 Icons.developer_mode,
                 color: Colors.red[700]!),
             _cardWrap(isDark, [
@@ -635,6 +638,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                 ),
               ),
             ]),
+            ],
 
             const SizedBox(height: 40),
           ],

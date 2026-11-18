@@ -77,7 +77,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
         for (final shopDoc in shopsQ.docs) {
           ops.add((b) => b.update(shopDoc.reference, {
                 'isActive': false,
-                'isSuspended': true,
+                'isVisible': false,
                 'hiddenByDeletion': true,
               }));
           final prodsQ = await firestore

@@ -300,6 +300,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
         fs
             .collection('products')
             .where('isVisible', isEqualTo: true)
+            .where('isShopHidden', isEqualTo: false)
             .where('searchKeywords', arrayContains: primaryToken)
             .limit(40)
             .get(),

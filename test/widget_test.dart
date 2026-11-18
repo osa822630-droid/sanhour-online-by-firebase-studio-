@@ -95,7 +95,7 @@ void main() {
       expect(worker.canManageSubscription, isFalse);
     });
 
-    test('AppConstants phone normalization handles Arabic digits and E.164', () {
+    test('AppConstants phone normalization handles Arabic digits, E.164, and Local 11-digit format', () {
       expect(
         AppConstants.arabicToEnglishDigits('٠١٠٠٨٩٠٨٧٢٨'),
         equals('01008908728'),
@@ -111,6 +111,10 @@ void main() {
       expect(
         AppConstants.normalizePhoneToLocal('٠١٠٠٨٩٠٨٧٢٨'),
         equals('01008908728'),
+      );
+      expect(
+        RegExp(r'^01[0-9]{9}$').hasMatch(AppConstants.normalizePhoneToLocal('01008908728')),
+        isTrue,
       );
       final candidates = AppConstants.phoneLookupCandidates('01008908728');
       expect(candidates, contains('+201008908728'));

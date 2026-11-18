@@ -163,7 +163,9 @@ class ApiService {
           .collection('services')
           .where('shopId', isEqualTo: shopId);
       if (visibleOnly) {
-        q = q.where('isVisible', isEqualTo: true);
+        q = q
+            .where('isVisible', isEqualTo: true)
+            .where('isShopHidden', isEqualTo: false);
       }
       final snap = await q.get();
       final list = snap.docs

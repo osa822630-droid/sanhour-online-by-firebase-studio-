@@ -441,6 +441,7 @@ class ShopService {
         final snap = await _firestore
             .collection('shops')
             .where(FieldPath.documentId, whereIn: chunk)
+            .where('isSuspended', isEqualTo: false)
             .get();
         results.addAll(snap.docs.map((d) => Shop.fromMap(d.data(), d.id)));
       } catch (e) {

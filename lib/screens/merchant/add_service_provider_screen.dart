@@ -109,7 +109,7 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
       ));
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

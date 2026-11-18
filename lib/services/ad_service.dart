@@ -116,6 +116,28 @@ class AdService {
     final validCoverIndex = coverIndex.clamp(0, imageUrls.length - 1);
     final coverImageUrl = imageUrls[validCoverIndex];
 
+    if (activationCode != null &&
+        activationCode.trim().isNotEmpty &&
+        shopId != null &&
+        shopId.trim().isNotEmpty) {
+      await redeemAdCode(
+        code: activationCode,
+        userId: FirebaseAuth.instance.currentUser?.uid ?? '',
+        shopId: shopId,
+        adPayload: {
+          'imageUrls': imageUrls,
+          'coverImageIndex': validCoverIndex,
+          'imageUrl': coverImageUrl,
+          'text': text,
+          'actionButtonText': 'اعرف أكثر',
+          'targetType': targetType,
+          'targetId': targetId,
+          'displayLocations': displayLocations,
+        },
+      );
+      return;
+    }
+
     if (shopId != null) {
       final existing = await _firestore
           .collection('ads')
@@ -231,10 +253,12 @@ class AdService {
     return code;
   }
 
-  static Future<void> redeemAdCode({
+  static Future<String?> redeemAdCode({
     required String code,
     required String userId,
     required String shopId,
+    Map<String, dynamic>? adPayload,
+    String? adId,
   }) async {
     const invalid = AdCodeException('كود الإعلان غير صحيح أو مستخدم مسبقاً.');
     final normalized = code.trim().toUpperCase();
@@ -245,11 +269,14 @@ class AdService {
       final res = await callable.call({
         'code': normalized,
         'shopId': shopId,
+        if (adPayload != null) 'adPayload': adPayload,
+        if (adId != null) 'adId': adId,
       });
       final data = res.data;
       if (data is! Map || data['success'] != true) {
         throw invalid;
       }
+      return data['adId']?.toString();
     } on FirebaseFunctionsException catch (e) {
       throw AdCodeException(e.message ?? invalid.userMessage);
     } catch (e) {
@@ -448,11 +475,18 @@ class AdService {
       });
     }
 
+    final expiryTs = Timestamp.fromDate(
+      DateTime.now().add(const Duration(days: 7)),
+    );
     await _firestore.collection('ads').doc(adId).update({
+      'status': 'active',
       'isActive': true,
       'isMainActive': true,
       'isPaid': true,
       'activatedAt': FieldValue.serverTimestamp(),
+      'startDate': FieldValue.serverTimestamp(),
+      'endDate': expiryTs,
+      'expiresAt': expiryTs,
     });
   }
 }

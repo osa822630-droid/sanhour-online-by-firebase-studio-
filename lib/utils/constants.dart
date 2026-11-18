@@ -104,24 +104,23 @@ class AppConstants {
   /// تطبيع رقم الهاتف لصيغة E.164 الموحدة (`+201xxxxxxxxx`)
   static String normalizePhoneToE164(String raw) => normalizePhone(raw);
 
-  /// تطبيع رقم الهاتف المصري للصيغة المحلية المكونة من 11 رقماً ()
+  /// تطبيع رقم الهاتف المصري للصيغة المحلية المكونة من 11 رقماً (`01xxxxxxxxx`)
   static String normalizePhoneToLocal(String raw) {
-    final cleaned = arabicToEnglishDigits(raw);
-    final digits = cleaned.replaceAll(RegExp(r'\D'), '');
-    if (digits.isEmpty) return '';
-    if (digits.startsWith('0020') && digits.length >= 14) {
-      return '0${digits.substring(4)}';
+    final e164 = normalizePhone(raw);
+    if (e164.startsWith('+20') && e164.length == 13) {
+      return '0${e164.substring(3)}';
     }
-    if (digits.startsWith('20') && digits.length == 12) {
-      return '0${digits.substring(2)}';
+    final cleaned = arabicToEnglishDigits(raw).replaceAll(RegExp(r'\D'), '');
+    if (cleaned.startsWith('0020') && cleaned.length == 14) {
+      return '0${cleaned.substring(4)}';
     }
-    if (digits.startsWith('01') && digits.length == 11) {
-      return digits;
+    if (cleaned.startsWith('20') && cleaned.length == 12) {
+      return '0${cleaned.substring(2)}';
     }
-    if (digits.startsWith('1') && digits.length == 10) {
-      return '0$digits';
+    if (cleaned.startsWith('1') && cleaned.length == 10) {
+      return '0$cleaned';
     }
-    return digits;
+    return cleaned;
   }
 
   /// إرجاع صيغتي رقم الهاتف المحتملتين في Firestore (`+201...` و`01...`) للبحث المرن

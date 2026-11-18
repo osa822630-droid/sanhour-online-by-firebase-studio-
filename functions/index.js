@@ -36,25 +36,35 @@ function assertAuthenticatedUser(request) {
   return request.auth.uid;
 }
 
-async function getCallerProfile(uid) {
+const BUILTIN_SUPER_ADMIN_EMAILS = new Set([
+  "u201008908728@users.sanhour.online",
+  "u01008908728@users.sanhour.online",
+  "admin@sanhour.com",
+  "admin@sanhour.online",
+]);
+
+async function getCallerProfile(uid, requestAuth) {
   const snap = await db.collection("users").doc(uid).get();
   const data = snap.exists ? snap.data() || {} : {};
-  if (!data.userType || data.userType === "customer") {
-    try {
-      const userRecord = await admin.auth().getUser(uid);
-      if (
-        userRecord.email === "u201008908728@users.sanhour.online" ||
-        userRecord.email === "+201008908728@users.sanhour.online" ||
-        userRecord.email === "admin@sanhour.com"
-      ) {
-        data.userType = "super_admin";
-      } else if (
-        userRecord.email === "u201234567890@users.sanhour.online" ||
-        userRecord.email === "+201234567890@users.sanhour.online"
-      ) {
-        data.userType = "merchant";
-      }
-    } catch (_) {}
+  const email = String(
+    (requestAuth && requestAuth.token && requestAuth.token.email) ||
+      data.email ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+  if (
+    BUILTIN_SUPER_ADMIN_EMAILS.has(email) ||
+    data.phone === "+201008908728" ||
+    data.phone === "01008908728"
+  ) {
+    return { ...data, userType: "super_admin", isSuspended: false, isDeleted: false };
+  }
+  if (data.isSuspended === true || data.isDeleted === true) {
+    throw new HttpsError(
+      "permission-denied",
+      "هذا الحساب موقوف أو محذوف ولا يمكنه تنفيذ هذه العملية."
+    );
   }
   return data;
 }
@@ -308,7 +318,7 @@ exports.processNotificationQueue = onDocumentCreated(
 
 exports.enqueueNotification = onCall(async (request) => {
   const callerUid = assertAuthenticatedUser(request);
-  const callerData = await getCallerProfile(callerUid);
+  const callerData = await getCallerProfile(callerUid, request.auth);
   const data = request.data || {};
 
   const title = String(data.title || "").trim().slice(0, 150);
@@ -351,11 +361,21 @@ exports.enqueueNotification = onCall(async (request) => {
           "غير مصرح لك بإرسال إشعارات متابعي هذا المتجر."
         );
       }
-    } else if (
-      !topic.startsWith("item_favorites_") &&
-      !topic.startsWith("jobs_") &&
-      !topic.startsWith("providers_")
-    ) {
+    } else if (topic.startsWith("item_favorites_")) {
+      const canSendItemTopic =
+        callerData.userType === "merchant" || isStaffRole(callerData.userType);
+      if (!canSendItemTopic) {
+        throw new HttpsError(
+          "permission-denied",
+          "إشعارات المنتجات والعروض متاحة للتجار والإدارة فقط."
+        );
+      }
+    } else if (topic.startsWith("jobs_") || topic.startsWith("providers_")) {
+      // مسموح فقط لمستخدم مسجل غير موقوف مع تقييد طول العنوان والنص
+      if (!callerUid || callerData.isSuspended === true) {
+        throw new HttpsError("permission-denied", "غير مصرح بإرسال هذا الإشعار.");
+      }
+    } else {
       if (!isStaffRole(callerData.userType)) {
         throw new HttpsError("permission-denied", "موضوع الإشعار غير مصرح به.");
       }
@@ -483,7 +503,7 @@ exports.checkActivationCode = onCall(async (request) => {
 
 exports.createShopWithCode = onCall(async (request) => {
   const callerUid = assertAuthenticatedUser(request);
-  const callerData = await getCallerProfile(callerUid);
+  const callerData = await getCallerProfile(callerUid, request.auth);
   const payload = request.data || {};
   const shopData = payload.shopData && typeof payload.shopData === "object" ? payload.shopData : {};
   const adminBypass = Boolean(payload.adminBypass);
@@ -663,7 +683,7 @@ exports.createShopWithCode = onCall(async (request) => {
 
 exports.renewShopSubscription = onCall(async (request) => {
   const callerUid = assertAuthenticatedUser(request);
-  const callerData = await getCallerProfile(callerUid);
+  const callerData = await getCallerProfile(callerUid, request.auth);
   const data = request.data || {};
 
   const shopId = typeof data.shopId === "string" ? data.shopId.trim() : "";
@@ -814,7 +834,7 @@ exports.renewShopSubscription = onCall(async (request) => {
 
 exports.redeemAdCode = onCall(async (request) => {
   const callerUid = assertAuthenticatedUser(request);
-  const callerData = await getCallerProfile(callerUid);
+  const callerData = await getCallerProfile(callerUid, request.auth);
   const data = request.data || {};
   const rawCode =
     typeof data.code === "string" ? data.code.trim().toUpperCase() : "";
@@ -841,7 +861,31 @@ exports.redeemAdCode = onCall(async (request) => {
     );
   }
 
+  const adPayload =
+    data.adPayload && typeof data.adPayload === "object" ? data.adPayload : null;
+  const targetAdId =
+    typeof data.adId === "string" && data.adId.trim()
+      ? data.adId.trim()
+      : adPayload && typeof adPayload.id === "string" && adPayload.id.trim()
+      ? adPayload.id.trim()
+      : "";
+
   const codeRef = db.collection("activation_codes").doc(rawCode);
+  const adRef = targetAdId
+    ? db.collection("ads").doc(targetAdId)
+    : adPayload
+    ? db.collection("ads").doc()
+    : null;
+
+  const activeMainAdsSnap =
+    adRef !== null
+      ? await db
+          .collection("ads")
+          .where("shopId", "==", shopId)
+          .where("isMainActive", "==", true)
+          .get()
+      : null;
+
   await db.runTransaction(async (tx) => {
     const codeSnap = await tx.get(codeRef);
     if (!codeSnap.exists) {
@@ -861,15 +905,88 @@ exports.redeemAdCode = onCall(async (request) => {
     ) {
       throw new HttpsError("failed-precondition", "انتهت صلاحية كود الإعلان.");
     }
+
+    const durationDays = Number(cData.days || 7);
+    const nowTs = admin.firestore.Timestamp.now();
+    const expiryTs = admin.firestore.Timestamp.fromMillis(
+      nowTs.toMillis() + durationDays * 24 * 60 * 60 * 1000
+    );
+
     tx.update(codeRef, {
       isUsed: true,
       usedBy: callerUid,
       usedAt: admin.firestore.FieldValue.serverTimestamp(),
       shopId,
+      ...(adRef ? { adId: adRef.id } : {}),
     });
+
+    if (activeMainAdsSnap && !activeMainAdsSnap.empty) {
+      for (const oldDoc of activeMainAdsSnap.docs) {
+        if (!adRef || oldDoc.id !== adRef.id) {
+          tx.update(oldDoc.ref, { isMainActive: false });
+        }
+      }
+    }
+
+    if (adRef && adPayload) {
+      const shopData = shopSnap.data() || {};
+      const rawImgs = Array.isArray(adPayload.imageUrls)
+        ? adPayload.imageUrls.filter((u) => typeof u === "string" && u.trim().length > 0).map((u) => u.trim())
+        : [];
+      const primaryImg = String(adPayload.imageUrl || rawImgs[0] || adPayload.image || "").trim();
+      const finalImgList = rawImgs.length > 0 ? rawImgs : primaryImg ? [primaryImg] : [];
+      const coverIdx = Math.max(0, Math.min(Number(adPayload.coverImageIndex || 0), Math.max(0, finalImgList.length - 1)));
+      const locs = Array.isArray(adPayload.displayLocations) && adPayload.displayLocations.length > 0
+        ? adPayload.displayLocations.map(String)
+        : ["home", "splash", "ads_screen"];
+      const adText = String(adPayload.text || adPayload.description || adPayload.title || shopData.name || "").trim().slice(0, 1000);
+      tx.set(
+        adRef,
+        {
+          id: adRef.id,
+          shopId,
+          shopName: String(adPayload.shopName || shopData.name || "").trim().slice(0, 150),
+          title: String(adPayload.title || adText || shopData.name || "إعلان ممول").trim().slice(0, 200),
+          text: adText,
+          description: adText,
+          actionButtonText: String(adPayload.actionButtonText || "اعرف أكثر").trim().slice(0, 60),
+          imageUrl: finalImgList[coverIdx] || primaryImg,
+          imageUrls: finalImgList,
+          coverImageIndex: coverIdx,
+          videoUrl: adPayload.videoUrl ? String(adPayload.videoUrl).trim() : null,
+          mediaType: adPayload.videoUrl ? "video" : "image",
+          targetType: String(adPayload.targetType || "shop").trim(),
+          targetId: String(adPayload.targetId || shopId).trim(),
+          externalUrl: adPayload.externalUrl ? String(adPayload.externalUrl).trim() : null,
+          displayLocations: locs,
+          status: "active",
+          isActive: true,
+          isMainActive: true,
+          isPaid: true,
+          activationCode: rawCode,
+          clickCount: 0,
+          startDate: nowTs,
+          endDate: expiryTs,
+          expiresAt: expiryTs,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } else if (adRef && targetAdId) {
+      tx.update(adRef, {
+        status: "active",
+        isActive: true,
+        isMainActive: true,
+        isPaid: true,
+        activationCode: rawCode,
+        startDate: nowTs,
+        endDate: expiryTs,
+        expiresAt: expiryTs,
+      });
+    }
   });
 
-  return { success: true };
+  return { success: true, adId: adRef ? adRef.id : null };
 });
 
 exports.publishPaidDealerListing = onCall(async (request) => {
@@ -916,14 +1033,41 @@ exports.publishPaidDealerListing = onCall(async (request) => {
       usedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
+    const rawImgList = Array.isArray(listing.imageUrls)
+      ? listing.imageUrls
+      : Array.isArray(listing.images)
+      ? listing.images
+      : [];
+    const safeImages = rawImgList
+      .filter((u) => typeof u === "string" && u.trim().length > 0)
+      .slice(0, 8)
+      .map((u) => u.trim());
+    const cleanPhone = String(listing.phone || listing.sellerPhone || "").trim().slice(0, 30);
+    const nowMs = Date.now();
+    const expiresAtTs = admin.firestore.Timestamp.fromMillis(
+      nowMs + 30 * 24 * 60 * 60 * 1000
+    );
     tx.set(listingRef, {
-      ...listing,
       id: listingRef.id,
       sellerId: callerUid,
+      sellerName: String(listing.sellerName || "").trim().slice(0, 120),
+      phone: cleanPhone,
+      sellerPhone: cleanPhone,
+      whatsappNumber: String(listing.whatsappNumber || cleanPhone).trim().slice(0, 30),
       title: String(listing.title || "").trim().slice(0, 200),
+      description: String(listing.description || "").trim().slice(0, 2000),
+      price: Number(listing.price || 0) >= 0 ? Number(listing.price || 0) : 0,
+      category: String(listing.category || "أخرى").trim().slice(0, 80),
+      condition: String(listing.condition || "used_good").trim().slice(0, 40),
+      imageUrls: safeImages,
+      images: safeImages,
+      isActive: true,
+      isSold: false,
       isPaid: true,
       feeCodeId: rawCode,
+      viewsCount: 0,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: expiresAtTs,
     });
   });
 
@@ -936,7 +1080,7 @@ exports.publishPaidDealerListing = onCall(async (request) => {
 
 exports.claimPendingShops = onCall(async (request) => {
   const callerUid = assertAuthenticatedUser(request);
-  const callerData = await getCallerProfile(callerUid);
+  const callerData = await getCallerProfile(callerUid, request.auth);
 
   // استخراج الرقم الموثق من وثيقة المستخدم أو البريد الاصطناعي u2010...@users.sanhour.online
   let verifiedPhone = String(callerData.phone || "").trim();
@@ -961,24 +1105,30 @@ exports.claimPendingShops = onCall(async (request) => {
     return { claimedCount: 0 };
   }
 
-  const batch = db.batch();
-  for (const doc of shopsSnap.docs) {
-    batch.update(doc.ref, {
-      ownerId: callerUid,
-      pendingOwnerPhone: null,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-  }
-
-  if (callerData.userType === "customer" || !callerData.userType) {
-    batch.update(db.collection("users").doc(callerUid), {
-      userType: "merchant",
-      shopRole: "owner",
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-  }
-
-  await batch.commit();
+  await db.runTransaction(async (tx) => {
+    const freshShops = await Promise.all(
+      shopsSnap.docs.map((d) => tx.get(d.ref))
+    );
+    let claimed = 0;
+    for (const freshDoc of freshShops) {
+      if (!freshDoc.exists) continue;
+      const sData = freshDoc.data() || {};
+      if (!sData.pendingOwnerPhone) continue;
+      tx.update(freshDoc.ref, {
+        ownerId: callerUid,
+        pendingOwnerPhone: null,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      claimed++;
+    }
+    if (claimed > 0 && (callerData.userType === "customer" || !callerData.userType)) {
+      tx.update(db.collection("users").doc(callerUid), {
+        userType: "merchant",
+        shopRole: "owner",
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+  });
   await syncUserCustomClaims(callerUid, "merchant", "owner", null);
 
   return { claimedCount: shopsSnap.size };
@@ -1042,7 +1192,7 @@ exports.lookupUserPublicProfile = onCall(async (request) => {
 
 exports.manageShopTeam = onCall(async (request) => {
   const callerUid = assertAuthenticatedUser(request);
-  const callerData = await getCallerProfile(callerUid);
+  const callerData = await getCallerProfile(callerUid, request.auth);
   const data = request.data || {};
 
   const shopId = typeof data.shopId === "string" ? data.shopId.trim() : "";
@@ -1182,11 +1332,28 @@ exports.acceptCollectionInvite = onCall(async (request) => {
     if (accept && inv.collectionId) {
       const colRef = db.collection("wishlists").doc(String(inv.collectionId));
       const colSnap = await tx.get(colRef);
-      if (colSnap.exists) {
-        tx.update(colRef, {
-          collaborators: admin.firestore.FieldValue.arrayUnion(callerUid),
-        });
+      if (!colSnap.exists) {
+        throw new HttpsError("not-found", "قائمة الأمنيات غير موجودة.");
       }
+      const colData = colSnap.data() || {};
+      if (colData.ownerId !== inv.inviterId || inv.inviterId === callerUid) {
+        throw new HttpsError(
+          "permission-denied",
+          "الدعوة غير صادرة من مالك القائمة الأصلي."
+        );
+      }
+      const collabs = Array.isArray(colData.collaborators)
+        ? colData.collaborators
+        : [];
+      if (collabs.length >= 20 && !collabs.includes(callerUid)) {
+        throw new HttpsError(
+          "resource-exhausted",
+          "تم الوصول للحد الأقصى للمتعاونين في هذه القائمة (20)."
+        );
+      }
+      tx.update(colRef, {
+        collaborators: admin.firestore.FieldValue.arrayUnion(callerUid),
+      });
     }
 
     tx.update(inviteRef, {
@@ -1268,7 +1435,7 @@ async function performShopCascadeDelete(shopId) {
 
 exports.deleteShopCascade = onCall(async (request) => {
   const callerUid = assertAuthenticatedUser(request);
-  const callerData = await getCallerProfile(callerUid);
+  const callerData = await getCallerProfile(callerUid, request.auth);
 
   if (!hasModeratorPermission(callerData, "manageShops")) {
     throw new HttpsError(
@@ -1292,7 +1459,7 @@ exports.deleteShopCascade = onCall(async (request) => {
 
 exports.purgeAuthUser = onCall(async (request) => {
   const callerUid = assertAuthenticatedUser(request);
-  const callerData = await getCallerProfile(callerUid);
+  const callerData = await getCallerProfile(callerUid, request.auth);
   const targetUserId =
     (request.data && typeof request.data.userId === "string" && request.data.userId.trim()) ||
     callerUid;
@@ -1553,8 +1720,23 @@ function sanitizeGeminiPayload(rawPayload) {
       }
     }
     if (sysParts.length > 0) {
-      systemInstruction = { parts: sysParts };
+      systemInstruction = {
+        parts: [
+          {
+            text: "أنت المساعد الذكي الرسمي لتطبيق سنهور أونلاين فقط. التزم بالإجابة عن المحلات والمنتجات والعروض والخدمات في سنهور القبلية وارفض أي طلبات خارج نطاق التطبيق.",
+          },
+          ...sysParts,
+        ],
+      };
     }
+  } else {
+    systemInstruction = {
+      parts: [
+        {
+          text: "أنت المساعد الذكي الرسمي لتطبيق سنهور أونلاين فقط. التزم بالإجابة عن المحلات والمنتجات والعروض والخدمات في سنهور القبلية.",
+        },
+      ],
+    };
   }
 
   if (!Array.isArray(rawPayload.contents) || rawPayload.contents.length === 0) {
@@ -1731,5 +1913,30 @@ exports.expireSubscriptionsCron = onSchedule("every 24 hours", async () => {
       }
       await batch.commit();
     }
+  }
+
+  // تنظيف الإعلانات والعروض المنتهية وطابور الإشعارات القديم (F-044 & F-068)
+  const [expiredAdsSnap, expiredOffersSnap, oldQueueSnap] = await Promise.all([
+    db.collection("ads").where("isActive", "==", true).where("expiresAt", "<", now).limit(300).get(),
+    db.collection("offers").where("isActive", "==", true).where("validUntil", "<", now).limit(300).get(),
+    db.collection("notification_queue").where("expiresAt", "<", now).limit(300).get(),
+  ]);
+
+  const cleanupBatch = db.batch();
+  let cleanupOps = 0;
+  for (const adDoc of expiredAdsSnap.docs) {
+    cleanupBatch.update(adDoc.ref, { isActive: false, isMainActive: false, status: "expired" });
+    cleanupOps++;
+  }
+  for (const offerDoc of expiredOffersSnap.docs) {
+    cleanupBatch.update(offerDoc.ref, { isActive: false });
+    cleanupOps++;
+  }
+  for (const qDoc of oldQueueSnap.docs) {
+    cleanupBatch.delete(qDoc.ref);
+    cleanupOps++;
+  }
+  if (cleanupOps > 0) {
+    await cleanupBatch.commit();
   }
 });

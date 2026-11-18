@@ -515,28 +515,24 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
               .showSnackBar(const SnackBar(content: Text('تم التعديل بنجاح')));
         }
       } else {
-        // ✅ التحقق من الكود وحرقه أولاً، أو رفع الصورة بعد التأكد من صحة الكود
-        await _validateAndBurnCode(code!);
-        String imageUrl = await ApiService.uploadImage(image!, 'ad_images');
-
-        final docRef = FirebaseFirestore.instance.collection('ads').doc();
-        await docRef.set({
-          'id': docRef.id,
-          'shopId': widget.currentShop.id,
-          'imageUrl': imageUrl,
-          'imageUrls': [imageUrl],
-          'coverImageIndex': 0,
-          'text': text,
-          'targetType': targetType,
-          'targetId': targetId,
-          'isActive': true,
-          'isMainActive': true,
-          'displayLocations': const ['home', 'splash', 'ads_screen'],
-          'clickCount': 0,
-          'createdAt': FieldValue.serverTimestamp(),
-          'expiresAt':
-              Timestamp.fromDate(DateTime.now().add(const Duration(days: 7))),
-        });
+        // ✅ F-001 Fix: رفع الصورة ثم حرق الكود وإنشاء الإعلان ذرياً في خطوة واحدة عبر Cloud Function
+        final imageUrl = await ApiService.uploadImage(image!, 'ad_images');
+        await AdService.redeemAdCode(
+          code: code!,
+          userId: widget.currentShop.ownerId,
+          shopId: widget.currentShop.id,
+          adPayload: {
+            'shopId': widget.currentShop.id,
+            'shopName': widget.currentShop.name,
+            'imageUrl': imageUrl,
+            'imageUrls': [imageUrl],
+            'coverImageIndex': 0,
+            'text': text,
+            'targetType': targetType,
+            'targetId': targetId,
+            'displayLocations': const ['home', 'splash', 'ads_screen'],
+          },
+        );
 
         if (mounted) {
           ScaffoldMessenger.of(context)

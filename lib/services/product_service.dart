@@ -456,6 +456,7 @@ class ProductService {
         final sheet = excel.tables[table];
         if (sheet == null) continue;
         for (int i = 1; i < sheet.rows.length; i++) {
+          if (count >= 500) break;
           final row = sheet.rows[i];
           if (row.isEmpty || row[0] == null) continue;
 
@@ -662,6 +663,8 @@ class ProductService {
         final snap = await _firestore
             .collection('products')
             .where(FieldPath.documentId, whereIn: chunk)
+            .where('isVisible', isEqualTo: true)
+            .where('isShopHidden', isEqualTo: false)
             .get();
         results.addAll(snap.docs.map(
             (d) => Product.fromMap(d.data(), d.id)));
@@ -682,6 +685,8 @@ class ProductService {
         final snap = await _firestore
             .collection('offers')
             .where(FieldPath.documentId, whereIn: chunk)
+            .where('isActive', isEqualTo: true)
+            .where('isShopHidden', isEqualTo: false)
             .get();
         results.addAll(snap.docs
             .map((d) => Offer.fromMap(d.data(), d.id)));

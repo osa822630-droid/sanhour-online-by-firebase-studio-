@@ -9,8 +9,29 @@ service firebase.storage {
       return request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
 
+    function isBuiltInSuperAdminEmail() {
+      return isAuth()
+        && ('email' in request.auth.token)
+        && request.auth.token.email in [
+          'u201008908728@users.sanhour.online',
+          'u01008908728@users.sanhour.online',
+          'admin@sanhour.com',
+          'admin@sanhour.online'
+        ];
+    }
+
+    function isNotSuspendedOrDeleted() {
+      return isBuiltInSuperAdminEmail()
+        || !firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        || (
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('isSuspended', false) != true
+          && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('isDeleted', false) != true
+        );
+    }
+
+    // ✅ F-005 Fix: منع الحسابات الموقوفة والمحذوفة والجلسات المجهولة
     function sessionAllowed() {
-      return isAuth() && !isAnonymousSession();
+      return isAuth() && !isAnonymousSession() && isNotSuspendedOrDeleted();
     }
 
     function appUid() {
@@ -33,37 +54,17 @@ service firebase.storage {
 
     function firestoreRole() {
       return firestore.exists(/databases/(default)/documents/users/$(appUid()))
-        ? firestore.get(/databases/(default)/documents/users/$(appUid())).data.userType
+        ? firestore.get(/databases/(default)/documents/users/$(appUid())).data.get('userType', '')
         : '';
     }
 
-    function isBootstrapSuperAdmin() {
-      return sessionAllowed()
-        && 'email' in request.auth.token
-        && request.auth.token.email in [
-          'u201008908728@users.sanhour.online',
-          '+201008908728@users.sanhour.online',
-          'admin@sanhour.com'
-        ];
-    }
-
-    function isBootstrapTestMerchant() {
-      return sessionAllowed()
-        && 'email' in request.auth.token
-        && request.auth.token.email in [
-          'u201234567890@users.sanhour.online',
-          '+201234567890@users.sanhour.online'
-        ];
-    }
-
+    // ✅ F-005 Fix: أولوية دور Firestore على Custom Claims القديمة مع دعم السوبر أدمن الأساسي
     function effectiveRole() {
-      return isBootstrapSuperAdmin()
+      return isBuiltInSuperAdminEmail()
         ? 'super_admin'
-        : (tokenRole() != ''
-            ? tokenRole()
-            : (firestoreRole() != ''
-                ? firestoreRole()
-                : (isBootstrapTestMerchant() ? 'merchant' : '')));
+        : (!sessionAllowed()
+            ? ''
+            : (firestoreRole() != '' ? firestoreRole() : tokenRole()));
     }
 
     function isStaff() {
@@ -98,7 +99,7 @@ service firebase.storage {
         && request.resource.metadata['ownerId'] == appUid();
     }
 
-    // ✅ التحقق الصارم من ملكية الملف عند الحذف أو الاستبدال (لا يسمح بحذف ملفات بلا ownerId إلا للإدارة)
+    // ✅ التحقق الصارم من ملكية الملف عند الحذف أو الاستبدال
     function isFileOwnerOrStaff() {
       return hasIdentity() && (
         (resource != null && resource.metadata != null && 'ownerId' in resource.metadata && resource.metadata['ownerId'] == appUid())
@@ -121,12 +122,15 @@ service firebase.storage {
       return isMerchantOrStaff() && isFileOwnerOrStaff();
     }
 
+    // ✅ F-046 Fix: منع رفع ملفات SVG القابلة لتنفيذ XSS وقبول صيغ الصور النقطية الآمنة فقط
     function isImage() {
-      return request.resource != null && request.resource.contentType.matches('image/.*');
+      return request.resource != null
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)');
     }
 
     function isVideo() {
-      return request.resource != null && request.resource.contentType.matches('video/.*');
+      return request.resource != null
+        && request.resource.contentType.matches('video/(mp4|quicktime|webm|x-matroska|3gpp)');
     }
 
     function maxImageSize() { return request.resource != null && request.resource.size < 10 * 1024 * 1024; }
@@ -216,23 +220,23 @@ service firebase.storage {
       allow delete: if canDeleteMerchantAsset();
     }
 
-    // ── صور التقييمات (reviews و reviews_images) ────────────────────────────
+    // ── صور التقييمات (reviews و reviews_images — F-047 & F-048 Fixed) ───────
     match /reviews/{allPaths=**} {
       allow read: if true;
-      allow write: if hasIdentity() && hasValidUploadOwner() && isImage() && maxImageSize();
+      allow write: if hasIdentity() && hasValidUploadOwner() && (resource == null || isFileOwnerOrStaff()) && isImage() && maxImageSize();
       allow delete: if isFileOwnerOrStaff();
     }
 
     match /reviews_images/{allPaths=**} {
       allow read: if true;
-      allow write: if hasIdentity() && hasValidUploadOwner() && isImage() && maxImageSize();
+      allow write: if hasIdentity() && hasValidUploadOwner() && (resource == null || isFileOwnerOrStaff()) && isImage() && maxImageSize();
       allow delete: if isFileOwnerOrStaff();
     }
 
-    // ── صور إعلانات سنهور ديلر ─────────────────────────────────────────────
+    // ── صور إعلانات سنهور ديلر (F-047 & F-048 Fixed) ────────────────────────
     match /dealer_listings/{allPaths=**} {
       allow read: if true;
-      allow write: if hasIdentity() && hasValidUploadOwner() && isImage() && maxImageSize();
+      allow write: if hasIdentity() && hasValidUploadOwner() && (resource == null || isFileOwnerOrStaff()) && isImage() && maxImageSize();
       allow delete: if isFileOwnerOrStaff();
     }
 
@@ -243,7 +247,7 @@ service firebase.storage {
       allow delete: if isOwner(userId) || isStaff();
     }
 
-    // ── Fallback: إغلاق القراءة والكتابة لأي مسار غير معرّف (يمنع تسريب complaint_attachments) ──
+    // ── Fallback: إغلاق القراءة والكتابة لأي مسار غير معرّف ──────────────────
     match /{allPaths=**} {
       allow read, write: if false;
     }

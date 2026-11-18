@@ -61,15 +61,34 @@ class _MerchantReviewsScreenState extends State<MerchantReviewsScreen> {
       });
     }
     try {
-      Query q = FirebaseFirestore.instance
+      Query qTarget = FirebaseFirestore.instance
           .collection('reviews')
           .where('targetId', isEqualTo: widget.shopId)
           .orderBy('createdAt', descending: true)
           .limit(_pageSize);
-      if (_lastDoc != null) q = q.startAfterDocument(_lastDoc!);
+      if (_lastDoc != null) qTarget = qTarget.startAfterDocument(_lastDoc!);
 
-      final snap = await q.get();
-      final docs = snap.docs.map((d) => Review.fromFirestore(d)).toList();
+      final snap = await qTarget.get();
+      final byId = <String, Review>{
+        for (final d in snap.docs) d.id: Review.fromFirestore(d),
+      };
+
+      if (_lastDoc == null) {
+        try {
+          final snapShop = await FirebaseFirestore.instance
+              .collection('reviews')
+              .where('shopId', isEqualTo: widget.shopId)
+              .orderBy('createdAt', descending: true)
+              .limit(_pageSize)
+              .get();
+          for (final d in snapShop.docs) {
+            byId.putIfAbsent(d.id, () => Review.fromFirestore(d));
+          }
+        } catch (_) {}
+      }
+
+      final docs = byId.values.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       if (mounted) {
         setState(() {
@@ -147,15 +166,24 @@ class _MerchantReviewsScreenState extends State<MerchantReviewsScreen> {
     ).whenComplete(() => replyController.dispose());
   }
 
+  bool _isSubmittingReply = false;
+
   Future<void> _submitReply(Review review, String reply) async {
-    final reviewRef =
-        FirebaseFirestore.instance.collection('reviews').doc(review.id);
-    await reviewRef.update({
-      'reply': reply.isEmpty ? FieldValue.delete() : reply,
-      'repliedAt':
-          reply.isEmpty ? FieldValue.delete() : FieldValue.serverTimestamp(),
-    });
-    if (mounted) await _loadReviews(refresh: true);
+    if (_isSubmittingReply) return;
+    _isSubmittingReply = true;
+    try {
+      final reviewRef =
+          FirebaseFirestore.instance.collection('reviews').doc(review.id);
+      await reviewRef.update({
+        'reply': reply.isEmpty ? FieldValue.delete() : reply,
+        'repliedAt':
+            reply.isEmpty ? FieldValue.delete() : FieldValue.serverTimestamp(),
+        'hasReply': reply.isNotEmpty,
+      });
+      if (mounted) await _loadReviews(refresh: true);
+    } finally {
+      _isSubmittingReply = false;
+    }
   }
 
   @override

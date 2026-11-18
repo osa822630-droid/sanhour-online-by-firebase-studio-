@@ -96,29 +96,45 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
     });
     try {
       final firestore = FirebaseFirestore.instance;
+      final codesFuture = ApiService.getAllCodes()
+          .catchError((_) => <Map<String, dynamic>>[]);
+      final adsFuture = ApiService.getActiveAds()
+          .catchError((_) => <AdModel>[]);
+      final totalUsersFuture = firestore
+          .collection('users')
+          .count()
+          .get()
+          .then<int>((s) => s.count ?? 0)
+          .catchError((_) => 0);
+      final suspendedUsersFuture = firestore
+          .collection('users')
+          .where('isSuspended', isEqualTo: true)
+          .count()
+          .get()
+          .then<int>((s) => s.count ?? 0)
+          .catchError((_) => 0);
+      final recentUsersFuture = firestore
+          .collection('users')
+          .orderBy('createdAt', descending: true)
+          .limit(500)
+          .get()
+          .then<List<Map<String, dynamic>>>(
+              (s) => s.docs.map((doc) => doc.data()).toList())
+          .catchError((_) => <Map<String, dynamic>>[]);
+
       final results = await Future.wait([
-        ApiService.getAllCodes(),
-        ApiService.getActiveAds(),
-        firestore.collection('users').count().get(),
-        firestore
-            .collection('users')
-            .where('isSuspended', isEqualTo: true)
-            .count()
-            .get(),
-        firestore
-            .collection('users')
-            .orderBy('createdAt', descending: true)
-            .limit(500)
-            .get(),
+        codesFuture,
+        adsFuture,
+        totalUsersFuture,
+        suspendedUsersFuture,
+        recentUsersFuture,
       ]);
 
       _allCodes = results[0] as List<Map<String, dynamic>>;
       _allAds = List<AdModel>.from(results[1] as List);
-      _totalUsers = (results[2] as AggregateQuerySnapshot).count ?? 0;
-      _suspendedUsers = (results[3] as AggregateQuerySnapshot).count ?? 0;
-
-      final recentUsersSnap = results[4] as QuerySnapshot<Map<String, dynamic>>;
-      _allUsers = recentUsersSnap.docs.map((doc) => doc.data()).toList();
+      _totalUsers = results[2] as int;
+      _suspendedUsers = results[3] as int;
+      _allUsers = results[4] as List<Map<String, dynamic>>;
 
       _applyTimeFilter();
     } catch (e) {
