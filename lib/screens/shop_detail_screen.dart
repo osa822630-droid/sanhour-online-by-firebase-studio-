@@ -799,7 +799,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                   imageUrl: p.displayImageUrl,
                   fit: BoxFit.cover,
                   fallbackIcon: Icons.shopping_bag_outlined),
-              if (p.sortOrder != null && p.sortOrder! < 999)
+              if (p.sortOrder > 0 && p.sortOrder < 999)
                 Positioned(
                   top: 6,
                   left: 6,
@@ -1231,13 +1231,15 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                 const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
       );
 
-  Widget _statChip(IconData icon, String label, Color color) => Container(
+  Widget _statChip(Object icon, String label, Color color) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          FaIcon(icon, size: 15, color: color),
+          icon is FaIconData
+              ? FaIcon(icon, size: 15, color: color)
+              : Icon(icon as IconData, size: 15, color: color),
           const SizedBox(width: 6),
           Text(label,
               style: TextStyle(

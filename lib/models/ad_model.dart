@@ -119,7 +119,7 @@ class AdModel {
       'id': id,
       'imageUrls': imageUrls,
       'coverImageIndex': coverImageIndex,
-      'imageUrl': imageUrl ?? '',
+      'imageUrl': imageUrl,
       if (videoUrl != null) 'videoUrl': videoUrl,
       'mediaType': mediaType,
       if (status != null) 'status': status,

@@ -342,7 +342,7 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
                           ? Image.file(selectedImage!, fit: BoxFit.cover)
                           : (isEditing)
                               ? CachedImage(
-                                  imageUrl: adMap?['imageUrl']?.toString(),
+                                  imageUrl: adMap?['imageUrl']?.toString() ?? '',
                                   fit: BoxFit.cover)
                               : const Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -668,6 +668,8 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
                         durationError != null)
                     ? null
                     : () async {
+                        final nav = Navigator.of(ctx);
+                        final messenger = ScaffoldMessenger.of(this.context);
                         setDialogState(() => isUploading = true);
                         final res = await AdService.uploadVideoAd(
                           videoFile: selectedVideo!,
@@ -679,8 +681,8 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
                               setDialogState(() => progress = f),
                         );
                         if (!mounted) return;
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(this.context).showSnackBar(
+                        nav.pop();
+                        messenger.showSnackBar(
                           SnackBar(
                             content: Text((res['message'] ??
                                     res['error'] ??
@@ -734,7 +736,7 @@ class _AdPreviewDialog extends StatelessWidget {
               child: imageFile != null
                   ? Image.file(imageFile!, fit: BoxFit.cover)
                   : (imageUrl != null && imageUrl!.isNotEmpty)
-                      ? CachedImage(imageUrl: imageUrl, fit: BoxFit.cover)
+                      ? CachedImage(imageUrl: imageUrl!, fit: BoxFit.cover)
                       : Container(
                           color: Colors.grey[200],
                           child: const Center(
