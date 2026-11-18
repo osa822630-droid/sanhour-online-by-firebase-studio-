@@ -56,12 +56,14 @@ class ShopDetailProvider with ChangeNotifier {
       ]);
       final loadedProducts = List<Product>.from(results[0] as List<Product>);
       loadedProducts.sort((a, b) {
-        if (a.sortOrder != null && b.sortOrder != null) {
-          return a.sortOrder!.compareTo(b.sortOrder!);
+        final cmp = a.sortOrder.compareTo(b.sortOrder);
+        if (cmp != 0) return cmp;
+        final aDate = a.createdAt;
+        final bDate = b.createdAt;
+        if (aDate != null && bDate != null) {
+          return bDate.compareTo(aDate);
         }
-        if (a.sortOrder != null) return -1;
-        if (b.sortOrder != null) return 1;
-        return b.createdAt.compareTo(a.createdAt);
+        return 0;
       });
       _products  = loadedProducts;
       _offers    = results[1] as List<Offer>;

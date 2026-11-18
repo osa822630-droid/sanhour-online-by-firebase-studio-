@@ -54,17 +54,15 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
 
       // ✅ توحيد معيار المنتجات المثبتة (< 999) والمنتجات غير المثبتة (>= 999 أو <= 0)
       final pinned = products
-          .where((p) =>
-              p.sortOrder != null && p.sortOrder! > 0 && p.sortOrder! < 999)
+          .where((p) => p.sortOrder > 0 && p.sortOrder < 999)
           .toList()
-        ..sort((a, b) => (a.sortOrder ?? 999).compareTo(b.sortOrder ?? 999));
+        ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
       final rest = products
-          .where((p) =>
-              p.sortOrder == null || p.sortOrder! <= 0 || p.sortOrder! >= 999)
+          .where((p) => p.sortOrder <= 0 || p.sortOrder >= 999)
           .toList();
 
       final existingLists = products
-          .map((p) => (p.listName ?? '').trim())
+          .map((p) => p.listName.trim())
           .where((l) => l.isNotEmpty)
           .toSet();
       existingLists.addAll(_productLists);
@@ -315,7 +313,7 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
   Widget _buildListsTab() {
     final groups = <String, List<Product>>{};
     for (final p in _allProducts) {
-      final lName = (p.listName ?? '').trim();
+      final lName = p.listName.trim();
       final key = lName.isEmpty ? 'بدون قائمة' : lName;
       groups.putIfAbsent(key, () => []).add(p);
     }

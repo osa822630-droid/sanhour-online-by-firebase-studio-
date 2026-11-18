@@ -56,7 +56,7 @@ class AdModel {
   DateTime get startDate => createdAt ?? DateTime.now();
   DateTime? get endDate => expiresAt;
 
-  String? get imageUrl {
+  String get imageUrl {
     if (imageUrls.isEmpty) return '';
     final idx = coverImageIndex.clamp(0, imageUrls.length - 1);
     return imageUrls[idx];

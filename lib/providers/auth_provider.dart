@@ -366,6 +366,7 @@ class AuthProvider with ChangeNotifier {
     required String phone,
     required String password,
     required String userType,
+    String? referralCode,
   }) async {
     const allowedTypes = ['customer', 'merchant'];
     if (!allowedTypes.contains(userType)) {
@@ -422,6 +423,13 @@ class AuthProvider with ChangeNotifier {
         'createdAt': FieldValue.serverTimestamp(),
       });
       await batch.commit();
+
+      if (referralCode != null && referralCode.trim().isNotEmpty) {
+        unawaited(ReferralService.applyReferralCode(
+          newUserId: uid,
+          referralCode: referralCode.trim(),
+        ));
+      }
 
       _user = newUser.copyWith(userType: userType);
       final prefs = await SharedPreferences.getInstance();
@@ -494,7 +502,11 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<String?> completeRegistration(
-      String name, String username, String userType) async {
+    String name,
+    String username,
+    String userType, {
+    String? referralCode,
+  }) async {
     const allowedTypes = ['customer', 'merchant'];
     if (!allowedTypes.contains(userType)) {
       return 'نوع المستخدم غير مسموح به.';
@@ -541,6 +553,13 @@ class AuthProvider with ChangeNotifier {
         'createdAt': FieldValue.serverTimestamp(),
       });
       await batch.commit();
+
+      if (referralCode != null && referralCode.trim().isNotEmpty) {
+        unawaited(ReferralService.applyReferralCode(
+          newUserId: newUser.id,
+          referralCode: referralCode.trim(),
+        ));
+      }
 
       _user = newUser.copyWith(userType: userType);
       final prefs = await SharedPreferences.getInstance();

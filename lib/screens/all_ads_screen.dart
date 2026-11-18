@@ -133,14 +133,13 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
     ApiService.logAdClick(ad.id);
 
     if (ad.isVideo &&
-        ad.imageUrl != null &&
-        ad.imageUrl!.isNotEmpty &&
+        ad.imageUrl.isNotEmpty &&
         (ad.targetType == 'none' ||
             (ad.targetId ?? '').isEmpty &&
                 (ad.externalUrl ?? '').isEmpty)) {
       await MediaPreviewDialog.show(
         context,
-        items: [MediaItem(url: ad.imageUrl!, isVideo: true)],
+        items: [MediaItem(url: ad.imageUrl, isVideo: true)],
       );
       return;
     }
@@ -218,10 +217,10 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
         }
         break;
       default:
-        if (ad.imageUrl != null && ad.imageUrl!.isNotEmpty) {
+        if (ad.imageUrl.isNotEmpty) {
           await MediaPreviewDialog.show(
             context,
-            items: [MediaItem(url: ad.imageUrl!, isVideo: ad.isVideo)],
+            items: [MediaItem(url: ad.imageUrl, isVideo: ad.isVideo)],
           );
         }
         break;

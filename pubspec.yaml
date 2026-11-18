@@ -36,7 +36,7 @@ dependencies:
   cached_network_image: ^3.4.1
   shimmer: ^3.0.0
   flutter_rating_bar: ^4.0.1
-  font_awesome_flutter: ^10.7.0
+  font_awesome_flutter: ^11.0.0
 
   # --- 5. Utilities ---
   image_picker: ^1.1.2

@@ -356,7 +356,7 @@ class AdminAdCard extends StatelessWidget {
     final isExpired =
         ad.expiresAt != null && ad.expiresAt!.isBefore(DateTime.now());
     final isActive = ad.isActive && !isExpired;
-    final imgUrl = ad.imageUrl ?? '';
+    final imgUrl = ad.imageUrl;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),

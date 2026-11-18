@@ -692,7 +692,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
 
   Widget _buildField({
     required String label,
-    required IconData icon,
+    required Object icon,
     required FormFieldSetter<String> onSaved,
     FormFieldValidator<String>? validator,
     int maxLines = 1,
@@ -703,12 +703,12 @@ class _AddShopScreenState extends State<AddShopScreen> {
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
-        prefixIcon: isFa
+        prefixIcon: (isFa && icon is FaIconData)
             ? Padding(
                 padding: const EdgeInsets.all(12),
                 child: FaIcon(icon, size: 18),
               )
-            : Icon(icon),
+            : Icon(icon as IconData),
       ),
       maxLines: maxLines,
       keyboardType: keyboardType,

@@ -572,7 +572,7 @@ class _EditShopScreenState extends State<EditShopScreen> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController ctrl, IconData icon,
+  Widget _buildField(String label, TextEditingController ctrl, Object icon,
       {TextInputType? type,
       int maxLines = 1,
       FormFieldValidator<String>? validator,
@@ -583,11 +583,11 @@ class _EditShopScreenState extends State<EditShopScreen> {
       maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: isFa
+        prefixIcon: (isFa && icon is FaIconData)
             ? Padding(
                 padding: const EdgeInsets.all(12),
                 child: FaIcon(icon, size: 18))
-            : Icon(icon),
+            : Icon(icon as IconData),
       ),
       validator: validator,
     );
