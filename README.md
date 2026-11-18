@@ -1,16 +1,12 @@
-# myapp
+# سنهور أونلاين (Sanhour Online)
 
-A new Flutter project.
+**سنهور كلها في جيبك — حط محلك على الخريطة**
 
-## Getting Started
+دليل تجاري وخدمي متكامل لقرية سنهور القبلية (محافظة الفيوم)، يربط الأهالي بالمحلات التجارية، العروض اليومية، مقدمي الخدمات، الوظائف، وسوق المستعمل (سنهور ديلر) عبر تواصل مباشر بالهاتف وواتساب.
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## المزايا الرئيسية
+- **دليل المحلات والمنتجات والعروض**: تصفح حسب الفئات والمناطق مع بحث متقدم وفلاتر ذكية.
+- **طلبات الخدمات وعروض الأسعار**: نشر طلبات الصيانة والخدمات المنزلية وتلقي عروض أسعار من الفنيين.
+- **الوظائف وسنهور ديلر**: إعلانات التوظيف المحلية وسوق بيع وشراء المستعمل.
+- **لوحة التاجر وإدارة الفريق**: إدارة المحل والمنتجات والعروض والإحصائيات وأعضاء الفريق (مالك / شريك / عامل).
+- **القوائم المشتركة والمفضلة**: إنشاء ومشاركة قوائم المشتريات مع العائلة والأصدقاء.

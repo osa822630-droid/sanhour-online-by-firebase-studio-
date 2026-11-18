@@ -1,18 +1,13 @@
 // lib/models/ad_model.dart
-// ✅ إضافة دعم الصور المتعددة: imageUrls (List<String>) + coverImageIndex (int)
-// ✅ إضافة دعم إعلانات الفيديو الترويجية: videoUrl, mediaType, status, isPaid, costEGP
-// ✅ توحيد حقول التواريخ (createdAt / startDate و expiresAt / endDate) كـ Timestamp في toMap()
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/date_parser.dart';
 
 class AdModel {
   final String id;
 
-  // ✅ نظام الصور المتعدد
   final List<String> imageUrls;
   final int coverImageIndex;
 
-  // ✅ دعم إعلانات الفيديو الترويجية
   final String? videoUrl;
   final String mediaType;
   final String? status;
@@ -23,6 +18,7 @@ class AdModel {
   final String actionButtonText;
   final String targetType;
   final String? targetId;
+  final String? externalUrl;
   final DateTime? expiresAt;
   final DateTime? createdAt;
   final bool isActive;
@@ -44,6 +40,7 @@ class AdModel {
     this.actionButtonText = 'اذهب للتفاصيل',
     this.targetType = 'none',
     this.targetId,
+    this.externalUrl,
     this.expiresAt,
     this.createdAt,
     this.isActive = true,
@@ -56,11 +53,9 @@ class AdModel {
   bool get isVideo =>
       mediaType == 'video' || (videoUrl != null && videoUrl!.isNotEmpty);
 
-  // ✅ التوافق مع الحقول التاريخية startDate / endDate
   DateTime get startDate => createdAt ?? DateTime.now();
   DateTime? get endDate => expiresAt;
 
-  // ✅ Getter للتوافق مع الكود القديم الذي يقرأ ad.imageUrl مباشرة
   String? get imageUrl {
     if (imageUrls.isEmpty) return '';
     final idx = coverImageIndex.clamp(0, imageUrls.length - 1);
@@ -102,6 +97,7 @@ class AdModel {
       actionButtonText: map['actionButtonText'] ?? 'اذهب للتفاصيل',
       targetType: (map['targetType'] as String?) ?? 'none',
       targetId: map['targetId'] as String?,
+      externalUrl: map['externalUrl'] as String?,
       expiresAt: rawExpires != null ? DateParser.parse(rawExpires) : null,
       createdAt: rawCreated != null ? DateParser.parse(rawCreated) : null,
       isActive: map['isActive'] ?? true,
@@ -133,6 +129,7 @@ class AdModel {
       'actionButtonText': actionButtonText,
       'targetType': targetType,
       'targetId': targetId,
+      if (externalUrl != null) 'externalUrl': externalUrl,
       'expiresAt': expiresTs,
       'endDate': expiresTs,
       'isActive': isActive,

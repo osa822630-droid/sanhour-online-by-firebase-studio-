@@ -1,10 +1,10 @@
 // lib/services/ad_service.dart
-// ✅ استخدام معرف المستخدم الفعلي المسجل (FirebaseAuth.currentUser.uid) عند حرق كود الإعلان لدعم الشركاء في المتجر
-// ✅ حذف ملف الفيديو المرفوض من Firebase Storage وإرسال إشعار للتاجر عند قبول أو رفض إعلان الفيديو
+// ✅ P1-7 Fix: حرق كود الإعلان يتم ذرياً عبر Cloud Function (redeemAdCode) بعد التحقق من ملكية المتجر
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:math' show Random;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/ad_model.dart';
 import 'audit_log_service.dart';
@@ -34,6 +34,7 @@ class AdsPageResult {
 
 class AdService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final FirebaseFunctions _functions = FirebaseFunctions.instance;
 
   static Future<List<AdModel>> getActiveAds({
     String? location,
@@ -239,41 +240,22 @@ class AdService {
     final normalized = code.trim().toUpperCase();
     if (normalized.isEmpty) throw invalid;
 
-    final directRef = _firestore.collection('activation_codes').doc(normalized);
-    final directDoc = await directRef.get();
-    if (!directDoc.exists ||
-        directDoc.data()?['isUsed'] == true ||
-        directDoc.data()?['type'] != 'ad_activation') {
-      throw invalid;
-    }
-
-    // ✅ استخدام معرّف الجلسة الفعلية إذا كان المستخدم شريكاً في المتجر ليتطابق مع شرط usedBy == appUid() في firestore.rules
-    final authUser = FirebaseAuth.instance.currentUser;
-    final effectiveUserId =
-        (authUser != null && !authUser.isAnonymous) ? authUser.uid : userId;
-
-    final ref = directRef;
-    await _firestore.runTransaction((tx) async {
-      final fresh = await tx.get(ref);
-      final data = fresh.data();
-      if (!fresh.exists ||
-          data == null ||
-          data['isUsed'] == true ||
-          data['type'] != 'ad_activation') {
-        throw invalid;
-      }
-      final expiresAt = data['expiresAt'];
-      if (expiresAt is Timestamp &&
-          expiresAt.toDate().isBefore(DateTime.now())) {
-        throw const AdCodeException('انتهت صلاحية كود الإعلان.');
-      }
-      tx.update(ref, {
-        'isUsed': true,
-        'usedBy': effectiveUserId,
-        'usedAt': FieldValue.serverTimestamp(),
+    try {
+      final callable = _functions.httpsCallable('redeemAdCode');
+      final res = await callable.call({
+        'code': normalized,
         'shopId': shopId,
       });
-    });
+      final data = res.data;
+      if (data is! Map || data['success'] != true) {
+        throw invalid;
+      }
+    } on FirebaseFunctionsException catch (e) {
+      throw AdCodeException(e.message ?? invalid.userMessage);
+    } catch (e) {
+      if (e is AdCodeException) rethrow;
+      throw invalid;
+    }
   }
 
   static String _secureString(int length) {
@@ -410,12 +392,10 @@ class AdService {
         'rejectionReason': 'مخالفة سياسة المحتوى',
       });
 
-      // ✅ حذف ملف الفيديو المرفوض من Firebase Storage لمنع بقاء ملفات يتيمة
       if (videoUrl != null && videoUrl.isNotEmpty) {
         await MediaUploadService.deleteByUrl(videoUrl);
       }
 
-      // ✅ إشعار التاجر بسبب رفض إعلان الفيديو
       if (ownerId != null && ownerId.isNotEmpty) {
         await _firestore.collection('notifications').add({
           'title': '❌ تم رفض إعلان الفيديو',

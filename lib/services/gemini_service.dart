@@ -1,7 +1,6 @@
 // lib/services/gemini_service.dart
-// ✅ توجيه جميع طلبات الذكاء الاصطناعي عبر Cloud Function (askGemini) افتراضياً لحماية مفتاح API على السيرفر
+// ✅ P0-8 Fix: إزالة المسار المباشر والمفتاح المحلي بالكامل وتوجيه كافة الطلبات عبر Cloud Function (askGemini)
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import '../utils/constants.dart';
@@ -21,11 +20,8 @@ class GeminiService {
   factory GeminiService() => _instance;
   GeminiService._internal();
 
-  String _apiKey = AppConstants.geminiApiKey;
   DateTime? _lastRequestTime;
   static const Duration _minInterval = Duration(seconds: 2);
-
-  void setApiKey(String key) => _apiKey = key;
 
   Future<String?> _callCloudGemini(Map<String, dynamic> payload) async {
     try {
@@ -50,9 +46,6 @@ class GeminiService {
     String? shopName,
     Map<String, dynamic>? context,
   }) async {
-    final bool hasLocalKey =
-        _apiKey.isNotEmpty && !_apiKey.contains('YOUR_GEMINI');
-
     final now = DateTime.now();
     if (_lastRequestTime != null &&
         now.difference(_lastRequestTime!) < _minInterval) {
@@ -91,53 +84,18 @@ class GeminiService {
         'contents': contents,
         'generationConfig': {
           'temperature': 0.7,
-          'maxOutputTokens': 1024,
+          'maxOutputTokens': 512,
           'topK': 40,
           'topP': 0.95,
         },
-        'safetySettings': [
-          {
-            'category': 'HARM_CATEGORY_HARASSMENT',
-            'threshold': 'BLOCK_MEDIUM_AND_ABOVE'
-          },
-          {
-            'category': 'HARM_CATEGORY_HATE_SPEECH',
-            'threshold': 'BLOCK_MEDIUM_AND_ABOVE'
-          },
-        ],
       };
 
-      // ✅ المسار الأساسي الآمن: استدعاء Cloud Function askGemini دون الحاجة لمفتاح في جهاز المستخدم
       final cloudReply = await _callCloudGemini(requestPayload);
       if (cloudReply != null) {
         return cloudReply;
       }
 
-      if (!hasLocalKey) {
-        return 'خدمة المساعد الذكي غير متاحة حالياً، يرجى المحاولة لاحقاً.';
-      }
-
-      final url =
-          '${AppConstants.geminiBaseUrl}/${AppConstants.geminiModel}:generateContent';
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': _apiKey,
-        },
-        body: jsonEncode(requestPayload),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final text = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
-        if (text != null) return text.trim();
-        return 'عذراً، لم أستطع معالجة ردك. حاول مرة أخرى.';
-      } else {
-        debugPrint('Gemini Error: ${response.statusCode} ${response.body}');
-        return 'حدث خطأ في الاتصال. تأكد من الإنترنت وحاول مجدداً.';
-      }
+      return 'خدمة المساعد الذكي غير متاحة حالياً، يرجى المحاولة لاحقاً.';
     } catch (e) {
       debugPrint('Gemini Exception: $e');
       return 'تعذّر الاتصال بالمساعد الذكي. تحقق من اتصالك.';
@@ -215,7 +173,7 @@ $productsText
           ]
         }
       ],
-      'generationConfig': {'maxOutputTokens': 600, 'temperature': 0.4},
+      'generationConfig': {'maxOutputTokens': 512, 'temperature': 0.4},
     };
 
     try {
@@ -223,31 +181,7 @@ $productsText
       if (cloudReply != null) {
         return cloudReply;
       }
-
-      final bool hasLocalKey =
-          _apiKey.isNotEmpty && !_apiKey.contains('YOUR_GEMINI');
-      if (!hasLocalKey) {
-        return 'لم أتمكن من الاتصال بالمساعد الذكي حالياً، جرّب البحث بالكلمات المفتاحية.';
-      }
-
-      final url =
-          '${AppConstants.geminiBaseUrl}/${AppConstants.geminiModel}:generateContent';
-
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': _apiKey,
-        },
-        body: jsonEncode(requestPayload),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['candidates']?[0]?['content']?['parts']?[0]?['text'] ??
-            'لم أجد نتائج مناسبة، جرّب البحث بكلمات أخرى.';
-      }
-      return 'تعذّر الاتصال بالمساعد، حاول مجدداً.';
+      return 'لم أتمكن من الاتصال بالمساعد الذكي حالياً، جرّب البحث بالكلمات المفتاحية.';
     } catch (e) {
       debugPrint('smartSearch error: $e');
       return 'حدث خطأ، حاول مجدداً.';

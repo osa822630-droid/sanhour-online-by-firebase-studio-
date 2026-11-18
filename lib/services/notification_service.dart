@@ -1,11 +1,10 @@
 // lib/services/notification_service.dart
-// ✅ إصلاح خطأ الترجمة الحرج (P0): استيراد shared_preferences و dart:convert
-// ✅ إصلاح قراءة user_id من SharedPreferences عند تجديد fcmToken
-// ✅ استخدام AndroidScheduleMode.inexactAllowWhileIdle لتجنب الحاجة لإذن SCHEDULE_EXACT_ALARM
+// ✅ P0-4 Fix: توجيه إرسال إشعارات الدفع (FCM Queue) عبر Cloud Function (enqueueNotification) بدلاً من الكتابة المباشرة
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -34,7 +33,6 @@ class NotificationService {
 
   Future<void> init() async {
     tz_data.initializeTimeZones();
-    // ضبط التوقيت المحلي لمصر (UTC+2)
     tz.setLocalLocation(tz.getLocation('Africa/Cairo'));
 
     const androidSettings =
@@ -52,25 +50,20 @@ class NotificationService {
           _handleNotificationTap(response.payload),
     );
 
-    // إنشاء channels الأندرويد
     await _createNotificationChannels();
     _requestPermissions();
 
-    // FCM Foreground
     _foregroundSub = FirebaseMessaging.onMessage.listen((message) {
       if (message.notification != null) _showFCMNotification(message);
     });
 
-    // FCM Background tap
     _openedSub = FirebaseMessaging.onMessageOpenedApp.listen((message) {
       _handleFCMData(message.data);
     });
 
-    // Terminated app tap
     final initial = await FirebaseMessaging.instance.getInitialMessage();
     if (initial != null) _handleFCMData(initial.data);
 
-    // ✅ الاستماع لتجديد الـ FCM token وتحديثه في Firestore تلقائياً
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
       try {
         final prefs = await SharedPreferences.getInstance();
@@ -230,7 +223,7 @@ class NotificationService {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // 4. التوجيه الذكي — يفتح الشاشة الصحيحة عند الضغط على الإشعار
+  // 4. التوجيه الذكي
   // ════════════════════════════════════════════════════════════════════════
 
   void _handleFCMData(Map<String, dynamic> data) {
@@ -354,14 +347,14 @@ class NotificationService {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // 5. إشعارات المستخدم (Client-side — تُطلق عند أحداث المفضلة)
+  // 5. إشعارات المستخدم (Client-side)
   // ════════════════════════════════════════════════════════════════════════
 
   Future<void> showFavoriteShopUpdate({
     required String shopName,
     required String itemTitle,
     required String itemId,
-    required String itemType, // 'offer' | 'product' | 'service'
+    required String itemType,
   }) async {
     String emoji, routePrefix;
     switch (itemType) {
@@ -576,13 +569,35 @@ class NotificationService {
       body: 'وصلتك رسالة جديدة من $userName.',
       channelId: 'admin_alerts',
       channelName: 'تنبيهات الإدارة',
-      payload: 'admin_complaints',
+      payload: 'admin_alerts',
     );
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // 9. كتابة الـ Notification Queue (لـ Cloud Functions)
+  // 9. إرسال إشعارات الدفع عبر Cloud Function (enqueueNotification — P0-4 Fixed)
   // ════════════════════════════════════════════════════════════════════════
+
+  static Future<void> enqueuePushNotification({
+    required String title,
+    required String body,
+    String? topic,
+    String? targetUserId,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('enqueueNotification');
+      await callable.call({
+        'title': title,
+        'body': body,
+        if (topic != null) 'topic': topic,
+        if (targetUserId != null) 'targetUserId': targetUserId,
+        if (data != null) 'data': data,
+      });
+    } catch (e) {
+      debugPrint('enqueuePushNotification error (non-critical): $e');
+    }
+  }
 
   static Future<void> _writeToNotificationQueue({
     required String title,
@@ -592,23 +607,13 @@ class NotificationService {
     String channel = 'new_ads',
     String? targetUserId,
   }) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('notification_queue')
-          .add({
-        'title': title,
-        'body': body,
-        'topic': targetUserId != null ? null : topic,
-        'targetUserId': targetUserId,
-        'data': {'route': route, 'channel': channel},
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'expiresAt': Timestamp.fromDate(
-            DateTime.now().add(const Duration(hours: 24))),
-      });
-    } catch (e) {
-      debugPrint('NotificationQueue write error: $e');
-    }
+    await enqueuePushNotification(
+      title: title,
+      body: body,
+      topic: targetUserId != null ? null : topic,
+      targetUserId: targetUserId,
+      data: {'route': route, 'channel': channel},
+    );
   }
 
   static Future<void> triggerNewAdNotification({

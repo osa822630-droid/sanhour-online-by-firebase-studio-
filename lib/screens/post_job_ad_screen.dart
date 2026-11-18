@@ -2,6 +2,7 @@
 // نشر إعلان وظيفة — متاح لأي مستخدم مسجّل
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/notification_service.dart';
 import 'package:provider/provider.dart';
 import '../models/job_ad_model.dart';
 import '../providers/auth_provider.dart';
@@ -99,21 +100,16 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
       await batch.commit();
 
       // ✅ Fix #30: تصحيح route في notification payload ليوجه لإعلانات الوظائف
-      await FirebaseFirestore.instance
-          .collection('notification_queue')
-          .add({
-        'title': '💼 وظيفة جديدة: ${JobAdModel.categoryLabel(_category)}',
-        'body': _titleCtrl.text.trim(),
-        'topic': 'jobs_${JobAdModel.categoryToString(_category)}',
-        'data': {
+      await NotificationService.enqueuePushNotification(
+        title: '💼 وظيفة جديدة: ${JobAdModel.categoryLabel(_category)}',
+        body: _titleCtrl.text.trim(),
+        topic: 'jobs_${JobAdModel.categoryToString(_category)}',
+        data: {
           'route': 'job_ads',
           'jobId': ref.id,
           'channel': 'job_alerts',
         },
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'expiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(hours: 24))),
-      });
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

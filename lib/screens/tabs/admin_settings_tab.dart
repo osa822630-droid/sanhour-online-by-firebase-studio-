@@ -2,6 +2,7 @@
 // ✅ إزالة المتغير الميت _isSeeding وعرض رسائل الخطأ عند فشل تفعيل/إلغاء التحديث الإجباري أو تحديث الثيم
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/notification_service.dart';
 import '../../services/database_seeder.dart';
 import '../../services/api_service.dart';
 import '../seeder_screen.dart';
@@ -124,20 +125,15 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
     }
     setState(() => _isSendingNotif = true);
     try {
-      // ✅ Fix #7: إضافة expiresAt و data channel للـ notification_queue
-      await FirebaseFirestore.instance.collection('notification_queue').add({
-        'topic': _notifTarget,
-        'title': _notifTitleCtrl.text.trim(),
-        'body': _notifBodyCtrl.text.trim(),
-        'data': {
+      await NotificationService.enqueuePushNotification(
+        topic: _notifTarget,
+        title: _notifTitleCtrl.text.trim(),
+        body: _notifBodyCtrl.text.trim(),
+        data: {
           'channel': 'admin_broadcast',
           'route': 'notifications',
         },
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'expiresAt': Timestamp.fromDate(
-            DateTime.now().add(const Duration(hours: 24))),
-      });
+      );
 
       if (!mounted) return;
       _notifTitleCtrl.clear();

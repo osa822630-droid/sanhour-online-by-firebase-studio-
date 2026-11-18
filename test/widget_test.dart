@@ -16,8 +16,46 @@ import 'package:sanhour_online/widgets/error_state_widget.dart';
 import 'package:sanhour_online/widgets/stat_card.dart';
 
 void main() {
-  group('Models & Business Logic Unit Tests', () {
-    test('AppUser roles and permissions work accurately', () {
+  group('Models, Security & Business Logic Unit Tests', () {
+    test('AppUser roles distinguish super_admin vs admin and default moderator permissions to false', () {
+      final superAdmin = AppUser.fromMap({
+        'id': 'sa1',
+        'name': 'سوبر أدمن',
+        'username': 'superadmin',
+        'email': 'sa1@users.sanhour.online',
+        'phone': '+201008908728',
+        'userType': 'super_admin',
+      });
+      expect(superAdmin.isSuperAdmin, isTrue);
+      expect(superAdmin.isAdmin, isTrue);
+      expect(superAdmin.canViewFinancialStats, isTrue);
+
+      final regularAdmin = AppUser.fromMap({
+        'id': 'a1',
+        'name': 'أدمن',
+        'username': 'admin1',
+        'email': 'a1@users.sanhour.online',
+        'phone': '+201000000001',
+        'userType': 'admin',
+      });
+      expect(regularAdmin.isSuperAdmin, isFalse);
+      expect(regularAdmin.isAdmin, isTrue);
+
+      final moderatorEmptyPerms = AppUser.fromMap({
+        'id': 'm1',
+        'name': 'مشرف',
+        'username': 'mod1',
+        'email': 'm1@users.sanhour.online',
+        'phone': '+201000000002',
+        'userType': 'moderator',
+        'moderatorPermissions': <String, dynamic>{},
+      });
+      expect(moderatorEmptyPerms.isModerator, isTrue);
+      expect(moderatorEmptyPerms.isAdmin, isFalse);
+      expect(moderatorEmptyPerms.moderatorPermissions?.manageShops, isFalse);
+      expect(moderatorEmptyPerms.moderatorPermissions?.manageUsers, isFalse);
+      expect(moderatorEmptyPerms.moderatorPermissions?.manageSettings, isFalse);
+
       final owner = AppUser.fromMap({
         'id': 'u1',
         'name': 'أسامة',
@@ -58,12 +96,27 @@ void main() {
       expect(worker.canManageSubscription, isFalse);
     });
 
-    test('AdModel parses clickCount and video fields properly', () {
+    test('AppConstants phone normalization handles Arabic digits and E.164', () {
+      expect(
+        AppConstants.arabicToEnglishDigits('٠١٠٠٨٩٠٨٧٢٨'),
+        equals('01008908728'),
+      );
+      expect(
+        AppConstants.normalizePhoneToE164('٠١٠٠٨٩٠٨٧٢٨'),
+        equals('+201008908728'),
+      );
+      final candidates = AppConstants.phoneLookupCandidates('01008908728');
+      expect(candidates, contains('+201008908728'));
+      expect(candidates, contains('01008908728'));
+    });
+
+    test('AdModel parses clickCount, externalUrl, and video fields properly', () {
       final ad = AdModel.fromMap({
         'shopId': 's1',
         'imageUrl': 'https://example.com/ad.jpg',
         'text': 'إعلان تجريبي',
         'clickCount': 42,
+        'externalUrl': 'https://sanhour.online/promo',
         'startDate': DateTime(2026, 1, 1).toIso8601String(),
         'endDate': DateTime(2026, 2, 1).toIso8601String(),
       }, 'ad_1');
@@ -71,6 +124,7 @@ void main() {
       expect(ad.id, equals('ad_1'));
       expect(ad.clickCount, equals(42));
       expect(ad.text, equals('إعلان تجريبي'));
+      expect(ad.externalUrl, equals('https://sanhour.online/promo'));
     });
 
     test('Product model preserves sortOrder and listName for pinned items', () {

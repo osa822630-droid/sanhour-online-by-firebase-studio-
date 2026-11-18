@@ -2,6 +2,7 @@
 // نشر طلب خدمة — متاح لأي مستخدم مسجّل
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/notification_service.dart';
 import 'package:provider/provider.dart';
 import '../models/service_request_model.dart';
 import '../providers/auth_provider.dart';
@@ -79,20 +80,17 @@ class _PostServiceRequestScreenState
       await ref.set(request.toMap());
 
       // ✅ Fix #32: تصحيح الـ route في notification payload ليوجه لطلبات الخدمة
-      await db.collection('notification_queue').add({
-        'title':
+      await NotificationService.enqueuePushNotification(
+        title:
             '🔧 طلب خدمة جديد: ${ServiceRequestModel.categoryLabel(_category)}',
-        'body': _titleCtrl.text.trim(),
-        'topic': 'providers_${_category.name}',
-        'data': {
+        body: _titleCtrl.text.trim(),
+        topic: 'providers_${_category.name}',
+        data: {
           'route': 'service_requests',
           'requestId': ref.id,
           'channel': 'service_requests',
         },
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-        'expiresAt': Timestamp.fromDate(DateTime.now().add(const Duration(hours: 24))),
-      });
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

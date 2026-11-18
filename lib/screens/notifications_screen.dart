@@ -3,6 +3,7 @@ import '../utils/date_helper.dart';
 // ✅ دعم قبول/رفض دعوات القوائم مباشرة من شاشة الإشعارات
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -109,10 +110,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (userId == null) return;
 
     try {
-      await _db.collection('wishlists').doc(collectionId).update({
-        'collaborators': FieldValue.arrayUnion([userId]),
-      });
-
       await _updateInviteStatus(collectionId, userId, inviterId, 'accepted');
 
       await _db.collection('notifications').doc(notif['id']).update({
@@ -187,8 +184,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         .limit(20)
         .get();
 
+    final callable =
+        FirebaseFunctions.instance.httpsCallable('acceptCollectionInvite');
     for (final d in snap.docs) {
-      await d.reference.update({'status': status});
+      await callable.call({
+        'inviteId': d.id,
+        'accept': status == 'accepted',
+      });
     }
   }
 

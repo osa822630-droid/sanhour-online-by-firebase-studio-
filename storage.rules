@@ -5,15 +5,12 @@ service firebase.storage {
     // ── Helpers ──────────────────────────────────────────────────────────────
     function isAuth() { return request.auth != null; }
 
-    // ✅ Security Fix (P0): إغلاق الجلسات المجهولة ومنع انتحال الهوية عبر auth_sessions في الإنتاج
-    function allowMockSessions() { return false; }
-
     function isAnonymousSession() {
       return request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
 
     function sessionAllowed() {
-      return isAuth() && (!isAnonymousSession() || allowMockSessions());
+      return isAuth() && !isAnonymousSession();
     }
 
     function appUid() {
@@ -26,14 +23,35 @@ service firebase.storage {
 
     function isOwner(uid) { return sessionAllowed() && appUid() == uid; }
 
+    function tokenRole() {
+      return ('userType' in request.auth.token && request.auth.token.userType is string)
+        ? request.auth.token.userType
+        : (('role' in request.auth.token && request.auth.token.role is string)
+            ? request.auth.token.role
+            : '');
+    }
+
+    function firestoreRole() {
+      return firestore.exists(/databases/(default)/documents/users/$(appUid()))
+        ? firestore.get(/databases/(default)/documents/users/$(appUid())).data.userType
+        : '';
+    }
+
+    function effectiveRole() {
+      return tokenRole() != '' ? tokenRole() : firestoreRole();
+    }
+
     function isStaff() {
       return sessionAllowed()
-        && firestore.get(/databases/(default)/documents/users/$(appUid())).data.userType in ['admin', 'super_admin', 'moderator'];
+        && effectiveRole() in ['admin', 'super_admin', 'moderator'];
     }
 
     function isMerchantOrStaff() {
-      return sessionAllowed()
-        && firestore.get(/databases/(default)/documents/users/$(appUid())).data.userType in ['merchant', 'admin', 'super_admin', 'moderator'];
+      return sessionAllowed() && (
+        effectiveRole() in ['merchant', 'admin', 'super_admin', 'moderator']
+        || (firestore.exists(/databases/(default)/documents/users/$(appUid()))
+            && firestore.get(/databases/(default)/documents/users/$(appUid())).data.get('businessType', '') in ['pending_merchant', 'shop', 'service_provider'])
+      );
     }
 
     function canManageShopStorage(shopId) {
@@ -41,46 +59,54 @@ service firebase.storage {
         isStaff()
         || (firestore.exists(/databases/(default)/documents/shops/$(shopId))
             && firestore.get(/databases/(default)/documents/shops/$(shopId)).data.ownerId == appUid())
+        || (firestore.exists(/databases/(default)/documents/users/$(appUid()))
+            && firestore.get(/databases/(default)/documents/users/$(appUid())).data.linkedShopId == shopId
+            && firestore.get(/databases/(default)/documents/users/$(appUid())).data.shopRole in ['owner', 'partner', 'worker'])
       );
     }
 
-    // ✅ التحقق من ملكية الملف عبر customMetadata.ownerId عند الحذف أو الاستبدال، مع السماح للإدارة
+    // ✅ إلزام إرفاق ownerId في customMetadata مطابقاً لـ appUid() عند الرفع
+    function hasValidUploadOwner() {
+      return request.resource != null
+        && request.resource.metadata != null
+        && 'ownerId' in request.resource.metadata
+        && request.resource.metadata['ownerId'] == appUid();
+    }
+
+    // ✅ التحقق الصارم من ملكية الملف عند الحذف أو الاستبدال (لا يسمح بحذف ملفات بلا ownerId إلا للإدارة)
     function isFileOwnerOrStaff() {
       return hasIdentity() && (
-        (resource != null && resource.metadata != null && 'ownerId' in resource.metadata && resource.metadata.ownerId == appUid())
+        (resource != null && resource.metadata != null && 'ownerId' in resource.metadata && resource.metadata['ownerId'] == appUid())
         || isStaff()
       );
     }
 
     function canWriteMerchantAsset() {
-      return isMerchantOrStaff() && (
-        resource == null
-        || (resource.metadata != null && 'ownerId' in resource.metadata && resource.metadata.ownerId == appUid())
-        || isStaff()
-      );
+      return isMerchantOrStaff()
+        && hasValidUploadOwner()
+        && (resource == null || isFileOwnerOrStaff())
+        && (
+          !('shopId' in request.resource.metadata)
+          || request.resource.metadata['shopId'] == ''
+          || canManageShopStorage(request.resource.metadata['shopId'])
+        );
     }
 
     function canDeleteMerchantAsset() {
-      return isMerchantOrStaff() && (
-        resource == null
-        || resource.metadata == null
-        || !('ownerId' in resource.metadata)
-        || resource.metadata.ownerId == appUid()
-        || isStaff()
-      );
+      return isMerchantOrStaff() && isFileOwnerOrStaff();
     }
 
     function isImage() {
-      return request.resource.contentType.matches('image/.*');
+      return request.resource != null && request.resource.contentType.matches('image/.*');
     }
 
     function isVideo() {
-      return request.resource.contentType.matches('video/.*');
+      return request.resource != null && request.resource.contentType.matches('video/.*');
     }
 
-    function maxImageSize() { return request.resource.size < 10 * 1024 * 1024; }
-    function maxVideoSize() { return request.resource.size < 100 * 1024 * 1024; }
-    function maxAvatarSize() { return request.resource.size < 3 * 1024 * 1024; }
+    function maxImageSize() { return request.resource != null && request.resource.size < 10 * 1024 * 1024; }
+    function maxVideoSize() { return request.resource != null && request.resource.size < 100 * 1024 * 1024; }
+    function maxAvatarSize() { return request.resource != null && request.resource.size < 3 * 1024 * 1024; }
 
     // ── صورة الملف الشخصي ───────────────────────────────────────────────────
     match /users/{userId}/{allPaths=**} {
@@ -89,11 +115,11 @@ service firebase.storage {
       allow delete: if isOwner(userId) || isStaff();
     }
 
-    // ── شعارات وأغلفة ووسائط المحل ──────────────────────────────────────────
-    match /shops/{allPaths=**} {
+    // ── شعارات وأغلفة ووسائط المحل المقيدة بمعرّف المحل ─────────────────────
+    match /shops/{shopId}/{allPaths=**} {
       allow read: if true;
-      allow write: if canWriteMerchantAsset() && (isImage() || isVideo()) && maxVideoSize();
-      allow delete: if canDeleteMerchantAsset();
+      allow write: if canManageShopStorage(shopId) && hasValidUploadOwner() && (isImage() || isVideo()) && maxVideoSize();
+      allow delete: if canManageShopStorage(shopId) && isFileOwnerOrStaff();
     }
 
     match /shop_logos/{allPaths=**} {
@@ -155,8 +181,8 @@ service firebase.storage {
 
     match /ads/{shopId}/pending/{allPaths=**} {
       allow read: if true;
-      allow write: if canManageShopStorage(shopId) && isVideo() && maxVideoSize();
-      allow delete: if canManageShopStorage(shopId);
+      allow write: if canManageShopStorage(shopId) && hasValidUploadOwner() && isVideo() && maxVideoSize();
+      allow delete: if canManageShopStorage(shopId) && isFileOwnerOrStaff();
     }
 
     match /ads/{allPaths=**} {
@@ -168,34 +194,33 @@ service firebase.storage {
     // ── صور التقييمات (reviews و reviews_images) ────────────────────────────
     match /reviews/{allPaths=**} {
       allow read: if true;
-      allow write: if hasIdentity() && isImage() && maxImageSize();
+      allow write: if hasIdentity() && hasValidUploadOwner() && isImage() && maxImageSize();
       allow delete: if isFileOwnerOrStaff();
     }
 
     match /reviews_images/{allPaths=**} {
       allow read: if true;
-      allow write: if hasIdentity() && isImage() && maxImageSize();
+      allow write: if hasIdentity() && hasValidUploadOwner() && isImage() && maxImageSize();
       allow delete: if isFileOwnerOrStaff();
     }
 
     // ── صور إعلانات سنهور ديلر ─────────────────────────────────────────────
     match /dealer_listings/{allPaths=**} {
       allow read: if true;
-      allow write: if hasIdentity() && isImage() && maxImageSize();
+      allow write: if hasIdentity() && hasValidUploadOwner() && isImage() && maxImageSize();
       allow delete: if isFileOwnerOrStaff();
     }
 
-    // ── مرفقات الشكاوى ──────────────────────────────────────────────────────
+    // ── مرفقات الشكاوى (قراءة خاصة لصاحب الشكوى والإدارة فقط — P0-7 Fixed) ──
     match /complaint_attachments/{userId}/{allPaths=**} {
       allow read: if isOwner(userId) || isStaff();
       allow write: if isOwner(userId) && isImage() && maxImageSize();
       allow delete: if isOwner(userId) || isStaff();
     }
 
-    // ── Fallback: رفض الكتابة في أي مسار غير معرّف ──────────────────────────
+    // ── Fallback: إغلاق القراءة والكتابة لأي مسار غير معرّف (يمنع تسريب complaint_attachments) ──
     match /{allPaths=**} {
-      allow read: if true;
-      allow write: if false;
+      allow read, write: if false;
     }
   }
 }

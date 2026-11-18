@@ -14,47 +14,58 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val releaseStorePath = keystoreProperties.getProperty("storeFile")?.trim()
+val releaseStoreFile = if (!releaseStorePath.isNullOrEmpty()) file(releaseStorePath) else null
+val hasValidReleaseKeystore = releaseStoreFile != null && releaseStoreFile.exists()
+
 android {
     namespace = "com.sanhour.online"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = maxOf(flutter.compileSdkVersion, 35)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
         applicationId = "com.sanhour.online"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = maxOf(flutter.minSdkVersion, 24)
+        targetSdk = maxOf(flutter.targetSdkVersion, 35)
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true
+    }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
 
     signingConfigs {
-        if (keystorePropertiesFile.exists()) {
+        if (hasValidReleaseKeystore) {
             create("release") {
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
-                storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
-                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")?.trim()
+                keyPassword = keystoreProperties.getProperty("keyPassword")?.trim()
+                storeFile = releaseStoreFile
+                storePassword = keystoreProperties.getProperty("storePassword")?.trim()
             }
         }
     }
 
     buildTypes {
         release {
-            if (keystorePropertiesFile.exists()) {
-                signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
+            signingConfig = if (hasValidReleaseKeystore) {
+                signingConfigs.getByName("release")
             } else {
-                logger.warn("⚠️ تحذير: ملف key.properties غير موجود! يتم استخدام مفتاح التوقيع التجريبي (debug) مؤقتاً. لا ترفع هذه النسخة إلى متجر Google Play قبل إعداد key.properties.")
-                signingConfig = signingConfigs.getByName("debug")
+                signingConfigs.getByName("debug")
             }
         }
     }

@@ -1,13 +1,14 @@
 // lib/services/admin_service.dart
-// ✅ إرجاع كافة حقول أكواد التفعيل في getAllCodes() لدعم حساب الإيرادات والفلاتر
-// ✅ إخفاء إعلانات المحل الممولة عند تعليق المحل وتقسيم دفعات التحديث بحد 400 عملية
-// ✅ إرسال إشعار للتاجر في notifications و notification_queue عند حذف منتج/عرض أو تعليق المحل
+// ✅ P0-4 Fix: توجيه إشعارات الدفع عبر NotificationService.enqueuePushNotification
+// ✅ P0-8 Fix: عدم قراءة المفتاح الخام من settings_private/gemini إلى ذاكرة المتصفح/العميل
+// ✅ P1-6 Fix: الحذف الكامل لحساب المستخدم وبياناته ومرفقاته عبر purgeAuthUser
 import 'dart:developer' as developer;
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'audit_log_service.dart';
+import 'notification_service.dart';
 
 class AdminService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -46,6 +47,8 @@ class AdminService {
       'isUsed': false,
       'generatedBy': adminId,
       'price': 200,
+      'days': 30,
+      'tier': 'monthly',
       'createdAt': FieldValue.serverTimestamp(),
       'expiresAt':
           Timestamp.fromDate(DateTime.now().add(const Duration(days: 30))),
@@ -147,17 +150,10 @@ class AdminService {
           e.code == 'unimplemented' ||
           e.code == 'unavailable' ||
           e.code == 'internal') {
-        developer.log(
-          'Cloud Function unavailable (${e.code}), using client cascade fallback.',
-          name: 'AdminService',
-        );
         await _deleteShopCascadeClientFallback(shopId);
         await AuditLogService.logShopDeleted(shopId, shopName);
         return;
       }
-      developer.log(
-          'deleteShop Cloud Function error: ${e.code} — ${e.message}',
-          name: 'AdminService');
       throw Exception(_mapFunctionError(e.code));
     } catch (e) {
       try {
@@ -202,13 +198,8 @@ class AdminService {
 
   static Future<void> deleteUser(String userId,
       {String userName = ''}) async {
-    await _firestore.collection('users').doc(userId).delete();
-    try {
-      final callable = _functions.httpsCallable('purgeAuthUser');
-      await callable.call({'userId': userId});
-    } catch (_) {
-      // في حال عدم نشر Cloud Function يستمر حذف وثيقة Firestore دون توقف
-    }
+    final callable = _functions.httpsCallable('purgeAuthUser');
+    await callable.call({'userId': userId});
     await AuditLogService.log(
       action: AuditAction.userDeleted,
       targetId: userId,
@@ -257,15 +248,13 @@ class AdminService {
     await AuditLogService.logSettingsUpdated(data);
   }
 
-  static Future<String> getGeminiApiKey() async {
-    final doc =
-        await _firestore.collection('settings_private').doc('gemini').get();
-    return (doc.data()?['apiKey'] as String?) ?? '';
-  }
+  /// ✅ P0-8 Fix: عدم استرجاع نص مفتاح Gemini السري إلى ذاكرة العميل
+  static Future<String> getGeminiApiKey() async => '';
 
   static Future<void> saveGeminiApiKey(String key) async {
+    if (key.trim().isEmpty) return;
     await _firestore.collection('settings_private').doc('gemini').set({
-      'apiKey': key,
+      'apiKey': key.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
     try {
@@ -307,7 +296,6 @@ class AdminService {
           {'ref': doc.reference, 'data': {'isShopHidden': newStatus}}),
       ...results[2].docs.map((doc) =>
           {'ref': doc.reference, 'data': {'isShopHidden': newStatus}}),
-      // ✅ تعطيل الإعلانات الممولة التابعة للمحل عند تعليقه لمنع ظهور إعلان لمحل معطل
       if (newStatus)
         ...results[3].docs.map((doc) =>
             {'ref': doc.reference, 'data': {'isActive': false}}),
@@ -357,20 +345,16 @@ class AdminService {
           'createdAt': FieldValue.serverTimestamp(),
         });
 
-        await _firestore.collection('notification_queue').add({
-          'title': title,
-          'body': body,
-          'targetUserId': ownerId,
-          'data': {
+        await NotificationService.enqueuePushNotification(
+          title: title,
+          body: body,
+          targetUserId: ownerId,
+          data: {
             'route': 'merchant',
             'shopId': shopId,
             'channel': 'shop_status',
           },
-          'status': 'pending',
-          'createdAt': FieldValue.serverTimestamp(),
-          'expiresAt': Timestamp.fromDate(
-              DateTime.now().add(const Duration(hours: 24))),
-        });
+        );
       }
     } catch (e) {
       developer.log('toggleShopSuspension notification error: $e',
@@ -446,19 +430,15 @@ class AdminService {
           'createdAt': FieldValue.serverTimestamp(),
         });
 
-        await _firestore.collection('notification_queue').add({
-          'title': title,
-          'body': body,
-          'targetUserId': ownerId,
-          'data': {
+        await NotificationService.enqueuePushNotification(
+          title: title,
+          body: body,
+          targetUserId: ownerId,
+          data: {
             'route': 'merchant',
             'channel': 'admin_alerts',
           },
-          'status': 'pending',
-          'createdAt': FieldValue.serverTimestamp(),
-          'expiresAt': Timestamp.fromDate(
-              DateTime.now().add(const Duration(hours: 24))),
-        });
+        );
       } catch (e) {
         developer.log('deleteItemWithNotification error: $e',
             name: 'AdminService');

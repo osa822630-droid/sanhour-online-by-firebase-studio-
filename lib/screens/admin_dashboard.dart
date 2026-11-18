@@ -1,5 +1,5 @@
 // lib/screens/admin_dashboard.dart
-// ✅ احترام مصفوفة صلاحيات المشرف (ModeratorPermissions) في التبويبات المعروضة وزر إضافة المحل
+// ✅ P1-5 Fix: منع منح صلاحيات كاملة عند user == null أو عند غياب مفتاح الصلاحية (استخدام ?? false)
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -44,8 +44,7 @@ class _AdminDashboardState extends State<AdminDashboard>
     super.initState();
     final auth = context.read<AuthProvider>();
     final user = auth.user;
-    _isFullAdmin =
-        user == null || !user.isModerator || user.isSuperAdmin || user.userType == 'admin';
+    _isFullAdmin = user != null && user.isAdmin;
     final perms = user?.moderatorPermissions;
 
     _tabs = [
@@ -54,37 +53,40 @@ class _AdminDashboardState extends State<AdminDashboard>
         icon: Icons.dashboard,
         child: AdminOverviewTab(),
       ),
-      if (_isFullAdmin || (perms?.manageShops ?? true) || (perms?.manageProducts ?? true) || (perms?.manageOffers ?? true))
+      if (_isFullAdmin ||
+          (perms?.manageShops ?? false) ||
+          (perms?.manageProducts ?? false) ||
+          (perms?.manageOffers ?? false))
         const _AdminTabSpec(
           label: 'المحتوى',
           icon: Icons.layers,
           child: AdminContentTab(),
         ),
-      if (_isFullAdmin || (perms?.manageCategories ?? true))
+      if (_isFullAdmin || (perms?.manageCategories ?? false))
         const _AdminTabSpec(
           label: 'الفئات',
           icon: Icons.category,
           child: AdminCategoriesTab(),
         ),
-      if (_isFullAdmin || (perms?.manageAds ?? true))
+      if (_isFullAdmin || (perms?.manageAds ?? false))
         const _AdminTabSpec(
           label: 'الإعلانات',
           icon: Icons.campaign,
           child: AdminAdsTab(),
         ),
-      if (_isFullAdmin || (perms?.manageActivationCodes ?? true))
+      if (_isFullAdmin || (perms?.manageActivationCodes ?? false))
         const _AdminTabSpec(
           label: 'الأكواد',
           icon: Icons.vpn_key,
           child: AdminCodesTab(),
         ),
-      if (_isFullAdmin || (perms?.manageUsers ?? true))
+      if (_isFullAdmin || (perms?.manageUsers ?? false))
         const _AdminTabSpec(
           label: 'المستخدمين',
           icon: Icons.people,
           child: AdminUsersTab(),
         ),
-      if (_isFullAdmin || (perms?.viewReports ?? true))
+      if (_isFullAdmin || (perms?.viewReports ?? false))
         const _AdminTabSpec(
           label: 'الشكاوى',
           icon: Icons.support_agent,
@@ -116,8 +118,9 @@ class _AdminDashboardState extends State<AdminDashboard>
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final perms = auth.user?.moderatorPermissions;
     final canCreateShopBypass =
-        _isFullAdmin && auth.user?.isModerator != true;
+        _isFullAdmin || (auth.user?.isModerator == true && (perms?.manageShops ?? false));
 
     return Scaffold(
       appBar: AppBar(

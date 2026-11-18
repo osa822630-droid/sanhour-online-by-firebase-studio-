@@ -70,14 +70,20 @@ class AppConstants {
   static const String geminiBaseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models';
 
+  /// تحويل الأرقام العربية الشرقية (٠-٩) والفارسية (۰-۹) إلى أرقام لاتينية (0-9)
+  static String arabicToEnglishDigits(String raw) {
+    const eastern = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const persian = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    var cleaned = raw.trim();
+    for (int i = 0; i < 10; i++) {
+      cleaned = cleaned.replaceAll(eastern[i], '$i').replaceAll(persian[i], '$i');
+    }
+    return cleaned;
+  }
+
   /// تطبيع رقم الهاتف المصري للصيغة الموحدة بـ Firestore (`+201xxxxxxxxx`)
   static String normalizePhone(String raw) {
-    // تحويل الأرقام العربية الشرقية (٠-٩) إلى أرقام لاتينية (0-9)
-    const eastern = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    var cleaned = raw.trim();
-    for (int i = 0; i < eastern.length; i++) {
-      cleaned = cleaned.replaceAll(eastern[i], '$i');
-    }
+    final cleaned = arabicToEnglishDigits(raw);
     final digits = cleaned.replaceAll(RegExp(r'\D'), '');
     if (digits.isEmpty) return '';
     if (digits.startsWith('0020') && digits.length >= 14) {
@@ -94,6 +100,9 @@ class AppConstants {
     }
     return cleaned.startsWith('+') ? '+$digits' : '+2$digits';
   }
+
+  /// تطبيع رقم الهاتف لصيغة E.164 الموحدة (`+201xxxxxxxxx`)
+  static String normalizePhoneToE164(String raw) => normalizePhone(raw);
 
   /// إرجاع صيغتي رقم الهاتف المحتملتين في Firestore (`+201...` و`01...`) للبحث المرن
   static List<String> phoneLookupCandidates(String raw) {

@@ -1,7 +1,5 @@
 // lib/services/product_service.dart
-// ✅ دعم includeHidden في getProducts و includeInactive في getOffers للوحة التاجر
-// ✅ إزالة محاولة حذف العروض المنتهية من حسابات الزوار والعملاء (التي كانت ترمي permission-denied)
-// ✅ استثناء 'الكل' في getTopProducts
+// ✅ P2 Fix: تصفية isShopHidden في getTopProducts و getTopOffers، وإزالة الفحص الميت لـ sortOrder != null
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -59,16 +57,7 @@ class ProductService {
           .toList();
 
       if (shopId != null) {
-        products.sort((a, b) {
-          final orderA = a.sortOrder;
-          final orderB = b.sortOrder;
-          if (orderA != null && orderB != null) {
-            return orderA.compareTo(orderB);
-          }
-          if (orderA != null) return -1;
-          if (orderB != null) return 1;
-          return 0;
-        });
+        products.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
       }
       return products;
     } catch (e, s) {
@@ -84,6 +73,7 @@ class ProductService {
       Query q = _firestore
           .collection('products')
           .where('isVisible', isEqualTo: true)
+          .where('isShopHidden', isEqualTo: false)
           .orderBy('views', descending: true);
       if (category != null && category.isNotEmpty && category != 'الكل') {
         q = q.where('category', isEqualTo: category);
@@ -91,6 +81,7 @@ class ProductService {
       final snap = await q.limit(limit).get();
       return snap.docs
           .map((d) => Product.fromMap(d.data() as Map<String, dynamic>, d.id))
+          .where((p) => !p.isShopHidden && p.isVisible)
           .toList();
     } catch (e, s) {
       developer.log('getTopProducts error: $e',
@@ -216,7 +207,6 @@ class ProductService {
 
       final monthAgo = DateTime.now().subtract(const Duration(days: 30));
 
-      // ✅ تنظيف العروض التي مضى على انتهائها أكثر من 30 يوماً فقط عندما يفتح التاجر لوحته الخاصة (includeInactive == true)
       if (shopId != null && includeInactive) {
         final stale = all.where((o) => o.validUntil.isBefore(monthAgo)).toList();
         for (final expiredOffer in stale) {
@@ -240,11 +230,13 @@ class ProductService {
       final snap = await _firestore
           .collection('offers')
           .where('isActive', isEqualTo: true)
+          .where('isShopHidden', isEqualTo: false)
           .orderBy('views', descending: true)
           .limit(limit)
           .get();
       return snap.docs
           .map((d) => Offer.fromMap(d.data(), d.id))
+          .where((o) => !o.isShopHidden && o.isActive)
           .toList();
     } catch (e, s) {
       developer.log('getTopOffers error: $e',

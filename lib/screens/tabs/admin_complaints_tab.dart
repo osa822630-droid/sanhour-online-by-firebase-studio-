@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/notification_service.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
@@ -470,22 +471,17 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
           'createdAt': FieldValue.serverTimestamp(),
         });
 
-        // FCM عبر notification_queue
-        await FirebaseFirestore.instance
-            .collection('notification_queue')
-            .add({
-          'title': '💬 رد جديد على شكواك',
-          'body': replyText.length > 80
+        await NotificationService.enqueuePushNotification(
+          title: '💬 رد جديد على شكواك',
+          body: replyText.length > 80
               ? '${replyText.substring(0, 80)}...'
               : replyText,
-          'targetUserId': userId,
-          'data': {
+          targetUserId: userId,
+          data: {
             'route': 'user_complaints',
             'channel': 'user_support',
           },
-          'status': 'pending',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        );
       }
 
       _loadComplaints();

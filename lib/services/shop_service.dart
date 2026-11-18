@@ -1,9 +1,10 @@
 // lib/services/shop_service.dart
-// ✅ التحقق من كود التفعيل قبل رفع الصور إلى Firebase Storage وتنظيف الصور المرفوعة إذا فشل الـ Transaction
-// ✅ استخدام AppConstants.phoneLookupCandidates للبحث بجميع صيغ أرقام الهواتف عند تعيين مالك المحل
+// ✅ P0-1 & P1-7 Fix: إنشاء المحلات والتحقق من أكواد التفعيل يتم عبر Cloud Functions (createShopWithCode & checkActivationCode)
+// ✅ P0-5 Fix: البحث عن المالك بالهاتف أو اسم المستخدم يتم عبر lookupUserPublicProfile دون كشف مجموعة users
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sanhour_online/services/product_service.dart';
 import '../models/category_model.dart';
@@ -15,6 +16,7 @@ import 'media_upload_service.dart';
 class ShopService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
+  static final FirebaseFunctions _functions = FirebaseFunctions.instance;
 
   // =========================================================
   // 1. جلب المحلات
@@ -105,43 +107,38 @@ class ShopService {
   }
 
   // =========================================================
-  // 2. التحقق من كود التفعيل
+  // 2. التحقق من كود التفعيل عبر Cloud Function
   // =========================================================
 
   static const String _shopActivationType = 'shop_activation';
 
-  static Future<DocumentReference<Map<String, dynamic>>?>
-      _findUnusedActivationCode(String code) async {
+  static Future<void> validateActivationCode(String code) async {
     final normalized = code.trim().toUpperCase();
     if (normalized.isEmpty) {
-      return null;
-    }
-    final directRef = _firestore.collection('activation_codes').doc(normalized);
-    final directDoc = await directRef.get();
-    if (!directDoc.exists) {
-      return null;
-    }
-    final data = directDoc.data();
-    if (data == null ||
-        data['isUsed'] == true ||
-        data['type'] != _shopActivationType) {
-      return null;
-    }
-    return directRef;
-  }
-
-  static Future<void> validateActivationCode(String code) async {
-    final codeRef = await _findUnusedActivationCode(code);
-    if (codeRef == null) {
       throw Exception('كود التفعيل غير صحيح أو مستخدم مسبقاً.');
+    }
+    try {
+      final callable = _functions.httpsCallable('checkActivationCode');
+      final res = await callable.call({
+        'code': normalized,
+        'expectedType': _shopActivationType,
+      });
+      final data = res.data;
+      if (data is! Map || data['valid'] != true) {
+        final msg = (data is Map ? data['message']?.toString() : null) ??
+            'كود التفعيل غير صحيح أو مستخدم مسبقاً.';
+        throw Exception(msg);
+      }
+    } on FirebaseFunctionsException catch (e) {
+      throw Exception(e.message ?? 'كود التفعيل غير صحيح أو مستخدم مسبقاً.');
     }
   }
 
   static Future<void> _requireAdmin(String uid) async {
     final snap = await _firestore.collection('users').doc(uid).get();
     final role = snap.data()?['userType'];
-    if (role != 'admin' && role != 'super_admin') {
-      throw Exception('إنشاء محل بدون كود تفعيل متاح للأدمن فقط.');
+    if (role != 'admin' && role != 'super_admin' && role != 'moderator') {
+      throw Exception('إنشاء محل بدون كود تفعيل متاح للإدارة فقط.');
     }
   }
 
@@ -159,30 +156,15 @@ class ShopService {
     final String normalizedPhone =
         looksLikePhone ? AppConstants.normalizePhoneToE164(digits) : digits;
 
-    QuerySnapshot<Map<String, dynamic>>? userSnap;
-    if (looksLikePhone) {
-      final candidates = AppConstants.phoneLookupCandidates(digits);
-      userSnap = await _firestore
-          .collection('users')
-          .where('phone', whereIn: candidates)
-          .limit(1)
-          .get();
-    } else {
-      userSnap = await _firestore
-          .collection('users')
-          .where('username', isEqualTo: clean.toLowerCase())
-          .limit(1)
-          .get();
-    }
-
-    if (userSnap.docs.isNotEmpty) {
-      final foundDoc = userSnap.docs.first;
-      await foundDoc.reference.update({
-        'userType': 'merchant',
-        'shopRole': 'owner',
-      });
-      return {'ownerId': foundDoc.id, 'pendingOwnerPhone': null};
-    }
+    try {
+      final callable = _functions.httpsCallable('lookupUserPublicProfile');
+      final res = await callable.call({'query': clean});
+      final data = res.data;
+      if (data is Map && data['found'] == true && data['id'] != null) {
+        final foundId = data['id'].toString();
+        return {'ownerId': foundId, 'pendingOwnerPhone': null};
+      }
+    } catch (_) {}
 
     if (looksLikePhone) {
       return {'ownerId': '', 'pendingOwnerPhone': normalizedPhone};
@@ -192,7 +174,7 @@ class ShopService {
   }
 
   // =========================================================
-  // 3. إنشاء محل بشكل ذري مع تنظيف الصور عند أي فشل
+  // 3. إنشاء محل بشكل ذري عبر Cloud Function (createShopWithCode)
   // =========================================================
 
   static Future<String> createShop(
@@ -216,19 +198,14 @@ class ShopService {
 
     final String? activationCode =
         adminBypass ? null : (shopData['activationCode'] as String?);
-    DocumentReference<Map<String, dynamic>>? codeRef;
 
-    // ✅ التحقق المسبق من صلاحية الأدمن أو كود التفعيل قبل رفع أي صور إلى Storage
     if (adminBypass) {
       await _requireAdmin(ownerId);
     } else {
       if (activationCode == null || activationCode.trim().isEmpty) {
         throw Exception('كود التفعيل مطلوب لإنشاء المحل.');
       }
-      codeRef = await _findUnusedActivationCode(activationCode);
-      if (codeRef == null) {
-        throw Exception('كود التفعيل غير صحيح أو مستخدم مسبقاً.');
-      }
+      await validateActivationCode(activationCode);
     }
 
     String? uploadedLogoUrl;
@@ -248,69 +225,36 @@ class ShopService {
         shopData['coverUrl'] = uploadedCoverUrl;
       }
 
-      shopData['isSuspended'] = false;
-      shopData['isActive'] = true;
-      shopData['rating'] = 0.0;
-      shopData['reviewCount'] = 0;
-      shopData['views'] = 0;
-      shopData['favoriteCount'] = 0;
-      shopData['uniqueVisitors'] = 0;
-      shopData['createdAt'] = FieldValue.serverTimestamp();
-
       final name = (shopData['name'] as String? ?? '').toLowerCase();
       final desc = (shopData['description'] as String? ?? '').toLowerCase();
       final cat = (shopData['category'] as String? ?? '').toLowerCase();
       shopData['searchKeywords'] = _generateShopKeywords(name, desc, cat);
 
-      if (adminBypass && shopData.containsKey('targetOwnerIdentifier')) {
-        final rawTarget = shopData['targetOwnerIdentifier'] as String? ?? '';
-        shopData.remove('targetOwnerIdentifier');
-        final assignment = await resolveOwnerAssignment(rawTarget);
-        shopData['ownerId'] = assignment['ownerId'];
-        shopData['pendingOwnerPhone'] = assignment['pendingOwnerPhone'];
-      } else {
-        shopData.remove('targetOwnerIdentifier');
-      }
-
+      final String? targetOwnerIdentifier =
+          shopData['targetOwnerIdentifier'] as String?;
+      shopData.remove('targetOwnerIdentifier');
       shopData.remove('activationCode');
+      shopData.remove('createdAt');
 
-      final docRef = _firestore.collection('shops').doc();
-      final effectiveUsedBy =
-          (firebaseUser != null && !firebaseUser.isAnonymous)
-              ? firebaseUser.uid
-              : ownerId;
-
-      await _firestore.runTransaction((tx) async {
-        if (codeRef != null) {
-          final freshCode = await tx.get(codeRef);
-          final freshData = freshCode.data();
-          if (!freshCode.exists ||
-              freshData == null ||
-              freshData['isUsed'] == true ||
-              freshData['type'] != _shopActivationType) {
-            throw Exception('كود التفعيل غير صحيح أو مستخدم مسبقاً.');
-          }
-          final codeExpiresAt = freshData['expiresAt'];
-          if (codeExpiresAt is Timestamp &&
-              codeExpiresAt.toDate().isBefore(DateTime.now())) {
-            throw Exception('انتهت صلاحية كود التفعيل.');
-          }
-
-          tx.update(codeRef, {
-            'isUsed': true,
-            'usedBy': effectiveUsedBy,
-            'usedAt': FieldValue.serverTimestamp(),
-            'shopId': docRef.id,
-          });
-        }
-
-        tx.set(docRef, {...shopData, 'id': docRef.id});
+      final callable = _functions.httpsCallable('createShopWithCode');
+      final res = await callable.call({
+        'shopData': shopData,
+        'adminBypass': adminBypass,
+        if (activationCode != null) 'activationCode': activationCode.trim().toUpperCase(),
+        if (targetOwnerIdentifier != null)
+          'targetOwnerIdentifier': targetOwnerIdentifier,
       });
+
+      final data = res.data;
+      if (data is! Map || data['success'] != true || data['shopId'] == null) {
+        throw Exception('تعذّر إنشاء المحل.');
+      }
+      final createdShopId = data['shopId'].toString();
 
       if (adminBypass) {
         await AuditLogService.log(
           action: AuditAction.shopCreated,
-          targetId: docRef.id,
+          targetId: createdShopId,
           targetType: 'shop',
           targetName: shopData['name'] as String?,
           metadata: {'viaAdminBypass': true},
@@ -318,9 +262,8 @@ class ShopService {
         );
       }
 
-      return docRef.id;
+      return createdShopId;
     } catch (e) {
-      // ✅ تنظيف الصور المرفوعة في حال فشل إنشاء الوثيقة أو حرق الكود لمنع بقاء ملفات يتيمة في Storage
       if (uploadedLogoUrl != null && uploadedLogoUrl.isNotEmpty) {
         await MediaUploadService.deleteByUrl(uploadedLogoUrl);
       }

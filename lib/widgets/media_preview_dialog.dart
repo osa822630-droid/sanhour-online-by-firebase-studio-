@@ -1,20 +1,22 @@
 // lib/widgets/media_preview_dialog.dart
-// ✅ معاينة كاملة الشاشة لصورة أو فيديو — قبل الرفع (File) أو بعده (URL).
-// يدعم التكبير/التصغير للصور (InteractiveViewer) والتشغيل/الإيقاف للفيديو
-// مع تأبيد صحيح لـ VideoPlayerController لمنع تسريب الموارد.
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'cached_image.dart';
 
+class MediaItem {
+  final String url;
+  final bool isVideo;
+
+  const MediaItem({
+    required this.url,
+    this.isVideo = false,
+  });
+}
+
 class MediaPreviewDialog extends StatefulWidget {
-  /// ملف محلي (قبل الرفع) — أولوية على [url] إن وُجد
   final File? file;
-
-  /// رابط بعيد (بعد الرفع)
   final String? url;
-
-  /// هل المحتوى فيديو؟ افتراضياً صورة
   final bool isVideo;
 
   const MediaPreviewDialog({
@@ -24,17 +26,25 @@ class MediaPreviewDialog extends StatefulWidget {
     this.isVideo = false,
   });
 
-  /// طريقة مختصرة لعرض المعاينة كـ dialog كامل الشاشة
   static Future<void> show(
     BuildContext context, {
     File? file,
     String? url,
     bool isVideo = false,
+    List<MediaItem>? items,
   }) {
+    final resolvedUrl =
+        url ?? (items != null && items.isNotEmpty ? items.first.url : null);
+    final resolvedIsVideo =
+        isVideo || (items != null && items.isNotEmpty && items.first.isVideo);
     return showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.92),
-      builder: (_) => MediaPreviewDialog(file: file, url: url, isVideo: isVideo),
+      builder: (_) => MediaPreviewDialog(
+        file: file,
+        url: resolvedUrl,
+        isVideo: resolvedIsVideo,
+      ),
     );
   }
 
@@ -73,7 +83,6 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
 
   @override
   void dispose() {
-    // ✅ تأبيد صريح — يمنع تسريب موارد مُشغِّل الفيديو
     _videoCtrl?.dispose();
     super.dispose();
   }
@@ -106,7 +115,6 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   Widget _buildContent() {
     if (widget.isVideo) return _buildVideo();
 
-    // ── صورة ──────────────────────────────────────────────────────────
     final imageWidget = widget.file != null
         ? Image.file(widget.file!, fit: BoxFit.contain)
         : CachedImage(

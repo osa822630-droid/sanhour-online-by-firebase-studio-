@@ -1,6 +1,6 @@
 // lib/models/user.dart
-// ✅ إضافة حقول نظام الإحالات (referralCode, referredBy, referralCount, referralBonusDaysEarned)
-// ✅ إضافة businessType ومصفوفة صلاحيات المشرف (ModeratorPermissions)
+// ✅ فصل صلاحية super_admin عن admin (P1-9 Fix)
+// ✅ جعل القيم الافتراضية لصلاحيات المشرف الغائبة false بدلاً من true (P1-5 Fix)
 
 class ModeratorPermissions {
   final bool manageShops;
@@ -14,28 +14,28 @@ class ModeratorPermissions {
   final bool manageSettings;
 
   const ModeratorPermissions({
-    this.manageShops = true,
-    this.manageProducts = true,
-    this.manageOffers = true,
-    this.manageCategories = true,
-    this.manageAds = true,
+    this.manageShops = false,
+    this.manageProducts = false,
+    this.manageOffers = false,
+    this.manageCategories = false,
+    this.manageAds = false,
     this.manageActivationCodes = false,
-    this.manageUsers = true,
-    this.viewReports = true,
+    this.manageUsers = false,
+    this.viewReports = false,
     this.manageSettings = false,
   });
 
   factory ModeratorPermissions.fromMap(Map<String, dynamic>? map) {
     if (map == null) return const ModeratorPermissions();
     return ModeratorPermissions(
-      manageShops: map['manageShops'] as bool? ?? true,
-      manageProducts: map['manageProducts'] as bool? ?? true,
-      manageOffers: map['manageOffers'] as bool? ?? true,
-      manageCategories: map['manageCategories'] as bool? ?? true,
-      manageAds: map['manageAds'] as bool? ?? true,
+      manageShops: map['manageShops'] as bool? ?? false,
+      manageProducts: map['manageProducts'] as bool? ?? false,
+      manageOffers: map['manageOffers'] as bool? ?? false,
+      manageCategories: map['manageCategories'] as bool? ?? false,
+      manageAds: map['manageAds'] as bool? ?? false,
       manageActivationCodes: map['manageActivationCodes'] as bool? ?? false,
-      manageUsers: map['manageUsers'] as bool? ?? true,
-      viewReports: map['viewReports'] as bool? ?? true,
+      manageUsers: map['manageUsers'] as bool? ?? false,
+      viewReports: map['viewReports'] as bool? ?? false,
       manageSettings: map['manageSettings'] as bool? ?? false,
     );
   }
@@ -89,14 +89,14 @@ class AppUser {
     this.moderatorPermissions,
   });
 
-  // ── alias مريح للصورة ───────────────────────────────────────
   String? get photoUrl => profileImageUrl;
 
-  // ── صلاحيات الأدمن ──────────────────────────────────────────
-  bool get isSuperAdmin => userType == 'admin' || userType == 'super_admin';
+  // ── صلاحيات الإدارة (P1-9 Fix: فصل super_admin عن admin) ─────
+  bool get isSuperAdmin => userType == 'super_admin';
+  bool get isAdmin => userType == 'admin' || userType == 'super_admin';
   bool get isModerator => userType == 'moderator';
-  bool get isAnyAdmin => isSuperAdmin || isModerator;
-  bool get canViewFinancialStats => isSuperAdmin;
+  bool get isAnyAdmin => isAdmin || isModerator;
+  bool get canViewFinancialStats => isAdmin;
 
   // ── صلاحيات التاجر ──────────────────────────────────────────
   bool get isMerchant => userType == 'merchant';

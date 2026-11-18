@@ -1,14 +1,15 @@
 // lib/providers/auth_provider.dart
-// ✅ إزالة سحب مفتاح Gemini السري لأجهزة المستخدمين العاديين (يُعالج عبر Cloud Function askGemini)
-// ✅ استخدام AppConstants.phoneLookupCandidates عند المطالبة التلقائية بالمحلات المعلقة (pendingOwnerPhone)
-// ✅ حجز اسم المستخدم في usernames/{username} وتوليد referralCode تلقائياً عند التسجيل
+// ✅ P0-1 Fix: التسجيل الذاتي ينشئ حساب customer فقط؛ الترقية لـ merchant تتم عبر Cloud Function عند تفعيل كود المحل
+// ✅ P0-3 Fix: المطالبة بالمحلات المعلقة (pendingOwnerPhone) تتم عبر Cloud Function (claimPendingShops)
+// ✅ P0-8 Fix: إزالة قراءة مفتاح Gemini الخام إلى ذاكرة التطبيق نهائياً
+// ✅ P1-1 Fix: عدم استدعاء signInAnonymously() في وضع الإنتاج
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
-import '../services/gemini_service.dart';
 import '../services/notification_service.dart';
 import '../services/referral_service.dart';
 import '../utils/constants.dart';
@@ -26,6 +27,7 @@ enum UserRole { admin, moderator, merchant, customer, user, guest }
 class AuthProvider with ChangeNotifier {
   final auth.FirebaseAuth _auth = auth.FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFunctions _functions = FirebaseFunctions.instance;
 
   AuthStatus _status = AuthStatus.uninitialized;
   AppUser? _user;
@@ -64,7 +66,6 @@ class AuthProvider with ChangeNotifier {
   Future<void> _autoLogin() async {
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool('is_guest') == true) {
-      await _ensureAnonymousSession();
       _status = AuthStatus.guest;
       notifyListeners();
       return;
@@ -79,13 +80,11 @@ class AuthProvider with ChangeNotifier {
     }
 
     final userId = prefs.getString('user_id');
-    if (userId != null) {
+    if (userId != null && BuildFlags.mockModeEnabled) {
       _status = AuthStatus.authenticating;
       notifyListeners();
       await _ensureAnonymousSession();
-      if (BuildFlags.mockModeEnabled) {
-        await _bindMockSession(userId);
-      }
+      await _bindMockSession(userId);
       await _fetchUserData(userId);
     } else {
       _status = AuthStatus.unauthenticated;
@@ -94,6 +93,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _ensureAnonymousSession() async {
+    if (!BuildFlags.mockModeEnabled) return;
     try {
       if (_auth.currentUser == null) {
         await _auth.signInAnonymously();
@@ -118,6 +118,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _unbindMockSession() async {
+    if (!BuildFlags.mockModeEnabled) return;
     try {
       final session = _auth.currentUser;
       if (session == null || !session.isAnonymous) return;
@@ -163,9 +164,6 @@ class AuthProvider with ChangeNotifier {
   }
 
   void _onLoginSuccess() {
-    if (_user?.isAnyAdmin == true) {
-      _loadGeminiKeyForAdmin();
-    }
     _subscribeToNotificationTopics();
     _claimPendingShopsByPhone();
     _ensureReferralCode();
@@ -185,59 +183,25 @@ class AuthProvider with ChangeNotifier {
     } catch (_) {}
   }
 
-  /// ✅ ربط أي محل أضافه الأدمن برقم هاتف هذا المستخدم قبل تسجيله في التطبيق (بجميع صيغ الرقم)
+  /// ✅ P0-3 Fix: المطالبة بالمحلات المعلقة عبر Cloud Function التي تتحقق من تطابق رقم الهاتف على الخادم
   Future<void> _claimPendingShopsByPhone() async {
     final user = _user;
     if (user == null || user.phone.trim().isEmpty) {
       return;
     }
     try {
-      final candidates = AppConstants.phoneLookupCandidates(user.phone.trim());
-      if (candidates.isEmpty) return;
-
-      final snap = await _firestore
-          .collection('shops')
-          .where('pendingOwnerPhone', whereIn: candidates)
-          .get();
-      if (snap.docs.isEmpty) {
-        return;
-      }
-      final batch = _firestore.batch();
-      for (final doc in snap.docs) {
-        batch.update(doc.reference, {
-          'ownerId': user.id,
-          'pendingOwnerPhone': null,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-      if (user.userType == 'customer') {
-        batch.update(_firestore.collection('users').doc(user.id), {
-          'userType': 'merchant',
-          'shopRole': 'owner',
-        });
-      }
-      await batch.commit();
-      if (user.userType == 'customer') {
-        _user = user.copyWith(userType: 'merchant', shopRole: 'owner');
-        notifyListeners();
+      final callable = _functions.httpsCallable('claimPendingShops');
+      final res = await callable.call();
+      final data = res.data;
+      if (data is Map && ((data['claimedCount'] as num?)?.toInt() ?? 0) > 0) {
+        if (_user != null && _user!.userType == 'customer') {
+          _user = _user!.copyWith(userType: 'merchant', shopRole: 'owner');
+          notifyListeners();
+        }
       }
     } catch (e) {
       debugPrint('_claimPendingShopsByPhone error: $e');
     }
-  }
-
-  /// ✅ يُستدعى للمشرفين فقط (لأن قراءة settings_private مقصورة على المشرفين في firestore.rules)
-  Future<void> _loadGeminiKeyForAdmin() async {
-    try {
-      final doc =
-          await _firestore.collection('settings_private').doc('gemini').get();
-      if (doc.exists) {
-        final key = doc.data()?['apiKey'];
-        if (key != null && key.toString().isNotEmpty) {
-          GeminiService().setApiKey(key.toString());
-        }
-      }
-    } catch (_) {}
   }
 
   Future<void> _subscribeToNotificationTopics() async {
@@ -289,31 +253,6 @@ class AuthProvider with ChangeNotifier {
     try {
       if (BuildFlags.mockModeEnabled && _isMockCredentials(phone, password)) {
         await _ensureAnonymousSession();
-        final snap = await _firestore
-            .collection('users')
-            .where('phone', whereIn: phoneCandidates)
-            .limit(1)
-            .get();
-
-        if (snap.docs.isNotEmpty) {
-          final data = Map<String, dynamic>.from(snap.docs.first.data());
-          if (data['isSuspended'] == true) {
-            _status = AuthStatus.unauthenticated;
-            notifyListeners();
-            return 'تم تعليق حسابك. تواصل مع الإدارة.';
-          }
-          data['id'] = snap.docs.first.id;
-          _user = AppUser.fromMap(data);
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('is_guest', false);
-          await prefs.setString('user_id', _user!.id);
-          await _bindMockSession(_user!.id);
-          _status = AuthStatus.authenticated;
-          _onLoginSuccess();
-          notifyListeners();
-          return null;
-        }
-
         await _handleMockLogin(phone, password);
         return null;
       }
@@ -325,7 +264,7 @@ class AuthProvider with ChangeNotifier {
           password: password,
         );
         final uid = credential.user!.uid;
-        var doc = await _firestore.collection('users').doc(uid).get();
+        final doc = await _firestore.collection('users').doc(uid).get();
 
         Map<String, dynamic>? userData;
         String resolvedId = uid;
@@ -333,16 +272,6 @@ class AuthProvider with ChangeNotifier {
         if (doc.exists && doc.data() != null) {
           userData = Map<String, dynamic>.from(doc.data()!);
           resolvedId = doc.id;
-        } else {
-          final snap = await _firestore
-              .collection('users')
-              .where('phone', whereIn: phoneCandidates)
-              .limit(1)
-              .get();
-          if (snap.docs.isNotEmpty) {
-            userData = Map<String, dynamic>.from(snap.docs.first.data());
-            resolvedId = snap.docs.first.id;
-          }
         }
 
         if (userData == null) {
@@ -447,28 +376,14 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     final normalizedPhone = _normalizePhone(phone);
-    final phoneCandidates = AppConstants.phoneLookupCandidates(phone);
     final syntheticEmail = _phoneToAuthEmail(normalizedPhone);
     final cleanUsername = username.trim().toLowerCase();
 
     try {
-      await _ensureAnonymousSession();
-
       if (await checkUsernameExists(cleanUsername)) {
         _status = AuthStatus.unauthenticated;
         notifyListeners();
         return 'اسم المستخدم مستخدم مسبقاً.';
-      }
-
-      final phoneSnap = await _firestore
-          .collection('users')
-          .where('phone', whereIn: phoneCandidates)
-          .limit(1)
-          .get();
-      if (phoneSnap.docs.isNotEmpty) {
-        _status = AuthStatus.unauthenticated;
-        notifyListeners();
-        return 'رقم الهاتف مسجّل بالفعل.';
       }
 
       if (_auth.currentUser != null && _auth.currentUser!.isAnonymous) {
@@ -482,13 +397,16 @@ class AuthProvider with ChangeNotifier {
       );
       final uid = credential.user!.uid;
 
+      // ✅ P0-1 Fix: يُنشأ الحساب دائماً كـ customer في قاعدة البيانات؛
+      // وتتم ترقيته إلى merchant عبر Cloud Function عند تفعيل كود المحل.
       final newUser = AppUser(
         id: uid,
         name: name.trim(),
         username: cleanUsername,
         email: syntheticEmail,
         phone: normalizedPhone,
-        userType: userType,
+        userType: 'customer',
+        businessType: userType == 'merchant' ? 'pending_merchant' : null,
       );
 
       final batch = _firestore.batch();
@@ -505,7 +423,7 @@ class AuthProvider with ChangeNotifier {
       });
       await batch.commit();
 
-      _user = newUser;
+      _user = newUser.copyWith(userType: userType);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('is_guest', false);
       await prefs.setString('user_id', uid);
@@ -544,49 +462,22 @@ class AuthProvider with ChangeNotifier {
     }
 
     final normalizedPhone = _normalizePhone(phone);
-    final snap = await _firestore
-        .collection('users')
-        .where('phone', isEqualTo: normalizedPhone)
-        .limit(1)
-        .get();
+    final suffix =
+        phone.length >= 4 ? phone.substring(phone.length - 4) : phone;
+    final mockId = '${userType}_mock_$suffix';
+    await _bindMockSession(mockId);
+    final mockUser = AppUser(
+      id: mockId,
+      name: userType == 'admin'
+          ? 'المدير'
+          : (userType == 'merchant' ? 'التاجر' : 'مستخدم'),
+      username: userType,
+      email: '$userType@sanhour.com',
+      phone: normalizedPhone,
+      userType: userType,
+    );
 
-    if (snap.docs.isNotEmpty) {
-      final data = Map<String, dynamic>.from(snap.docs.first.data());
-      data['id'] = snap.docs.first.id;
-      _user = AppUser.fromMap(data);
-      await _bindMockSession(_user!.id);
-    } else {
-      final suffix =
-          phone.length >= 4 ? phone.substring(phone.length - 4) : phone;
-      final mockId = '${userType}_mock_$suffix';
-      await _bindMockSession(mockId);
-      final mockUser = AppUser(
-        id: mockId,
-        name: userType == 'admin'
-            ? 'المدير'
-            : (userType == 'merchant' ? 'التاجر' : 'مستخدم'),
-        username: userType,
-        email: '$userType@sanhour.com',
-        phone: normalizedPhone,
-        userType: userType,
-      );
-
-      try {
-        await _firestore.collection('users').doc(mockId).set({
-          ...mockUser.toMap(),
-          'id': mockId,
-          'createdAt': FieldValue.serverTimestamp(),
-          'isSuspended': false,
-          'isDeleted': false,
-          'isMockUser': true,
-        }, SetOptions(merge: true));
-      } catch (e) {
-        debugPrint('Could not persist mock user: $e');
-      }
-
-      _user = mockUser;
-    }
-
+    _user = mockUser;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_guest', false);
     await prefs.setString('user_id', _user!.id);
@@ -599,14 +490,7 @@ class AuthProvider with ChangeNotifier {
     final clean = username.trim().toLowerCase();
     final reservedDoc =
         await _firestore.collection('usernames').doc(clean).get();
-    if (reservedDoc.exists) return true;
-
-    final result = await _firestore
-        .collection('users')
-        .where('username', isEqualTo: clean)
-        .limit(1)
-        .get();
-    return result.docs.isNotEmpty;
+    return reservedDoc.exists;
   }
 
   Future<String?> completeRegistration(
@@ -641,7 +525,8 @@ class AuthProvider with ChangeNotifier {
         username: cleanUsername,
         email: currentUser.email ?? '',
         phone: currentUser.phoneNumber ?? '',
-        userType: userType,
+        userType: 'customer',
+        businessType: userType == 'merchant' ? 'pending_merchant' : null,
       );
 
       final batch = _firestore.batch();
@@ -657,7 +542,7 @@ class AuthProvider with ChangeNotifier {
       });
       await batch.commit();
 
-      _user = newUser;
+      _user = newUser.copyWith(userType: userType);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('is_guest', false);
       await prefs.setString('user_id', newUser.id);
@@ -688,7 +573,6 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> loginAsGuest() async {
-    await _ensureAnonymousSession();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_guest', true);
     _status = AuthStatus.guest;

@@ -1,4 +1,3 @@
-# Trigger Stamp: 2026-11-18T00:42:31.922Z
 name: Build Release APK
 
 on:
@@ -54,17 +53,20 @@ jobs:
       - name: Install dependencies (flutter pub get)
         run: flutter pub get
 
+      - name: Run Unit & Widget Tests
+        run: flutter test --no-pub
+
       - name: Generate Production Keystore (if key.properties is missing)
         run: |
           if [ ! -f "android/key.properties" ]; then
             echo "Generating release keystore for APK signing..."
-            keytool -genkey -v -keystore android/app/sanhour-release-key.jks               -keyalg RSA -keysize 2048 -validity 10000               -alias sanhour_key               -storepass sanhourOnline2026               -keypass sanhourOnline2026               -dname "CN=Sanhour Online, OU=Mobile, O=Sanhour, L=Fayoum, ST=Fayoum, C=EG"
-            cat <<EOF > android/key.properties
-          storePassword=sanhourOnline2026
-          keyPassword=sanhourOnline2026
-          keyAlias=sanhour_key
-          storeFile=sanhour-release-key.jks
-          EOF
+            keytool -genkey -v -keystore android/app/sanhour-release-key.jks \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -alias sanhour_key \
+              -storepass sanhourOnline2026 \
+              -keypass sanhourOnline2026 \
+              -dname "CN=Sanhour Online, OU=Mobile, O=Sanhour, L=Fayoum, ST=Fayoum, C=EG"
+            printf "storePassword=sanhourOnline2026\nkeyPassword=sanhourOnline2026\nkeyAlias=sanhour_key\nstoreFile=sanhour-release-key.jks\n" > android/key.properties
           fi
 
       - name: Build Android APK
@@ -75,11 +77,11 @@ jobs:
           if [ -z "$SPLIT" ]; then SPLIT="$DEFAULT_SPLIT_ABI"; fi
           echo "Building APK with MODE=$MODE, SPLIT=$SPLIT"
           if [ "$MODE" = "debug" ]; then
-            flutter build apk --debug --no-tree-shake-icons
+            flutter build apk --debug --no-tree-shake-icons -v
           else
-            flutter build apk --release --no-tree-shake-icons
+            flutter build apk --release --no-tree-shake-icons -v
             if [ "$SPLIT" = "true" ]; then
-              flutter build apk --release --split-per-abi --no-tree-shake-icons
+              flutter build apk --release --split-per-abi --no-tree-shake-icons -v
             fi
           fi
 

@@ -4,6 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import '../services/notification_service.dart';
 import 'package:provider/provider.dart';
 import '../models/wishlist_collection_model.dart';
 import '../providers/favorites_provider.dart';
@@ -219,49 +221,22 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
 
   // ── البحث عن مستخدم برقم الهاتف (بكل الصيغ) أو اسم المستخدم ─────────
   Future<Map<String, dynamic>?> _searchUser(String query) async {
-    final db = FirebaseFirestore.instance;
-    QuerySnapshot? snap;
-
     final cleanQuery = query.replaceFirst('@', '').trim();
-    final phoneCandidates = AppConstants.phoneLookupCandidates(cleanQuery);
-
-    if (phoneCandidates.isNotEmpty) {
-      snap = await db
-          .collection('users')
-          .where('phone', whereIn: phoneCandidates)
-          .limit(1)
-          .get();
-    }
-
-    if (snap == null || snap.docs.isEmpty) {
-      snap = await db
-          .collection('users')
-          .where('username', isEqualTo: cleanQuery)
-          .limit(1)
-          .get();
-    }
-
-    if (snap.docs.isEmpty) {
-      final usernameDoc = await db
-          .collection('usernames')
-          .doc(cleanQuery.toLowerCase())
-          .get();
-      final uid = usernameDoc.data()?['uid'] as String?;
-      if (uid != null && uid.isNotEmpty) {
-        final userDoc = await db.collection('users').doc(uid).get();
-        if (userDoc.exists && userDoc.data() != null) {
-          final data = Map<String, dynamic>.from(userDoc.data()!);
-          data['id'] = userDoc.id;
-          return data;
-        }
+    if (cleanQuery.isEmpty) return null;
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('lookupUserPublicProfile');
+      final res = await callable.call({'query': cleanQuery});
+      final data = res.data;
+      if (data is Map && data['found'] == true && data['id'] != null) {
+        return {
+          'id': data['id'].toString(),
+          'name': (data['name'] ?? 'مستخدم').toString(),
+          'username': (data['username'] ?? '').toString(),
+          'userType': (data['userType'] ?? 'customer').toString(),
+        };
       }
-      return null;
-    }
-
-    final data =
-        Map<String, dynamic>.from(snap.docs.first.data() as Map<String, dynamic>);
-    data['id'] = snap.docs.first.id;
-    return data;
+    } catch (_) {}
+    return null;
   }
 
   static const int maxCollaborators = 20;
@@ -311,17 +286,15 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      await FirebaseFirestore.instance.collection('notification_queue').add({
-        'title': 'دعوة لقائمة مشتريات 🛒',
-        'body': '$senderName يدعوك للانضمام لقائمة "${col.name}"',
-        'targetUserId': targetUserId,
-        'data': {
+      await NotificationService.enqueuePushNotification(
+        title: 'دعوة لقائمة مشتريات 🛒',
+        body: '$senderName يدعوك للانضمام لقائمة "${col.name}"',
+        targetUserId: targetUserId,
+        data: {
           'route': 'notifications',
           'channel': 'user_collections',
         },
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

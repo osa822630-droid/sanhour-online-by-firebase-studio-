@@ -285,6 +285,9 @@ class ApiService {
   static Future<void> incrementAdClickCount(String adId) =>
       AdService.incrementAdClickCount(adId);
 
+  static Future<void> logAdClick(String adId) =>
+      AdService.incrementAdClickCount(adId);
+
   static Future<void> createAd({
     required List<File> imageFiles,
     required String targetType,
