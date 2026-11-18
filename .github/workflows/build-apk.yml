@@ -1,0 +1,114 @@
+name: Build Release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_mode:
+        description: 'Build Mode (release or debug)'
+        required: false
+        default: 'release'
+      split_per_abi:
+        description: 'Build split APKs per ABI in addition to universal APK'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: write
+  actions: read
+  checks: write
+
+jobs:
+  build-apk:
+    name: Build Sanhour Online Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Verify Flutter & Dart versions
+        run: |
+          flutter --version
+          dart --version
+
+      - name: Install dependencies (flutter pub get)
+        run: flutter pub get
+
+      - name: Generate Production Keystore (if key.properties is missing)
+        run: |
+          if [ ! -f "android/key.properties" ]; then
+            echo "Generating release keystore for APK signing..."
+            keytool -genkey -v -keystore android/app/sanhour-release-key.jks \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -alias sanhour_key \
+              -storepass sanhourOnline2026 \
+              -keypass sanhourOnline2026 \
+              -dname "CN=Sanhour Online, OU=Mobile, O=Sanhour, L=Fayoum, ST=Fayoum, C=EG"
+            cat <<EOF > android/key.properties
+          storePassword=sanhourOnline2026
+          keyPassword=sanhourOnline2026
+          keyAlias=sanhour_key
+          storeFile=sanhour-release-key.jks
+          EOF
+          fi
+
+      - name: Build Android APK
+        run: |
+          if [ "${{ github.event.inputs.build_mode }}" = "debug" ]; then
+            flutter build apk --debug --no-tree-shake-icons
+          else
+            flutter build apk --release --no-tree-shake-icons
+            if [ "${{ github.event.inputs.split_per_abi }}" = "true" ]; then
+              flutter build apk --release --split-per-abi --no-tree-shake-icons
+            fi
+          fi
+
+      - name: Prepare APK output folder
+        run: |
+          mkdir -p dist_apk
+          if [ -f "build/app/outputs/flutter-apk/app-release.apk" ]; then
+            cp build/app/outputs/flutter-apk/app-release.apk dist_apk/sanhour-online-release.apk
+          fi
+          if [ -f "build/app/outputs/flutter-apk/app-debug.apk" ]; then
+            cp build/app/outputs/flutter-apk/app-debug.apk dist_apk/sanhour-online-debug.apk
+          fi
+          for f in build/app/outputs/flutter-apk/app-*-release.apk; do
+            if [ -f "$f" ]; then
+              cp "$f" dist_apk/
+            fi
+          done
+          ls -lh dist_apk/
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanhour-online-apk
+          path: dist_apk/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release with direct APK download
+        if: always() && github.event.inputs.build_mode != 'debug'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-build-${{ github.run_number }}
+          name: "سنهور أونلاين — Release APK #${{ github.run_number }} (${{ github.ref_name }})"
+          body: |
+            ### 📱 نسخة أندرويد الجاهزة للتثبيت (Release APK)
+            - **الفرع (Branch):** `${{ github.ref_name }}`
+            - **الالتزام (Commit):** `${{ github.sha }}`
+            - **الملف المباشر:** `sanhour-online-release.apk`
+          files: dist_apk/*.apk
+          prerelease: false
