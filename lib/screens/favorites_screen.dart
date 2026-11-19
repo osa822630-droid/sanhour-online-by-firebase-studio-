@@ -246,12 +246,12 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.add_circle_outline,
-                      size: 40, color: const Color(0xFF3D6B5E)),
+                      size: 40, color: Color(0xFF3D6B5E)),
                   SizedBox(height: 10),
                   Text(
                     'قائمة جديدة',
                     style: TextStyle(
-                        color: const Color(0xFF3D6B5E),
+                        color: Color(0xFF3D6B5E),
                         fontWeight: FontWeight.bold),
                   ),
                 ],

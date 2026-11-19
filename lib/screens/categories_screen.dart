@@ -40,8 +40,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   List<Shop> _categoryShops = [];
-      _searchQuery = '';
-      _searchController.clear();
   bool _loadingCategoryShops = false;
 
   @override
@@ -90,6 +88,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       _selectedCategory = cat;
       _selectedSubCategory = subCategory;
       _selectedSubSubCategory = null;
+      _searchQuery = '';
+      _searchController.clear();
       _loadingCategoryShops = true;
     });
 
@@ -147,7 +147,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       appBar: AppBar(
         title: Text(_selectedCategory?.name ?? 'الفئات',
             style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Color(0xFF3D6B5E),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
         leading: _selectedCategory != null
