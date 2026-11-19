@@ -124,10 +124,10 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-                color: const Color(0xFFE0A865).withValues(alpha: 0.2),
+                color: const Color(0xFFFFC72C).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8)),
             child: const Icon(Icons.handshake_rounded,
-                color: Color(0xFFE0A865), size: 22),
+                color: const Color(0xFFFFC72C), size: 22),
           ),
           const SizedBox(width: 10),
           const Column(
@@ -140,7 +140,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                     style: TextStyle(fontSize: 11, color: Colors.white70)),
               ]),
         ]),
-        backgroundColor: const Color(0xFF3D6B5E),
+        backgroundColor: const Color(0xFF5E35B1),
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
@@ -192,7 +192,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
             return ChoiceChip(
               label: Text(cat, style: const TextStyle(fontSize: 12)),
               selected: sel,
-              selectedColor: Color(0xFF3D6B5E),
+              selectedColor: const Color(0xFF5E35B1),
               labelStyle: TextStyle(color: sel ? Colors.white : null),
               onSelected: (_) => setState(() => _selectedCat = cat),
             );
@@ -230,7 +230,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                     const SizedBox(height: 6),
                     const Text('كن أول من يضيف إعلاناً!',
                         style:
-                            TextStyle(color: Color(0xFF3D6B5E), fontSize: 13)),
+                            TextStyle(color: Color(0xFF5E35B1), fontSize: 13)),
                   ]));
             }
             return GridView.builder(
@@ -285,7 +285,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                        color: Color(0xFFE0A865),
+                        color: const Color(0xFFFFC72C),
                         borderRadius: BorderRadius.circular(4)),
                     child: const Text('مستعمل',
                         style: TextStyle(color: Colors.white, fontSize: 9)),
@@ -304,7 +304,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
               const SizedBox(height: 3),
               Text('${data['price'] ?? 0} جنيه',
                   style: const TextStyle(
-                      color: Color(0xFF3D6B5E),
+                      color: Color(0xFF5E35B1),
                       fontWeight: FontWeight.bold,
                       fontSize: 13)),
               Text(data['category'] ?? '',
@@ -351,7 +351,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                       Text('${data['price'] ?? 0} جنيه',
                           style: const TextStyle(
                               fontSize: 22,
-                              color: Color(0xFF3D6B5E),
+                              color: Color(0xFF5E35B1),
                               fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       if (data['description'] != null &&
@@ -416,7 +416,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                                 icon: const Icon(Icons.call),
                                 label: Text('اتصال: $phone'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Color(0xFF3D6B5E),
+                                  backgroundColor: const Color(0xFF5E35B1),
                                   foregroundColor: Colors.white,
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 14),
@@ -437,7 +437,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                               icon: const Icon(Icons.message),
                               label: const Text('واتساب'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Color(0xFF25D366),
+                                backgroundColor: const Color(0xFF25D366),
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 14, horizontal: 16),
@@ -458,7 +458,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
         child: Padding(
       padding: const EdgeInsets.all(32),
       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        const Icon(Icons.sell_outlined, size: 60, color: Color(0xFF3D6B5E)),
+        const Icon(Icons.sell_outlined, size: 60, color: Color(0xFF5E35B1)),
         const SizedBox(height: 16),
         const Text('سجّل دخولك لإضافة إعلان',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -471,7 +471,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
           onPressed: () => Navigator.push(
               context, MaterialPageRoute(builder: (_) => const LoginScreen())),
           style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF3D6B5E),
+              backgroundColor: const Color(0xFF5E35B1),
               foregroundColor: Colors.white,
               padding:
                   const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
@@ -520,22 +520,22 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFF3D6B5E).withValues(alpha: 0.08),
+                color: const Color(0xFF5E35B1).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: const Color(0xFF3D6B5E).withValues(alpha: 0.2)),
+                    color: const Color(0xFF5E35B1).withValues(alpha: 0.2)),
               ),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Row(children: [
                       Icon(Icons.info_outline,
-                          color: Color(0xFF3D6B5E), size: 18),
+                          color: Color(0xFF5E35B1), size: 18),
                       SizedBox(width: 8),
                       Text('قواعد ديلز',
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF3D6B5E))),
+                              color: Color(0xFF5E35B1))),
                     ]),
                     const SizedBox(height: 8),
                     _ruleRow('إعلان واحد مجاني في الشهر'),
@@ -586,7 +586,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                         Text('${data['price']} جنيه · ${data['category']}'),
                     trailing: Switch(
                       value: data['isActive'] ?? false,
-                      activeThumbColor: const Color(0xFF3D6B5E),
+                      activeThumbColor: const Color(0xFF5E35B1),
                       onChanged: (val) {
                         FirebaseFirestore.instance
                             .collection('dealer_listings')
@@ -611,7 +611,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: hasUsedMonthlyFreeAd
                       ? Colors.orange
-                      : Color(0xFF3D6B5E),
+                      : const Color(0xFF5E35B1),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
@@ -629,7 +629,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(children: [
           const Icon(Icons.check_circle_outline,
-              size: 14, color: Color(0xFF3D6B5E)),
+              size: 14, color: Color(0xFF5E35B1)),
           const SizedBox(width: 6),
           Expanded(child: Text(text, style: const TextStyle(fontSize: 13))),
         ]),
@@ -695,7 +695,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: isDark
-                            ? const Color(0xFF232927)
+                            ? const Color(0xFF252538)
                             : Colors.grey[100],
                         borderRadius: BorderRadius.circular(12),
                         image: imageFile != null
@@ -873,7 +873,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                               }
                             },
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF3D6B5E),
+                          backgroundColor: const Color(0xFF5E35B1),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14)),
                       child: submitting

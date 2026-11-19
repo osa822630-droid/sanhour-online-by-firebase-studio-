@@ -159,7 +159,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
     try {
       await ApiService.updateAppSettings({'season': season});
       if (!mounted) return;
-      _showSnackBar('تم تفعيل ثيم "$season" بنجاح', const Color(0xFF3D6B5E));
+      _showSnackBar('تم تفعيل ثيم "$season" بنجاح', Colors.deepPurple);
     } catch (e) {
       if (!mounted) return;
       _showSnackBar('تعذّر تحديث الثيم: $e', Colors.red);
@@ -259,7 +259,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: isDanger ? Colors.red : const Color(0xFF3D6B5E),
+              backgroundColor: isDanger ? Colors.red : Colors.deepPurple,
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(ctx, true),
@@ -283,7 +283,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121514) : Colors.grey[100],
+      backgroundColor: isDark ? const Color(0xFF0E0E1A) : Colors.grey[100],
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -451,7 +451,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                     : const Icon(Icons.save),
                 label: Text(_isLoading ? 'جاري الحفظ...' : 'حفظ الإعدادات'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF3D6B5E),
+                  backgroundColor: const Color(0xFF5E35B1),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -467,7 +467,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
             _sectionTitle('إشعار مستهدف',
                 'أرسل إشعاراً فورياً لفئة محددة من المستخدمين',
                 Icons.notifications_active,
-                color: const Color(0xFF3D6B5E)),
+                color: Colors.deepPurple),
             _cardWrap(isDark, [
               TextField(
                 controller: _notifTitleCtrl,
@@ -511,7 +511,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                   onSelectionChanged: (s) =>
                       setState(() => _notifTarget = s.first),
                   style: SegmentedButton.styleFrom(
-                    selectedBackgroundColor: const Color(0xFF3D6B5E),
+                    selectedBackgroundColor: Colors.deepPurple,
                     selectedForegroundColor: Colors.white,
                   ),
                 ),
@@ -533,7 +533,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                   label: Text(
                       _isSendingNotif ? 'جاري الإرسال...' : 'إرسال الإشعار'),
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF3D6B5E),
+                      backgroundColor: Colors.deepPurple,
                       foregroundColor: Colors.white),
                 ),
               ),
@@ -602,7 +602,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                 'إعلانات بدء التشغيل',
                 'تحكم حصري للإدارة في عرض الإعلانات عند فتح التطبيق',
                 Icons.campaign_rounded,
-                color: Color(0xFF3D6B5E)),
+                color: const Color(0xFF5E35B1)),
             _cardWrap(isDark, [
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -612,7 +612,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                     'عند التفعيل تظهر الإعلانات المنبثقة لجميع المستخدمين عند فتح التطبيق',
                     style: TextStyle(fontSize: 12)),
                 value: _startupAdsEnabled,
-                activeThumbColor: const Color(0xFF3D6B5E),
+                activeThumbColor: const Color(0xFF5E35B1),
                 onChanged: (val) async {
                   setState(() => _startupAdsEnabled = val);
                   try {
@@ -621,7 +621,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                     if (!mounted) return;
                     _showSnackBar(
                       val ? '✅ تم تفعيل إعلانات فتح التطبيق' : 'تم إيقاف إعلانات فتح التطبيق',
-                      const Color(0xFF3D6B5E),
+                      const Color(0xFF5E35B1),
                     );
                   } catch (e) {
                     if (!mounted) return;
@@ -697,7 +697,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
     IconData icon, {
     Color? color,
   }) {
-    final c = color ?? const Color(0xFF3D6B5E);
+    final c = color ?? const Color(0xFF5E35B1);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -739,7 +739,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1B201E) : Colors.white,
+        color: isDark ? const Color(0xFF23203A) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(

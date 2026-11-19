@@ -8,7 +8,7 @@ class AppFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF1B201E) : const Color(0xFF1F3B33);
+    final bgColor = isDark ? const Color(0xFF211E3A) : const Color(0xFF2D1B69);
 
     return Container(
       color: bgColor,
@@ -28,7 +28,7 @@ class AppFooter extends StatelessWidget {
                   errorBuilder: (_, __, ___) => Container(
                     width: 36,
                     height: 36,
-                    color: const Color(0xFF3D6B5E),
+                    color: const Color(0xFF5E35B1),
                     child: const Icon(Icons.storefront,
                         color: Colors.white, size: 20),
                   ),

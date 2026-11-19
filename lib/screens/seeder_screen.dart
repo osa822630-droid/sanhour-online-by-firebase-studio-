@@ -100,7 +100,7 @@ class _SeederScreenState extends State<SeederScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('رفع البيانات التجريبية'),
-        backgroundColor: const Color(0xFF3D6B5E),
+        backgroundColor: const Color(0xFF5E35B1),
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
@@ -119,7 +119,7 @@ class _SeederScreenState extends State<SeederScreen> {
                 children: [
                   Row(children: [
                     const Icon(Icons.cloud_upload_outlined,
-                        color: Color(0xFF3D6B5E), size: 28),
+                        color: Color(0xFF5E35B1), size: 28),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -136,7 +136,7 @@ class _SeederScreenState extends State<SeederScreen> {
                         style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF3D6B5E))),
+                            color: Color(0xFF5E35B1))),
                   ]),
                   const SizedBox(height: 12),
                   ClipRRect(
@@ -145,7 +145,7 @@ class _SeederScreenState extends State<SeederScreen> {
                       value: overall / 100,
                       minHeight: 12,
                       backgroundColor: Colors.grey.shade200,
-                      color: _isDone ? Colors.green : Color(0xFF3D6B5E),
+                      color: _isDone ? Colors.green : const Color(0xFF5E35B1),
                     ),
                   ),
                   if (_current?.detail != null) ...[
@@ -192,7 +192,7 @@ class _SeederScreenState extends State<SeederScreen> {
                 iconColor = Colors.green;
               } else if (isActive) {
                 cardColor = const Color(0xFFF3E5F5);
-                iconColor = const Color(0xFF3D6B5E);
+                iconColor = const Color(0xFF5E35B1);
               } else {
                 cardColor = Colors.grey.shade50;
                 iconColor = Colors.grey.shade400;
@@ -205,7 +205,7 @@ class _SeederScreenState extends State<SeederScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isActive
-                        ? const Color(0xFF3D6B5E)
+                        ? const Color(0xFF5E35B1)
                         : isDone
                             ? Colors.green
                             : Colors.grey.shade200,
@@ -235,7 +235,7 @@ class _SeederScreenState extends State<SeederScreen> {
                             height: 14,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Color(0xFF3D6B5E),
+                              color: Color(0xFF5E35B1),
                             ),
                           ),
                       ]),
@@ -247,7 +247,7 @@ class _SeederScreenState extends State<SeederScreen> {
                                 ? FontWeight.bold
                                 : FontWeight.normal,
                             color: isActive
-                                ? Color(0xFF3D6B5E)
+                                ? const Color(0xFF5E35B1)
                                 : isDone
                                     ? Colors.green.shade700
                                     : Colors.grey.shade600),
@@ -261,7 +261,7 @@ class _SeederScreenState extends State<SeederScreen> {
                             value: pct / 100,
                             minHeight: 4,
                             backgroundColor: Colors.white,
-                            color: const Color(0xFF3D6B5E),
+                            color: const Color(0xFF5E35B1),
                           ),
                         )
                       else if (isDone)
@@ -373,7 +373,7 @@ class _SeederScreenState extends State<SeederScreen> {
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                    _isDone ? Colors.green : Color(0xFF3D6B5E),
+                    _isDone ? Colors.green : const Color(0xFF5E35B1),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),

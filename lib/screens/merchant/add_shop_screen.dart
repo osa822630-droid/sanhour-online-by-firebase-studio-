@@ -250,7 +250,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('بيانات المحل الجديد'),
-        backgroundColor: const Color(0xFF3D6B5E),
+        backgroundColor: const Color(0xFF5E35B1),
         foregroundColor: Colors.white,
       ),
       body: Form(
@@ -278,7 +278,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
                           margin: const EdgeInsets.only(bottom: 40),
                           decoration: BoxDecoration(
                             color: isDark
-                                ? const Color(0xFF232927)
+                                ? const Color(0xFF252538)
                                 : Colors.grey[200],
                             borderRadius: BorderRadius.circular(12),
                             image: _coverFile != null
@@ -316,7 +316,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
                             padding: const EdgeInsets.all(3),
                             decoration: BoxDecoration(
                                 color: isDark
-                                    ? const Color(0xFF121514)
+                                    ? const Color(0xFF0E0E1A)
                                     : Colors.white,
                                 shape: BoxShape.circle),
                             child: Stack(
@@ -325,7 +325,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
                                 CircleAvatar(
                                   radius: 40,
                                   backgroundColor: isDark
-                                      ? const Color(0xFF232927)
+                                      ? const Color(0xFF252538)
                                       : Colors.grey[100],
                                   backgroundImage: _logoFile != null
                                       ? FileImage(_logoFile!)
@@ -542,7 +542,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
                     helperMaxLines: 2,
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person_pin_outlined,
-                        color: Color(0xFF3D6B5E)),
+                        color: Color(0xFF5E35B1)),
                   ),
                   onSaved: (v) => _targetOwnerIdentifier = (v ?? '').trim(),
                 ),
@@ -563,7 +563,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
                     hintText: 'SHP-XXXX-XXXX أو SHOP-XXXX-XXXX',
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.vpn_key,
-                        color: Color(0xFF3D6B5E)),
+                        color: Color(0xFF5E35B1)),
                     suffixIcon: _isValidatingCode
                         ? const Padding(
                             padding: EdgeInsets.all(12),
@@ -609,7 +609,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
                         value: overall,
                         minHeight: 8,
                         backgroundColor: Colors.grey.shade200,
-                        color: const Color(0xFF3D6B5E),
+                        color: const Color(0xFF5E35B1),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -617,7 +617,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
                       'جارٍ رفع الصور... ${(overall * 100).round()}%',
                       style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF3D6B5E),
+                          color: Color(0xFF5E35B1),
                           fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 12),
@@ -632,7 +632,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
                   onPressed:
                       _isSubmitting || _isValidatingCode ? null : _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3D6B5E),
+                    backgroundColor: const Color(0xFF5E35B1),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),

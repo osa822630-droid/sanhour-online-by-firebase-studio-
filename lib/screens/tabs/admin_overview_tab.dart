@@ -308,25 +308,25 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
 
             _buildReportButton(
               context,
-              title: 'ترتيب المحلات',
+              title: '🏆 ترتيب المحلات',
               subtitle: 'الأكثر مشاهدة، تقييماً، وتفضيلاً',
               icon: Icons.store,
-              color: const Color(0xFF3D6B5E),
+              color: Colors.deepPurple,
               reportType: 'shops',
               isDark: isDark,
             ),
             _buildReportButton(
               context,
-              title: 'ترتيب المنتجات (الأعلى 100)',
+              title: '📦 ترتيب المنتجات (Top 100)',
               subtitle: 'تحليل أداء المنتجات حسب القسم',
               icon: Icons.shopping_bag,
-              color: const Color(0xFF4B5E6F),
+              color: const Color(0xFF3949AB),
               reportType: 'products',
               isDark: isDark,
             ),
             _buildReportButton(
               context,
-              title: 'ترتيب العروض (الأعلى 100)',
+              title: '🏷️ ترتيب العروض (Top 100)',
               subtitle: 'العروض الأكثر جاذبية للعملاء',
               icon: Icons.local_offer,
               color: Colors.deepOrangeAccent,
@@ -345,7 +345,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1B201E) : Colors.white,
+          color: isDark ? const Color(0xFF23203A) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
               color: isDark ? Colors.white24 : Colors.grey.shade300)),
@@ -402,15 +402,15 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-            colors: [Color(0xFF26483F), Color(0xFF3D6B5E)],
+            colors: [Color(0xFF4527A0), Color(0xFF5E35B1)],
             begin: Alignment.topRight,
             end: Alignment.bottomLeft),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-            color: const Color(0xFFE0A865).withValues(alpha: 0.35), width: 1.2),
+            color: const Color(0xFFFFC72C).withValues(alpha: 0.35), width: 1.2),
         boxShadow: [
           BoxShadow(
-              color: const Color(0xFF3D6B5E).withValues(alpha: 0.32),
+              color: const Color(0xFF5E35B1).withValues(alpha: 0.32),
               blurRadius: 12,
               offset: const Offset(0, 5))
         ],
@@ -465,7 +465,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      color: isDark ? const Color(0xFF1B201E) : Colors.white,
+      color: isDark ? const Color(0xFF23203A) : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         contentPadding:
@@ -578,7 +578,7 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: const Color(0xFF3D6B5E),
+        backgroundColor: Colors.deepPurple[900],
         foregroundColor: Colors.white,
       ),
       body: Column(
@@ -586,7 +586,7 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
           // شريط الفلاتر
           Container(
             padding: const EdgeInsets.all(12),
-            color: isDark ? const Color(0xFF1B201E) : Colors.white,
+            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
             child: Column(
               children: [
                 // فلتر الأقسام
@@ -709,7 +709,7 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      color: isDark ? const Color(0xFF1B201E) : Colors.white,
+      color: isDark ? const Color(0xFF23203A) : Colors.white,
       child: ListTile(
         leading: SizedBox(
           width: 80,

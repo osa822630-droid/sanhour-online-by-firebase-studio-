@@ -143,11 +143,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
+          isDark ? const Color(0xFF18162B) : const Color(0xFFF8F7FF),
       appBar: AppBar(
         title: Text(_selectedCategory?.name ?? 'الفئات',
             style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Color(0xFF3D6B5E),
+        backgroundColor: const Color(0xFF5E35B1),
         foregroundColor: Colors.white,
         centerTitle: true,
         leading: _selectedCategory != null
@@ -207,7 +207,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 )
               : null,
           filled: true,
-          fillColor: isDark ? const Color(0xFF1B201E) : Colors.white,
+          fillColor: isDark ? const Color(0xFF23203A) : Colors.white,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           border: OutlineInputBorder(
@@ -265,7 +265,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 provider.fetchShops(refresh: true),
               ]);
             },
-            color: const Color(0xFF3D6B5E),
+            color: const Color(0xFF5E35B1),
             child: GridView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -282,7 +282,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             onTap: () => _selectCategory(cat),
             child: Container(
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1B201E) : Colors.white,
+                color: isDark ? const Color(0xFF23203A) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
@@ -370,7 +370,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     return RefreshIndicator(
       onRefresh: () => _selectCategory(cat,
           subCategory: _selectedSubCategory, forceRefresh: true),
-      color: const Color(0xFF3D6B5E),
+      color: const Color(0xFF5E35B1),
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -443,7 +443,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     bool isSecondLevel = false,
   }) {
     final color =
-        isSecondLevel ? const Color(0xFF00897B) : const Color(0xFF3D6B5E);
+        isSecondLevel ? const Color(0xFF00897B) : const Color(0xFF5E35B1);
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(16, isSecondLevel ? 0 : 12, 16, 10),
@@ -548,7 +548,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 MaterialPageRoute(
                     builder: (_) => const AdvancedSearchScreen())),
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3D6B5E),
+                backgroundColor: const Color(0xFF5E35B1),
                 foregroundColor: Colors.white),
             child: const Text('بحث متقدم'),
           ),
@@ -572,7 +572,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             icon: const Icon(Icons.refresh),
             label: const Text('إعادة المحاولة'),
             style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF3D6B5E),
+                backgroundColor: const Color(0xFF5E35B1),
                 foregroundColor: Colors.white),
           ),
         ]),
@@ -627,7 +627,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         value: value,
         child: Row(children: [
           if (_sortBy == value)
-            const Icon(Icons.check, color: Color(0xFF3D6B5E), size: 18)
+            const Icon(Icons.check, color: Color(0xFF5E35B1), size: 18)
           else
             const SizedBox(width: 18),
           const SizedBox(width: 8),
