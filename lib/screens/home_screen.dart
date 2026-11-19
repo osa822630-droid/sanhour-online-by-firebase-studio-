@@ -116,18 +116,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
   }
 
-  // ── التركيز على شريط البحث والتمرير إليه ────────────────────────
-  void _focusSearchBar() {
-    _scrollCtrl.animateTo(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
-    Future.delayed(const Duration(milliseconds: 320), () {
-      if (mounted) _searchFocusNode.requestFocus();
-    });
-  }
-
   Future<void> _loadInterests() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('user_interests');
@@ -208,11 +196,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return SeasonalOverlay(
       child: Scaffold(
         backgroundColor:
-            isDark ? const Color(0xFF18162B) : const Color(0xFFF8F7FF),
+            isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
         body: SafeArea(
           child: RefreshIndicator(
             onRefresh: _refreshData,
-            color: const Color(0xFF5E35B1),
+            color: const Color(0xFF3D6B5E),
             child: Consumer<ShopsProvider>(
               builder: (context, provider, _) {
                 _buildShuffleList(provider);
@@ -259,15 +247,27 @@ class _HomeScreenState extends State<HomeScreen> {
                       floating: false,
                       expandedHeight: 110,
                       backgroundColor: isDark
-                          ? const Color(0xFF211E3A)
-                          : const Color(0xFF5E35B1),
+                          ? const Color(0xFF1B201E)
+                          : Colors.white,
+                      surfaceTintColor: Colors.transparent,
+                      elevation: 0,
                       automaticallyImplyLeading: false,
                       flexibleSpace: FlexibleSpaceBar(
                         collapseMode: CollapseMode.pin,
                         background: Container(
-                          color: isDark
-                              ? const Color(0xFF211E3A)
-                              : const Color(0xFF5E35B1),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF1B201E)
+                                : Colors.white,
+                            border: Border(
+                              bottom: BorderSide(
+                                color: isDark
+                                    ? const Color(0xFF2B3330)
+                                    : const Color(0xFFE4E5E2),
+                                width: 1,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       title: Row(
@@ -276,8 +276,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           IconButton(
                             onPressed: () => MainScreen.openDrawer(),
                             tooltip: 'القائمة',
-                            icon: const Icon(Icons.menu_rounded,
-                                color: Colors.white, size: 26),
+                            icon: Icon(Icons.menu_rounded,
+                                color: isDark ? const Color(0xFFE6E8EB) : const Color(0xFF1A1D21), size: 26),
                             constraints: const BoxConstraints(
                               minWidth: 44,
                               minHeight: 44,
@@ -299,13 +299,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
 
                           // اسم التطبيق
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               children: [
                                 Text(
                                   'سنهور أونلاين',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: isDark
+                                        ? const Color(0xFFE6E8EB)
+                                        : const Color(0xFF1A1D21),
                                     fontWeight: FontWeight.bold,
                                     fontSize: 18,
                                   ),
@@ -313,7 +315,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Text(
                                   'سنهور كلها في جيبك',
                                   style: TextStyle(
-                                      color: Colors.white70, fontSize: 11),
+                                    color: isDark
+                                        ? const Color(0xFF8E95A0)
+                                        : const Color(0xFF6B7280),
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ],
                             ),
@@ -404,9 +410,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           // المحلات المميزة
                           if (_showType(_typeShops) &&
                               provider.featuredShops.isNotEmpty) ...[
-                            _sectionHeader('⭐ محلات مميزة'),
+                            _sectionHeader('محلات مميزة'),
                             HorizontalList(
-                              title: '⭐ محلات مميزة',
+                              title: 'محلات مميزة',
                               items: provider.featuredShops,
                               type: 'shop',
                             ),
@@ -416,9 +422,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           // أحدث المنتجات
                           if (_showType(_typeProducts) &&
                               provider.products.isNotEmpty) ...[
-                            _sectionHeader('🛍️ أحدث المنتجات'),
+                            _sectionHeader('أحدث المنتجات'),
                             HorizontalList(
-                              title: '🛍️ أحدث المنتجات',
+                              title: 'أحدث المنتجات',
                               items: provider.products.take(10).toList(),
                               type: 'product',
                             ),
@@ -428,11 +434,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           // أحدث العروض
                           if (_showType(_typeOffers) &&
                               provider.offers.isNotEmpty) ...[
-                            _sectionHeader('🏷️ أحدث العروض',
+                            _sectionHeader('أحدث العروض',
                                 onViewAll: () =>
                                     MainScreen.switchTab(MainScreen.offersTab)),
                             HorizontalList(
-                              title: '🏷️ أحدث العروض',
+                              title: 'أحدث العروض',
                               items: provider.offers.take(10).toList(),
                               type: 'offer',
                             ),
@@ -500,7 +506,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ..._regions.map((r) => ListTile(
                 title: Text(r),
                 leading: const Icon(Icons.location_on_outlined,
-                    color: Color(0xFF5E35B1)),
+                    color: Color(0xFF3D6B5E)),
                 onTap: () {
                   Navigator.pop(context);
                   context.read<ShopsProvider>().filterByRegion(r);
@@ -521,15 +527,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── مساعدات UI ────────────────────────────────────────────────────
 
-  Widget _bar(double w) =>
-      Container(width: w, height: 2.5, color: Colors.white);
-
   // ── ديلز (بيع وشراء المستعمل) ────────────────────────────────
   Widget _buildDealerSection(BuildContext context) {
     return Column(
       children: [
         _sectionHeader(
-          '🏷️ ديلز',
+          'ديلز',
           onViewAll: () => MainScreen.switchTab(MainScreen.dealerTab),
         ),
         Container(
@@ -537,7 +540,7 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF5E35B1), Color(0xFF3949AB)],
+              colors: [Color(0xFF3D6B5E), Color(0xFF4B5E6F)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -566,7 +569,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     onPressed: () => MainScreen.switchTab(MainScreen.dealerTab),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF5E35B1),
+                      foregroundColor: const Color(0xFF3D6B5E),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 10),
                       shape: RoundedRectangleBorder(
@@ -599,7 +602,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return Column(
           children: [
             _sectionHeader(
-              '💼 فرص عمل متاحة',
+              'فرص عمل متاحة',
               onViewAll: () =>
                   MainScreen.switchTab(MainScreen.adsHubTab, adsSubTab: 1),
             ),
@@ -619,13 +622,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         MainScreen.switchTab(MainScreen.adsHubTab, adsSubTab: 1),
                     child: Container(
                       width: 200,
-                      margin: const EdgeInsets.only(left: 12),
+                      margin: const EdgeInsetsDirectional.only(end: 12),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.deepPurple.withValues(alpha: 0.07),
+                        color: const Color(0xFF3D6B5E).withValues(alpha: 0.07),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                            color: Colors.deepPurple.withValues(alpha: 0.2)),
+                            color: const Color(0xFF3D6B5E).withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -648,13 +651,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                 horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color:
-                                  Colors.deepPurple.withValues(alpha: 0.12),
+                                  Color(0xFF3D6B5E).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               category,
                               style: const TextStyle(
-                                  color: Colors.deepPurple, fontSize: 10),
+                                  color: Color(0xFF3D6B5E), fontSize: 10),
                             ),
                           ),
                         ],
@@ -683,7 +686,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return Column(
           children: [
             _sectionHeader(
-              '🔧 محتاج حاجة تتعمل؟',
+              'طلبات الخدمات',
               onViewAll: () =>
                   MainScreen.switchTab(MainScreen.adsHubTab, adsSubTab: 2),
             ),
@@ -703,7 +706,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         MainScreen.switchTab(MainScreen.adsHubTab, adsSubTab: 2),
                     child: Container(
                       width: 200,
-                      margin: const EdgeInsets.only(left: 12),
+                      margin: const EdgeInsetsDirectional.only(end: 12),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: urgent
@@ -770,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
             TextButton(
               onPressed: onViewAll,
               child: const Text('عرض الكل',
-                  style: TextStyle(color: Color(0xFF5E35B1), fontSize: 13)),
+                  style: TextStyle(color: Color(0xFF3D6B5E), fontSize: 13)),
             ),
         ],
       ),
@@ -796,10 +799,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () =>
                     setState(() => _buildShuffleList(provider, force: true)),
                 icon: const Icon(Icons.shuffle,
-                    size: 16, color: Color(0xFF5E35B1)),
+                    size: 16, color: Color(0xFF3D6B5E)),
                 label: const Text('خلّط',
                     style:
-                        TextStyle(color: Color(0xFF5E35B1), fontSize: 13)),
+                        TextStyle(color: Color(0xFF3D6B5E), fontSize: 13)),
               ),
             ],
           ),
@@ -829,7 +832,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.refresh),
             label: const Text('تحديث'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5E35B1),
+              backgroundColor: Color(0xFF3D6B5E),
               foregroundColor: Colors.white,
               padding:
                   const EdgeInsets.symmetric(horizontal: 32, vertical: 12),

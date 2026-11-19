@@ -164,16 +164,17 @@ class MediaUploadService {
       try {
         final ref = _storage.ref().child(path);
         final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-        task = ref.putFile(
+        final uploadTask = ref.putFile(
           file,
           SettableMetadata(
             contentType: contentType,
             customMetadata: uid.isNotEmpty ? {'ownerId': uid} : null,
           ),
         );
+        task = uploadTask;
 
         if (onProgress != null) {
-          progressSub = task.snapshotEvents.listen(
+          progressSub = uploadTask.snapshotEvents.listen(
             (snapshot) {
               onProgress(MediaUploadProgress(
                 fileName: name,
@@ -185,10 +186,10 @@ class MediaUploadService {
           );
         }
 
-        final snapshot = await task.timeout(
+        final snapshot = await uploadTask.timeout(
           const Duration(seconds: 25),
           onTimeout: () {
-            task?.cancel();
+            uploadTask.cancel();
             throw const MediaUploadException(
               'انتهت مهلة رفع الصورة. تحقق من اتصال الإنترنت أو قواعد التخزين وحاول مجدداً.',
             );
