@@ -131,7 +131,7 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
               child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1),
+                backgroundColor: const Color(0xFF3D6B5E),
                 foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
             child: const Text('حفظ'),
@@ -160,7 +160,7 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
     }
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E0E1A) : Colors.grey[100],
+      backgroundColor: isDark ? const Color(0xFF121514) : Colors.grey[100],
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -184,7 +184,7 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
               ),
               value: _showLocationFilter,
               onChanged: (v) => setState(() => _showLocationFilter = v),
-              activeThumbColor: const Color(0xFF5E35B1),
+              activeThumbColor: const Color(0xFF3D6B5E),
             ),
           ]),
 
@@ -210,7 +210,7 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
                         EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.add_location_alt_outlined,
-                        color: Color(0xFF5E35B1)),
+                        color: Color(0xFF3D6B5E)),
                   ),
                 ),
               ),
@@ -218,7 +218,7 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
               ElevatedButton(
                 onPressed: _addRegion,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5E35B1),
+                  backgroundColor: const Color(0xFF3D6B5E),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 12),
@@ -305,7 +305,7 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
                   : const Icon(Icons.save),
               label: Text(_isSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1),
+                backgroundColor: Color(0xFF3D6B5E),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
@@ -348,7 +348,7 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
         padding: const EdgeInsets.all(16),
         margin: const EdgeInsets.only(bottom: 4),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+          color: isDark ? const Color(0xFF1B201E) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
@@ -384,10 +384,10 @@ class _SectionHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF5E35B1).withValues(alpha: 0.1),
+              color: const Color(0xFF3D6B5E).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: const Color(0xFF5E35B1), size: 20),
+            child: Icon(icon, color: const Color(0xFF3D6B5E), size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -398,7 +398,7 @@ class _SectionHeader extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF5E35B1))),
+                        color: Color(0xFF3D6B5E))),
                 const SizedBox(height: 2),
                 Text(subtitle,
                     style: const TextStyle(color: Colors.grey, fontSize: 12)),

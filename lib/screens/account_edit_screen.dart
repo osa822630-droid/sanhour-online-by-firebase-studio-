@@ -142,17 +142,17 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFF5E35B1).withValues(alpha: 0.08),
+          color: const Color(0xFF3D6B5E).withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: const Color(0xFF5E35B1).withValues(alpha: 0.3)),
+              color: const Color(0xFF3D6B5E).withValues(alpha: 0.3)),
         ),
         child: Column(children: [
-          Icon(icon, color: const Color(0xFF5E35B1), size: 32),
+          Icon(icon, color: const Color(0xFF3D6B5E), size: 32),
           const SizedBox(height: 8),
           Text(label,
               style: const TextStyle(
-                  color: Color(0xFF5E35B1), fontWeight: FontWeight.w600)),
+                  color: Color(0xFF3D6B5E), fontWeight: FontWeight.w600)),
         ]),
       ),
     );
@@ -305,11 +305,11 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: const Text('تعديل الحساب',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
         actions: [
@@ -342,7 +342,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                            color: const Color(0xFF5E35B1), width: 3),
+                            color: Color(0xFF3D6B5E), width: 3),
                       ),
                       child: ClipOval(
                         child: Stack(
@@ -401,7 +401,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: const BoxDecoration(
-                            color: Color(0xFF5E35B1), shape: BoxShape.circle),
+                            color: Color(0xFF3D6B5E), shape: BoxShape.circle),
                         child: _isUploadingPhoto
                             ? const SizedBox(
                                 width: 16,
@@ -493,14 +493,14 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF5E35B1).withValues(alpha: 0.08),
+                  color: const Color(0xFF3D6B5E).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                      color: const Color(0xFF5E35B1).withValues(alpha: 0.25)),
+                      color: const Color(0xFF3D6B5E).withValues(alpha: 0.25)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.card_giftcard, color: Color(0xFF5E35B1)),
+                    const Icon(Icons.card_giftcard, color: Color(0xFF3D6B5E)),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -512,7 +512,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                               letterSpacing: 1.2,
-                              color: Color(0xFF5E35B1),
+                              color: Color(0xFF3D6B5E),
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -527,7 +527,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
                     IconButton(
                       tooltip: 'نسخ الكود',
                       icon: const Icon(Icons.copy,
-                          size: 20, color: Color(0xFF5E35B1)),
+                          size: 20, color: Color(0xFF3D6B5E)),
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: _referralCode));
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -554,7 +554,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _save,
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5E35B1),
+                    backgroundColor: const Color(0xFF3D6B5E),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
@@ -579,7 +579,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
 
   Widget _avatar(AppUser? user) {
     return Container(
-      color: const Color(0xFF5E35B1),
+      color: const Color(0xFF3D6B5E),
       child: Center(
         child: Text(
           user?.name.isNotEmpty == true
@@ -598,5 +598,5 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
       style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF5E35B1)));
+          color: Color(0xFF3D6B5E)));
 }

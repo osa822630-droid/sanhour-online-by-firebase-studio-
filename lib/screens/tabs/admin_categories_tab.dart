@@ -59,12 +59,12 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E0E1A) : Colors.grey[100],
+      backgroundColor: isDark ? const Color(0xFF121514) : Colors.grey[100],
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddEditDialog(),
         label: const Text('فئة جديدة'),
         icon: const Icon(Icons.add),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
       ),
       body: _isLoading
@@ -111,7 +111,7 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      color: isDark ? const Color(0xFF1B201E) : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -229,7 +229,7 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
             icon: const Icon(Icons.add),
             label: const Text('إضافة أول فئة'),
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1),
+                backgroundColor: Color(0xFF3D6B5E),
                 foregroundColor: Colors.white),
           ),
         ],
@@ -312,7 +312,7 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
     Colors.indigo,
     Colors.cyan,
     Colors.amber,
-    const Color(0xFF5E35B1),
+    const Color(0xFF3D6B5E),
   ];
 
   @override
@@ -384,28 +384,20 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
   Future<void> _cascadeCategoryRename(String oldName, String newName) async {
     if (oldName.isEmpty || newName.isEmpty || oldName == newName) return;
     final firestore = FirebaseFirestore.instance;
-    for (final collectionName in const [
-      'shops',
-      'products',
-      'job_ads',
-      'service_requests',
-      'dealer_listings',
-    ]) {
-      try {
-        final snap = await firestore
-            .collection(collectionName)
-            .where('category', isEqualTo: oldName)
-            .get();
-        if (snap.docs.isEmpty) continue;
-        for (var i = 0; i < snap.docs.length; i += 400) {
-          final chunk = snap.docs.skip(i).take(400);
-          final batch = firestore.batch();
-          for (final doc in chunk) {
-            batch.update(doc.reference, {'category': newName});
-          }
-          await batch.commit();
+    for (final collectionName in const ['shops', 'products']) {
+      final snap = await firestore
+          .collection(collectionName)
+          .where('category', isEqualTo: oldName)
+          .get();
+      if (snap.docs.isEmpty) continue;
+      for (var i = 0; i < snap.docs.length; i += 400) {
+        final chunk = snap.docs.skip(i).take(400);
+        final batch = firestore.batch();
+        for (final doc in chunk) {
+          batch.update(doc.reference, {'category': newName});
         }
-      } catch (_) {}
+        await batch.commit();
+      }
     }
   }
 
@@ -459,13 +451,13 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: Text(
           isNew ? 'إضافة فئة جديدة' : 'تعديل "${widget.category!.name}"',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         actions: [
           TextButton(
@@ -611,7 +603,7 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
 
           const Row(
             children: [
-              Icon(Icons.account_tree_outlined, color: Color(0xFF5E35B1)),
+              Icon(Icons.account_tree_outlined, color: Color(0xFF3D6B5E)),
               SizedBox(width: 8),
               Text(
                 'الأقسام الفرعية (Sub Categories)',
@@ -677,7 +669,7 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
                     border: Border.all(
                         color: isDark ? Colors.white24 : Colors.grey.shade300),
                     borderRadius: BorderRadius.circular(10),
-                    color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                    color: isDark ? const Color(0xFF1B201E) : Colors.white,
                   ),
                   child: Theme(
                     data: Theme.of(context)

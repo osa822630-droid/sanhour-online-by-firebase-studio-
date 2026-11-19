@@ -441,25 +441,25 @@ class _MediaGalleryPickerWidgetState extends State<MediaGalleryPickerWidget> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: const Color(0xFF5E35B1).withValues(alpha: 0.4),
+            color: const Color(0xFF3D6B5E).withValues(alpha: 0.4),
             width: 1.5,
           ),
-          color: const Color(0xFF5E35B1).withValues(alpha: 0.05),
+          color: const Color(0xFF3D6B5E).withValues(alpha: 0.05),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.add_photo_alternate_outlined,
-                color: const Color(0xFF5E35B1).withValues(alpha: 0.7), size: 28),
+                color: const Color(0xFF3D6B5E).withValues(alpha: 0.7), size: 28),
             const SizedBox(height: 2),
             Text('إضافة',
                 style: TextStyle(
-                    color: const Color(0xFF5E35B1).withValues(alpha: 0.7),
+                    color: const Color(0xFF3D6B5E).withValues(alpha: 0.7),
                     fontSize: 11,
                     fontWeight: FontWeight.w600)),
             Text('صورة/فيديو',
                 style: TextStyle(
-                    color: const Color(0xFF5E35B1).withValues(alpha: 0.5),
+                    color: const Color(0xFF3D6B5E).withValues(alpha: 0.5),
                     fontSize: 9)),
           ],
         ),
@@ -478,19 +478,19 @@ class _MediaGalleryPickerWidgetState extends State<MediaGalleryPickerWidget> {
           const Text(
             'معرض وسائط المحل',
             style: TextStyle(
-                fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF5E35B1)),
+                fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF3D6B5E)),
           ),
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF5E35B1).withValues(alpha: 0.1),
+              color: const Color(0xFF3D6B5E).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
               '${slots.length} / ${widget.maxItems}',
               style: const TextStyle(
-                  fontSize: 11, color: Color(0xFF5E35B1), fontWeight: FontWeight.bold),
+                  fontSize: 11, color: Color(0xFF3D6B5E), fontWeight: FontWeight.bold),
             ),
           ),
           if (widget.isUploading) ...[
@@ -498,12 +498,12 @@ class _MediaGalleryPickerWidgetState extends State<MediaGalleryPickerWidget> {
             const SizedBox(
               width: 12,
               height: 12,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF5E35B1)),
+              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3D6B5E)),
             ),
             const SizedBox(width: 4),
             const Text('جارٍ الرفع...',
                 style: TextStyle(
-                    fontSize: 11, color: Color(0xFF5E35B1), fontWeight: FontWeight.w600)),
+                    fontSize: 11, color: Color(0xFF3D6B5E), fontWeight: FontWeight.w600)),
           ],
         ]),
         const SizedBox(height: 10),

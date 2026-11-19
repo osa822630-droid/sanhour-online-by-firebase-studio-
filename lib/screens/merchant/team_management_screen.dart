@@ -147,14 +147,14 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                           title: Text('عامل (Worker)'),
                           subtitle: Text('إضافة وتعديل المنتجات والعروض فقط'),
                           value: 'worker',
-                          activeColor: Color(0xFF5E35B1),
+                          activeColor: Color(0xFF3D6B5E),
                         ),
                         RadioListTile<String>(
                           title: Text('شريك (Partner)'),
                           subtitle:
                               Text('صلاحيات كاملة ما عدا الاشتراك والفريق'),
                           value: 'partner',
-                          activeColor: Color(0xFF5E35B1),
+                          activeColor: Color(0xFF3D6B5E),
                         ),
                       ],
                     ),
@@ -166,7 +166,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                       child: const Text('إلغاء')),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF5E35B1),
+                        backgroundColor: const Color(0xFF3D6B5E),
                         foregroundColor: Colors.white),
                     onPressed: () {
                       Navigator.pop(ctx);
@@ -186,7 +186,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('فريق العمل'),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -210,7 +210,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                     ),
             ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.person_add),
         label: const Text('إضافة عضو'),
@@ -245,11 +245,11 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
             const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
           backgroundColor: isPartner
-              ? const Color(0xFF5E35B1).withValues(alpha: 0.1)
+              ? const Color(0xFF3D6B5E).withValues(alpha: 0.1)
               : Colors.orange.withValues(alpha: 0.1),
           child: Icon(
             isPartner ? Icons.supervisor_account : Icons.person,
-            color: isPartner ? const Color(0xFF5E35B1) : Colors.orange,
+            color: isPartner ? const Color(0xFF3D6B5E) : Colors.orange,
           ),
         ),
         title: Text(member['name'] ?? 'مستخدم',
@@ -262,7 +262,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
               color: isPartner
-                  ? const Color(0xFF5E35B1).withValues(alpha: 0.1)
+                  ? Color(0xFF3D6B5E).withValues(alpha: 0.1)
                   : Colors.orange.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -272,7 +272,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                   : '👷 عامل — منتجات وعروض فقط',
               style: TextStyle(
                 color:
-                    isPartner ? const Color(0xFF5E35B1) : Colors.orange[800],
+                    isPartner ? const Color(0xFF3D6B5E) : Colors.orange[800],
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),

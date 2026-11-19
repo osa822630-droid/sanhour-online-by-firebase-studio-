@@ -83,7 +83,7 @@ class CachedImage extends StatelessWidget {
       baseColor: baseColor,
       highlightColor: highlightColor,
       child: Container(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        color: isDark ? const Color(0xFF1B201E) : Colors.white,
         width: width,
         height: height,
       ),
@@ -94,7 +94,7 @@ class CachedImage extends StatelessWidget {
     return Container(
       width: width,
       height: height,
-      color: isDark ? const Color(0xFF252538) : Colors.grey[200],
+      color: isDark ? const Color(0xFF232927) : Colors.grey[200],
       child: Center(
         child: Icon(
           fallbackIcon,

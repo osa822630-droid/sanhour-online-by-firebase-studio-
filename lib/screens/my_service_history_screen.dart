@@ -189,11 +189,11 @@ class _MyServiceHistoryScreenState extends State<MyServiceHistoryScreen>
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: const Text('طلباتي وعروضي',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
         bottom: TabBar(
@@ -335,7 +335,7 @@ class _MyServiceHistoryScreenState extends State<MyServiceHistoryScreen>
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 2,
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      color: isDark ? const Color(0xFF1B201E) : Colors.white,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => _showRequestBidsSheet(r),
@@ -379,7 +379,7 @@ class _MyServiceHistoryScreenState extends State<MyServiceHistoryScreen>
               const SizedBox(width: 4),
               Text('${r.bidsCount} عرض مقدّم (اضغط للعرض)',
                   style: const TextStyle(
-                      color: Color(0xFF5E35B1),
+                      color: Color(0xFF3D6B5E),
                       fontSize: 12,
                       fontWeight: FontWeight.w600)),
               const SizedBox(width: 12),
@@ -518,7 +518,7 @@ class _MyServiceHistoryScreenState extends State<MyServiceHistoryScreen>
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 2,
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      color: isDark ? const Color(0xFF1B201E) : Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -528,7 +528,7 @@ class _MyServiceHistoryScreenState extends State<MyServiceHistoryScreen>
               style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
-                  color: Color(0xFF5E35B1)),
+                  color: Color(0xFF3D6B5E)),
             ),
             const Spacer(),
             Container(
@@ -608,7 +608,7 @@ class _MyServiceHistoryScreenState extends State<MyServiceHistoryScreen>
                         icon: const Icon(Icons.message, size: 16),
                         label: const Text('واتساب'),
                         style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF25D366),
+                            foregroundColor: Color(0xFF25D366),
                             side: const BorderSide(color: Color(0xFF25D366))),
                       ),
                     ]);

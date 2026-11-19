@@ -115,7 +115,7 @@ class _DetailScreenState extends State<DetailScreen> {
         isProduct ? null : (widget.item as Offer).bundleDetails;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E0E1A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF121514) : Colors.white,
       body: SafeArea(
         child: Stack(
           children: [
@@ -127,7 +127,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   floating: false,
                   pinned: true,
                   backgroundColor:
-                      isDark ? const Color(0xFF1A1A2E) : Colors.white,
+                      isDark ? const Color(0xFF1B201E) : Colors.white,
                   leading: IconButton(
                     icon: CircleAvatar(
                       backgroundColor: isDark ? Colors.white12 : Colors.white,
@@ -168,7 +168,7 @@ class _DetailScreenState extends State<DetailScreen> {
                     background: imageUrls.isEmpty
                         ? Container(
                             color: isDark
-                                ? const Color(0xFF1E1E2E)
+                                ? const Color(0xFF1B201E)
                                 : Colors.grey[200],
                             child: const Icon(Icons.image_not_supported,
                                 size: 60, color: Colors.grey))
@@ -211,7 +211,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                         height: 8,
                                         decoration: BoxDecoration(
                                           color: _currentImageIndex == e.key
-                                              ? const Color(0xFF5E35B1)
+                                              ? const Color(0xFF3D6B5E)
                                               : Colors.white60,
                                           borderRadius:
                                               BorderRadius.circular(4),
@@ -257,12 +257,12 @@ class _DetailScreenState extends State<DetailScreen> {
                               horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color:
-                                const Color(0xFF5E35B1).withValues(alpha: 0.1),
+                                Color(0xFF3D6B5E).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(category,
                               style: const TextStyle(
-                                  color: Color(0xFF5E35B1), fontSize: 12)),
+                                  color: Color(0xFF3D6B5E), fontSize: 12)),
                         ),
                         const SizedBox(height: 10),
 
@@ -293,7 +293,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                 style: const TextStyle(
                                     fontSize: 26,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF5E35B1))),
+                                    color: Color(0xFF3D6B5E))),
                             if (hasPriceDrop && oldPrice > 0) ...[
                               const SizedBox(width: 12),
                               Text('${oldPrice.toStringAsFixed(0)} جنيه',
@@ -418,11 +418,11 @@ class _DetailScreenState extends State<DetailScreen> {
                                             horizontal: 14, vertical: 6),
                                         decoration: BoxDecoration(
                                           color: _selectedColor == color
-                                              ? const Color(0xFF5E35B1)
+                                              ? Color(0xFF3D6B5E)
                                               : Colors.transparent,
                                           border: Border.all(
                                               color: _selectedColor == color
-                                                  ? const Color(0xFF5E35B1)
+                                                  ? const Color(0xFF3D6B5E)
                                                   : Colors.grey[400]!),
                                           borderRadius:
                                               BorderRadius.circular(20),
@@ -458,11 +458,11 @@ class _DetailScreenState extends State<DetailScreen> {
                                         height: 46,
                                         decoration: BoxDecoration(
                                           color: _selectedSize == size
-                                              ? const Color(0xFF5E35B1)
+                                              ? const Color(0xFF3D6B5E)
                                               : Colors.transparent,
                                           border: Border.all(
                                               color: _selectedSize == size
-                                                  ? const Color(0xFF5E35B1)
+                                                  ? const Color(0xFF3D6B5E)
                                                   : Colors.grey[400]!),
                                           borderRadius:
                                               BorderRadius.circular(8),
@@ -548,14 +548,14 @@ class _DetailScreenState extends State<DetailScreen> {
                                         CircleAvatar(
                                           radius: 16,
                                           backgroundColor:
-                                              const Color(0xFF5E35B1)
+                                              const Color(0xFF3D6B5E)
                                                   .withValues(alpha: 0.12),
                                           child: Text(
                                             reviewerName.isNotEmpty
                                                 ? reviewerName[0]
                                                 : 'م',
                                             style: const TextStyle(
-                                              color: Color(0xFF5E35B1),
+                                              color: Color(0xFF3D6B5E),
                                               fontWeight: FontWeight.bold,
                                               fontSize: 13,
                                             ),
@@ -596,7 +596,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                       Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF5E35B1)
+                                          color: Color(0xFF3D6B5E)
                                               .withValues(alpha: 0.06),
                                           borderRadius:
                                               BorderRadius.circular(8),
@@ -607,7 +607,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                           children: [
                                             const Icon(Icons.reply,
                                                 size: 15,
-                                                color: Color(0xFF5E35B1)),
+                                                color: Color(0xFF3D6B5E)),
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
@@ -638,7 +638,7 @@ class _DetailScreenState extends State<DetailScreen> {
               bottom: 20,
               right: 20,
               child: FloatingActionButton.extended(
-                backgroundColor: const Color(0xFF5E35B1),
+                backgroundColor: const Color(0xFF3D6B5E),
                 foregroundColor: Colors.white,
                 onPressed: () {
                   final auth = context.read<AuthProvider>();
@@ -695,7 +695,7 @@ class _DetailScreenState extends State<DetailScreen> {
               child: const Text('لاحقاً')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1)),
+                backgroundColor: const Color(0xFF3D6B5E)),
             onPressed: () {
               Navigator.pop(context);
               Navigator.push(context,

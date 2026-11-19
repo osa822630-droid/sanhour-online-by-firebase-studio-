@@ -64,7 +64,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
           'المفضلة',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -109,7 +109,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                   return const Center(child: CircularProgressIndicator());
                 }
                 return RefreshIndicator(
-                  color: const Color(0xFF5E35B1),
+                  color: const Color(0xFF3D6B5E),
                   onRefresh: () => provider.loadFavorites(),
                   child: TabBarView(
                     controller: _tabController,
@@ -140,7 +140,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
       appBar: AppBar(
         title: const Text('المفضلة',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
       ),
       body: Center(
@@ -153,11 +153,11 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple.withValues(alpha: 0.1),
+                  color: const Color(0xFF3D6B5E).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.favorite_border,
-                    size: 48, color: Colors.deepPurple),
+                    size: 48, color: Color(0xFF3D6B5E)),
               ),
               const SizedBox(height: 24),
               const Text(
@@ -184,7 +184,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                   label: const Text('تسجيل الدخول',
                       style: TextStyle(fontSize: 16)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor: Color(0xFF3D6B5E),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -210,7 +210,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(children: [
-        Icon(icon, color: Colors.deepPurple, size: 20),
+        Icon(icon, color: const Color(0xFF3D6B5E), size: 20),
         const SizedBox(width: 10),
         Text(text, style: const TextStyle(fontSize: 14)),
       ]),
@@ -235,10 +235,10 @@ class _FavoritesScreenState extends State<FavoritesScreen>
             borderRadius: BorderRadius.circular(16),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.deepPurple.withValues(alpha: 0.06),
+                color: const Color(0xFF3D6B5E).withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.deepPurple.withValues(alpha: 0.3),
+                  color: const Color(0xFF3D6B5E).withValues(alpha: 0.3),
                   width: 2,
                 ),
               ),
@@ -246,12 +246,12 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.add_circle_outline,
-                      size: 40, color: Colors.deepPurple),
+                      size: 40, color: const Color(0xFF3D6B5E)),
                   SizedBox(height: 10),
                   Text(
                     'قائمة جديدة',
                     style: TextStyle(
-                        color: Colors.deepPurple,
+                        color: const Color(0xFF3D6B5E),
                         fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -402,7 +402,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple),
+                backgroundColor: const Color(0xFF3D6B5E)),
             onPressed: () {
               if (controller.text.trim().isNotEmpty) {
                 provider.createCollection(

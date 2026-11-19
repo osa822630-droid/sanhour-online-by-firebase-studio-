@@ -73,7 +73,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('إكمال بيانات الحساب'),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
       ),
       body: Center(
@@ -87,7 +87,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Icon(Icons.person_add_alt_1,
-                    size: 80, color: Color(0xFF5E35B1)),
+                    size: 80, color: Color(0xFF3D6B5E)),
                 const SizedBox(height: 20),
                 Text(
                   'أكمل بياناتك للبدء في تجربة سنهور أونلاين!',
@@ -237,7 +237,7 @@ class _SuccessDialogState extends State<_SuccessDialog>
           child: Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+              color: isDark ? const Color(0xFF1B201E) : Colors.white,
               borderRadius: BorderRadius.circular(24),
             ),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -245,7 +245,7 @@ class _SuccessDialogState extends State<_SuccessDialog>
                 width: 80,
                 height: 80,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF5E35B1),
+                  color: Color(0xFF3D6B5E),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.check, color: Colors.white, size: 44),
@@ -257,8 +257,8 @@ class _SuccessDialogState extends State<_SuccessDialog>
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: isDark
-                        ? const Color(0xFFB39DDB)
-                        : const Color(0xFF5E35B1)),
+                        ? Color(0xFFB39DDB)
+                        : const Color(0xFF3D6B5E)),
               ),
               const SizedBox(height: 8),
               const Text(

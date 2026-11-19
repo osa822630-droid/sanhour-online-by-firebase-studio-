@@ -61,34 +61,15 @@ class _MerchantReviewsScreenState extends State<MerchantReviewsScreen> {
       });
     }
     try {
-      Query qTarget = FirebaseFirestore.instance
+      Query q = FirebaseFirestore.instance
           .collection('reviews')
           .where('targetId', isEqualTo: widget.shopId)
           .orderBy('createdAt', descending: true)
           .limit(_pageSize);
-      if (_lastDoc != null) qTarget = qTarget.startAfterDocument(_lastDoc!);
+      if (_lastDoc != null) q = q.startAfterDocument(_lastDoc!);
 
-      final snap = await qTarget.get();
-      final byId = <String, Review>{
-        for (final d in snap.docs) d.id: Review.fromFirestore(d),
-      };
-
-      if (_lastDoc == null) {
-        try {
-          final snapShop = await FirebaseFirestore.instance
-              .collection('reviews')
-              .where('shopId', isEqualTo: widget.shopId)
-              .orderBy('createdAt', descending: true)
-              .limit(_pageSize)
-              .get();
-          for (final d in snapShop.docs) {
-            byId.putIfAbsent(d.id, () => Review.fromFirestore(d));
-          }
-        } catch (_) {}
-      }
-
-      final docs = byId.values.toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final snap = await q.get();
+      final docs = snap.docs.map((d) => Review.fromFirestore(d)).toList();
 
       if (mounted) {
         setState(() {
@@ -166,24 +147,15 @@ class _MerchantReviewsScreenState extends State<MerchantReviewsScreen> {
     ).whenComplete(() => replyController.dispose());
   }
 
-  bool _isSubmittingReply = false;
-
   Future<void> _submitReply(Review review, String reply) async {
-    if (_isSubmittingReply) return;
-    _isSubmittingReply = true;
-    try {
-      final reviewRef =
-          FirebaseFirestore.instance.collection('reviews').doc(review.id);
-      await reviewRef.update({
-        'reply': reply.isEmpty ? FieldValue.delete() : reply,
-        'repliedAt':
-            reply.isEmpty ? FieldValue.delete() : FieldValue.serverTimestamp(),
-        'hasReply': reply.isNotEmpty,
-      });
-      if (mounted) await _loadReviews(refresh: true);
-    } finally {
-      _isSubmittingReply = false;
-    }
+    final reviewRef =
+        FirebaseFirestore.instance.collection('reviews').doc(review.id);
+    await reviewRef.update({
+      'reply': reply.isEmpty ? FieldValue.delete() : reply,
+      'repliedAt':
+          reply.isEmpty ? FieldValue.delete() : FieldValue.serverTimestamp(),
+    });
+    if (mounted) await _loadReviews(refresh: true);
   }
 
   @override
@@ -411,7 +383,7 @@ class _MerchantReviewsScreenState extends State<MerchantReviewsScreen> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF252538) : Colors.grey[100],
+          color: isDark ? const Color(0xFF232927) : Colors.grey[100],
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
               color: isDark ? Colors.white24 : Colors.grey[300]!)),
@@ -436,7 +408,7 @@ class _MerchantReviewsScreenState extends State<MerchantReviewsScreen> {
                 onTap: () => _showReplyDialog(review),
                 child: const Text('تعديل الرد',
                     style:
-                        TextStyle(color: Color(0xFF5E35B1), fontSize: 12)),
+                        TextStyle(color: Color(0xFF3D6B5E), fontSize: 12)),
               ),
             ],
           ),

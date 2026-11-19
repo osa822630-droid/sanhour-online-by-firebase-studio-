@@ -13,7 +13,7 @@ class GeminiChatButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return FloatingActionButton(
       mini: true,
-      backgroundColor: const Color(0xFF5E35B1),
+      backgroundColor: const Color(0xFF3D6B5E),
       tooltip: 'مساعد سنهور الذكي',
       heroTag: 'gemini_fab',
       onPressed: () => _openChat(context),
@@ -166,7 +166,7 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
             padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF4527A0), Color(0xFF7B1FA2)],
+                colors: [Color(0xFF26483F), Color(0xFF3D6B5E)],
                 begin: Alignment.topLeft, end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -220,8 +220,8 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
                 itemCount: _suggestions.length,
                 itemBuilder: (_, i) => ActionChip(
                   label: Text(_suggestions[i], style: const TextStyle(fontSize: 12)),
-                  backgroundColor: const Color(0xFF5E35B1).withValues(alpha: 0.08),
-                  side: BorderSide(color: const Color(0xFF5E35B1).withValues(alpha: 0.3)),
+                  backgroundColor: Color(0xFF3D6B5E).withValues(alpha: 0.08),
+                  side: BorderSide(color: const Color(0xFF3D6B5E).withValues(alpha: 0.3)),
                   onPressed: () => _send(_suggestions[i]),
                 ),
               ),
@@ -260,7 +260,7 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
                   padding: const EdgeInsets.all(12),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Color(0xFF4527A0), Color(0xFF7B1FA2)],
+                      colors: [Color(0xFF26483F), Color(0xFF3D6B5E)],
                     ),
                     shape: BoxShape.circle,
                   ),
@@ -288,7 +288,7 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
             Container(
               width: 32, height: 32,
               decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [Color(0xFF4527A0), Color(0xFF7B1FA2)]),
+                gradient: LinearGradient(colors: [Color(0xFF26483F), Color(0xFF3D6B5E)]),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
@@ -300,7 +300,7 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: msg.isUser
-                    ? const Color(0xFF5E35B1)
+                    ? Color(0xFF3D6B5E)
                     : Theme.of(context).brightness == Brightness.dark
                         ? const Color(0xFF2D2D2D) : Colors.grey[100],
                 borderRadius: BorderRadius.only(
@@ -330,7 +330,7 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
         Container(
           width: 32, height: 32,
           decoration: const BoxDecoration(
-            gradient: LinearGradient(colors: [Color(0xFF4527A0), Color(0xFF7B1FA2)]),
+            gradient: LinearGradient(colors: [Color(0xFF26483F), Color(0xFF3D6B5E)]),
             shape: BoxShape.circle,
           ),
           child: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
@@ -340,7 +340,7 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: Theme.of(context).brightness == Brightness.dark
-                ? const Color(0xFF2D2D2D) : Colors.grey[100],
+                ? Color(0xFF2D2D2D) : Colors.grey[100],
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(18), topRight: Radius.circular(18),
               bottomRight: Radius.circular(18), bottomLeft: Radius.circular(4),
@@ -362,7 +362,7 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
       builder: (_, v, __) => Opacity(
         opacity: v,
         child: Container(width: 7, height: 7,
-            decoration: BoxDecoration(color: Colors.deepPurple.withValues(alpha: 0.7), shape: BoxShape.circle)),
+            decoration: BoxDecoration(color: const Color(0xFF3D6B5E).withValues(alpha: 0.7), shape: BoxShape.circle)),
       ),
     );
   }

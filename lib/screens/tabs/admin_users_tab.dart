@@ -106,13 +106,13 @@ class _AdminUsersTabState extends State<AdminUsersTab>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E0E1A) : Colors.grey[100],
+      backgroundColor: isDark ? const Color(0xFF121514) : Colors.grey[100],
       body: Column(
         children: [
           // 1. شريط البحث
           Container(
             padding: const EdgeInsets.all(16),
-            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+            color: isDark ? const Color(0xFF1B201E) : Colors.white,
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'بحث (اسم، اسم مستخدم، هاتف)...',
@@ -130,7 +130,7 @@ class _AdminUsersTabState extends State<AdminUsersTab>
                 border:
                     OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
-                fillColor: isDark ? const Color(0xFF252538) : Colors.grey[50],
+                fillColor: isDark ? const Color(0xFF232927) : Colors.grey[50],
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
               ),
               onChanged: (val) {
@@ -142,13 +142,13 @@ class _AdminUsersTabState extends State<AdminUsersTab>
 
           // 2. تبويبات الفلترة (Tabs)
           Container(
-            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+            color: isDark ? const Color(0xFF1B201E) : Colors.white,
             child: TabBar(
               controller: _filterController,
-              labelColor: isDark ? Colors.white : Colors.deepPurple[900],
+              labelColor: isDark ? Colors.white : const Color(0xFF3D6B5E),
               unselectedLabelColor: Colors.grey,
               indicatorColor:
-                  isDark ? Colors.deepPurpleAccent : Colors.deepPurple[900],
+                  isDark ? const Color(0xFF73A899) : const Color(0xFF3D6B5E),
               indicatorWeight: 3,
               labelStyle: const TextStyle(fontWeight: FontWeight.bold),
               tabs: _filters.map((f) => Tab(text: f)).toList(),
@@ -248,8 +248,8 @@ class _AdminUsersTabState extends State<AdminUsersTab>
       ),
       // لو محظور نغير لون الخلفية لحاجة باهتة
       color: isSuspended
-          ? (isDark ? const Color(0xFF251A1E) : Colors.grey[100])
-          : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
+          ? (isDark ? Color(0xFF251A1E) : Colors.grey[100])
+          : (isDark ? const Color(0xFF1B201E) : Colors.white),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
 
@@ -265,7 +265,7 @@ class _AdminUsersTabState extends State<AdminUsersTab>
                 avatarChar,
                 style: TextStyle(
                     color: isMerchant
-                        ? Colors.deepPurple[900]
+                        ? const Color(0xFF3D6B5E)
                         : Colors.green[900],
                     fontWeight: FontWeight.bold,
                     fontSize: 22),
@@ -279,7 +279,7 @@ class _AdminUsersTabState extends State<AdminUsersTab>
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: const BoxDecoration(
-                      color: Colors.deepPurple, shape: BoxShape.circle),
+                      color: Color(0xFF3D6B5E), shape: BoxShape.circle),
                   child: const Icon(Icons.store, size: 12, color: Colors.white),
                 ),
               ),

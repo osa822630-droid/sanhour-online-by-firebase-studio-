@@ -109,7 +109,7 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
       ));
       await Future.delayed(const Duration(milliseconds: 600));
       if (!mounted) return;
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -127,7 +127,7 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: const Text('تسجيل بيانات الخدمة',
             style: TextStyle(fontWeight: FontWeight.bold)),

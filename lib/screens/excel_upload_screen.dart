@@ -331,7 +331,7 @@ class _ExcelUploadScreenState extends State<ExcelUploadScreen> {
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
+                  backgroundColor: Color(0xFF3D6B5E),
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: Colors.grey[300],
                 ),

@@ -89,7 +89,7 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: _buildAppBar(),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
@@ -98,13 +98,13 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen> {
         ),
         icon: const Icon(Icons.add),
         label: const Text('رسالة جديدة'),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
       ),
       // ✅ Fix #193: RefreshIndicator + error state
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF5E35B1)))
+              child: CircularProgressIndicator(color: Color(0xFF3D6B5E)))
           : _errorMsg != null
               ? Center(
                   child: Padding(
@@ -127,7 +127,7 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen> {
                 )
               : RefreshIndicator(
                   onRefresh: () async => _listen(),
-                  color: const Color(0xFF5E35B1),
+                  color: Color(0xFF3D6B5E),
                   child: _complaints.isEmpty
                       ? _buildEmptyState()
                       : ListView(
@@ -146,7 +146,7 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen> {
     return AppBar(
       title: const Text('شكاواي واقتراحاتي',
           style: TextStyle(fontWeight: FontWeight.bold)),
-      backgroundColor: const Color(0xFF5E35B1),
+      backgroundColor: const Color(0xFF3D6B5E),
       foregroundColor: Colors.white,
       centerTitle: true,
     );
@@ -180,7 +180,7 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen> {
               icon: const Icon(Icons.send),
               label: const Text('إرسال رسالة'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1),
+                backgroundColor: Color(0xFF3D6B5E),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                     horizontal: 24, vertical: 12),
@@ -252,7 +252,7 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen> {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        color: isDark ? const Color(0xFF1B201E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: hasReply
             ? Border.all(color: Colors.green.withValues(alpha: 0.4), width: 1.5)

@@ -120,7 +120,7 @@ class _AddToCollectionSheetState extends State<_AddToCollectionSheet> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+          color: isDark ? const Color(0xFF1B201E) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         height: MediaQuery.of(context).size.height * 0.5,
@@ -177,7 +177,7 @@ class _AddToCollectionSheetState extends State<_AddToCollectionSheet> {
                                 : null,
                           ),
                           value: isIncluded,
-                          activeColor: const Color(0xFF5E35B1),
+                          activeColor: Color(0xFF3D6B5E),
                           onChanged: (val) async {
                             if (val == true) {
                               await provider.addItemToCollection(
@@ -230,7 +230,7 @@ class _AddToCollectionSheetState extends State<_AddToCollectionSheet> {
                 label: const Text('قائمة جديدة'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      isDark ? const Color(0xFF252538) : Colors.grey[100],
+                      isDark ? Color(0xFF232927) : Colors.grey[100],
                   foregroundColor: isDark ? Colors.white : Colors.black87,
                   elevation: 0,
                   minimumSize: const Size(double.infinity, 48),

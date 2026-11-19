@@ -157,7 +157,7 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('ترتيب المنتجات'),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         actions: [
           if (_isSaving)
@@ -202,18 +202,18 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF5E35B1).withValues(alpha: 0.08),
+          color: const Color(0xFF3D6B5E).withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-              color: const Color(0xFF5E35B1).withValues(alpha: 0.2)),
+              color: const Color(0xFF3D6B5E).withValues(alpha: 0.2)),
         ),
         child: const Row(children: [
-          Icon(Icons.info_outline, color: Color(0xFF5E35B1), size: 18),
+          Icon(Icons.info_outline, color: Color(0xFF3D6B5E), size: 18),
           SizedBox(width: 8),
           Expanded(
               child: Text(
             'اسحب المنتجات لترتيبها. أول 10 تظهر مثبتة في مقدمة صفحتك.',
-            style: TextStyle(fontSize: 13, color: Color(0xFF5E35B1)),
+            style: TextStyle(fontSize: 13, color: Color(0xFF3D6B5E)),
           )),
         ]),
       ),
@@ -251,7 +251,7 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
               return ListTile(
                 key: ValueKey(p.id),
                 leading: CircleAvatar(
-                  backgroundColor: const Color(0xFF5E35B1),
+                  backgroundColor: const Color(0xFF3D6B5E),
                   child: Text('${i + 1}',
                       style: const TextStyle(
                           color: Colors.white, fontWeight: FontWeight.bold)),
@@ -300,7 +300,7 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
                   Text('${p.price} ج', style: const TextStyle(fontSize: 12)),
               trailing: IconButton(
                 icon: const Icon(Icons.add_circle_outline,
-                    color: Color(0xFF5E35B1)),
+                    color: Color(0xFF3D6B5E)),
                 onPressed: () => _pin(p),
               ),
             );
@@ -326,7 +326,7 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: ListTile(
             leading:
-                const Icon(Icons.add_box_outlined, color: Color(0xFF5E35B1)),
+                const Icon(Icons.add_box_outlined, color: Color(0xFF3D6B5E)),
             title: const Text('إنشاء قائمة جديدة'),
             onTap: _showNewListDialog,
           ),
@@ -347,12 +347,12 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFF5E35B1).withValues(alpha: 0.1),
+              color: const Color(0xFF3D6B5E).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(listName,
                 style: const TextStyle(
-                    color: Color(0xFF5E35B1), fontWeight: FontWeight.bold)),
+                    color: Color(0xFF3D6B5E), fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 8),
           Text('${products.length} منتج',
@@ -398,7 +398,7 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
               child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1)),
+                backgroundColor: const Color(0xFF3D6B5E)),
             onPressed: () {
               final name = ctrl.text.trim();
               if (name.isNotEmpty) {

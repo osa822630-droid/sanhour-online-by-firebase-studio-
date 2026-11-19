@@ -29,7 +29,7 @@ class AllAdsScreen extends StatefulWidget {
 }
 
 class _AllAdsScreenState extends State<AllAdsScreen> {
-  static const Color _brand = Color(0xFF5E35B1);
+  static const Color _brand = Color(0xFF3D6B5E);
 
   final ScrollController _scrollController = ScrollController();
   final List<AdModel> _ads = [];
@@ -233,7 +233,7 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF18162B) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: widget.showAppBar
           ? AppBar(
               title: const Text(

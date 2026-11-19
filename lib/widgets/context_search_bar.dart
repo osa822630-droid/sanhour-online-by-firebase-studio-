@@ -194,7 +194,7 @@ class _ContextSearchBarState extends State<ContextSearchBar>
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
               color: _focusNode.hasFocus
-                  ? const Color(0xFF5E35B1)
+                  ? const Color(0xFF3D6B5E)
                   : Colors.grey.withValues(alpha: 0.25),
               width: _focusNode.hasFocus ? 1.5 : 1,
             ),
@@ -252,7 +252,7 @@ class _ContextSearchBarState extends State<ContextSearchBar>
                     _isListening ? Icons.mic : Icons.mic_none,
                     size: 20,
                     color:
-                        _isListening ? const Color(0xFF5E35B1) : Colors.grey,
+                        _isListening ? const Color(0xFF3D6B5E) : Colors.grey,
                   ),
                 ),
               ),
@@ -278,7 +278,7 @@ class _ContextSearchBarState extends State<ContextSearchBar>
                               ? Icons.tune
                               : Icons.manage_search,
                           color: (_filtersExpanded || _hasActiveFilter)
-                              ? const Color(0xFF5E35B1)
+                              ? const Color(0xFF3D6B5E)
                               : Colors.grey,
                           size: 22,
                         ),
@@ -290,7 +290,7 @@ class _ContextSearchBarState extends State<ContextSearchBar>
                               width: 8,
                               height: 8,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF5E35B1),
+                                color: Color(0xFF3D6B5E),
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -325,11 +325,11 @@ class _ContextSearchBarState extends State<ContextSearchBar>
                         child: TextButton.icon(
                           onPressed: widget.onAdvancedSearch,
                           icon: const Icon(Icons.manage_search,
-                              size: 16, color: Color(0xFF5E35B1)),
+                              size: 16, color: Color(0xFF3D6B5E)),
                           label: const Text(
                             'بحث متقدم',
                             style: TextStyle(
-                                color: Color(0xFF5E35B1), fontSize: 12),
+                                color: Color(0xFF3D6B5E), fontSize: 12),
                           ),
                         ),
                       ),
@@ -381,7 +381,7 @@ class _ContextSearchBarState extends State<ContextSearchBar>
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFF5E35B1)
+                        ? const Color(0xFF3D6B5E)
                         : (isDark ? Colors.grey[800] : Colors.grey[100]),
                     borderRadius: BorderRadius.circular(20),
                     border: isSelected

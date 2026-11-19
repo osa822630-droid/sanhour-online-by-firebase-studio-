@@ -98,14 +98,14 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
     return Column(
       children: [
         Container(
-          color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+          color: isDark ? const Color(0xFF1B201E) : Colors.white,
           child: TabBar(
             controller: _tabController,
             labelColor: isDark
                 ? const Color(0xFFB39DDB)
-                : const Color(0xFF5E35B1),
+                : const Color(0xFF3D6B5E),
             unselectedLabelColor: Colors.grey,
-            indicatorColor: const Color(0xFF5E35B1),
+            indicatorColor: const Color(0xFF3D6B5E),
             tabs: const [
               Tab(text: 'نظرة عامة'),
               Tab(text: 'المنتجات'),
@@ -140,7 +140,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
             .map((e) => ChartData(
                   label: e['day'] ?? '',
                   value: double.parse(e['value'].toString()),
-                  color: const Color(0xFF5E35B1),
+                  color: const Color(0xFF3D6B5E),
                 ))
             .toList();
 
@@ -225,7 +225,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                     style: TextStyle(
                         color: isDark
                             ? Colors.green[300]
-                            : const Color(0xFF5E35B1)),
+                            : const Color(0xFF3D6B5E)),
                   ),
                 ),
               ],
@@ -241,7 +241,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
             height: 220,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                color: isDark ? const Color(0xFF1B201E) : Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                     color: isDark ? Colors.white12 : Colors.grey.shade200)),
@@ -269,7 +269,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: isDark ? const Color(0xFF1A1A2E) : Colors.grey[50],
+          color: isDark ? const Color(0xFF1B201E) : Colors.grey[50],
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -280,8 +280,8 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                 underline: Container(),
                 style: TextStyle(
                     color: isDark
-                        ? const Color(0xFFB39DDB)
-                        : const Color(0xFF5E35B1),
+                        ? Color(0xFFB39DDB)
+                        : const Color(0xFF3D6B5E),
                     fontWeight: FontWeight.bold,
                     fontSize: 13),
                 items: const [
@@ -435,7 +435,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                         widthFactor: widthFactor,
                         child: Container(
                             decoration: BoxDecoration(
-                                color: const Color(0xFF5E35B1),
+                                color: const Color(0xFF3D6B5E),
                                 borderRadius: BorderRadius.circular(2))),
                       ),
                     );

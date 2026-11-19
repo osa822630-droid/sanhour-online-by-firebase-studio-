@@ -93,11 +93,11 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: const Text('تواصل معنا',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
         // ✅ رابط لشاشة تتبع الشكاوى
@@ -136,15 +136,15 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                     margin: const EdgeInsets.only(bottom: 24),
                     decoration: BoxDecoration(
                       color:
-                          Colors.deepPurple.withValues(alpha: 0.07),
+                          Color(0xFF3D6B5E).withValues(alpha: 0.07),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                          color: Colors.deepPurple
+                          color: const Color(0xFF3D6B5E)
                               .withValues(alpha: 0.3)),
                     ),
                     child: Row(children: [
                       const Icon(Icons.inbox_outlined,
-                          color: Colors.deepPurple, size: 20),
+                          color: Color(0xFF3D6B5E), size: 20),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Column(
@@ -161,13 +161,13 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                         ),
                       ),
                       const Icon(Icons.arrow_back_ios,
-                          size: 14, color: Colors.deepPurple),
+                          size: 14, color: Color(0xFF3D6B5E)),
                     ]),
                   ),
                 ),
 
               // ── أيقونة ──────────────────────────────────────────
-              const Icon(Icons.headset_mic, size: 72, color: Colors.deepPurple),
+              const Icon(Icons.headset_mic, size: 72, color: Color(0xFF3D6B5E)),
               const SizedBox(height: 16),
               const Text(
                 'هل واجهت مشكلة؟ أو لديك اقتراح؟',
@@ -239,7 +239,7 @@ class _ReportProblemScreenState extends State<ReportProblemScreen> {
                       : const Icon(Icons.send),
                   onPressed: _isLoading ? null : _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor: Color(0xFF3D6B5E),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),

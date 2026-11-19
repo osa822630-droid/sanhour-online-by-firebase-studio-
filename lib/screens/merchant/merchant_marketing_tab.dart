@@ -148,7 +148,7 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
                 children: [
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF5E35B1),
+                      backgroundColor: Color(0xFF3D6B5E),
                       foregroundColor: Colors.white,
                     ),
                     onPressed: () => _showAdDialog(null),
@@ -157,8 +157,8 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
                   ),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF5E35B1),
-                      side: const BorderSide(color: Color(0xFF5E35B1)),
+                      foregroundColor: Color(0xFF3D6B5E),
+                      side: const BorderSide(color: Color(0xFF3D6B5E)),
                     ),
                     onPressed: _showVideoAdDialog,
                     icon: const Icon(Icons.videocam_outlined),
@@ -214,7 +214,7 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
                     Row(
                       children: [
                         const Icon(Icons.touch_app,
-                            color: Color(0xFF5E35B1), size: 20),
+                            color: Color(0xFF3D6B5E), size: 20),
                         const SizedBox(width: 5),
                         Text('$clicks نقرات',
                             style:
@@ -252,7 +252,7 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
     final dateStr = DateFormat('yyyy-MM-dd').format(createdAt);
 
     return Card(
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.grey[50],
+      color: isDark ? const Color(0xFF1B201E) : Colors.grey[50],
       margin: const EdgeInsets.only(bottom: 10),
       child: ListTile(
         leading: ClipRRect(
@@ -330,7 +330,7 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: isDark
-                            ? const Color(0xFF252538)
+                            ? const Color(0xFF232927)
                             : Colors.grey[200],
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
@@ -515,24 +515,28 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
               .showSnackBar(const SnackBar(content: Text('تم التعديل بنجاح')));
         }
       } else {
-        // ✅ F-001 Fix: رفع الصورة ثم حرق الكود وإنشاء الإعلان ذرياً في خطوة واحدة عبر Cloud Function
-        final imageUrl = await ApiService.uploadImage(image!, 'ad_images');
-        await AdService.redeemAdCode(
-          code: code!,
-          userId: widget.currentShop.ownerId,
-          shopId: widget.currentShop.id,
-          adPayload: {
-            'shopId': widget.currentShop.id,
-            'shopName': widget.currentShop.name,
-            'imageUrl': imageUrl,
-            'imageUrls': [imageUrl],
-            'coverImageIndex': 0,
-            'text': text,
-            'targetType': targetType,
-            'targetId': targetId,
-            'displayLocations': const ['home', 'splash', 'ads_screen'],
-          },
-        );
+        // ✅ التحقق من الكود وحرقه أولاً، أو رفع الصورة بعد التأكد من صحة الكود
+        await _validateAndBurnCode(code!);
+        String imageUrl = await ApiService.uploadImage(image!, 'ad_images');
+
+        final docRef = FirebaseFirestore.instance.collection('ads').doc();
+        await docRef.set({
+          'id': docRef.id,
+          'shopId': widget.currentShop.id,
+          'imageUrl': imageUrl,
+          'imageUrls': [imageUrl],
+          'coverImageIndex': 0,
+          'text': text,
+          'targetType': targetType,
+          'targetId': targetId,
+          'isActive': true,
+          'isMainActive': true,
+          'displayLocations': const ['home', 'splash', 'ads_screen'],
+          'clickCount': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+          'expiresAt':
+              Timestamp.fromDate(DateTime.now().add(const Duration(days: 7))),
+        });
 
         if (mounted) {
           ScaffoldMessenger.of(context)
@@ -621,14 +625,14 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF5E35B1).withValues(alpha: 0.08),
+                      color: Color(0xFF3D6B5E).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       'التكلفة التقديرية: ${cost.toStringAsFixed(0)} ج.م (${AdService.videoPricePerMinute.toStringAsFixed(0)} ج.م / دقيقة)',
                       style: const TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF5E35B1),
+                          color: Color(0xFF3D6B5E),
                           fontSize: 13),
                     ),
                   ),
@@ -759,13 +763,13 @@ class _AdPreviewDialog extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF5E35B1).withValues(alpha: 0.1),
+                    color: Color(0xFF3D6B5E).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     'النوع: $targetType',
                     style: const TextStyle(
-                        color: Color(0xFF5E35B1), fontSize: 12),
+                        color: Color(0xFF3D6B5E), fontSize: 12),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -774,7 +778,7 @@ class _AdPreviewDialog extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF5E35B1),
+                      backgroundColor: Color(0xFF3D6B5E),
                       foregroundColor: Colors.white,
                     ),
                     child: const Text('إغلاق المعاينة'),

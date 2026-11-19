@@ -187,7 +187,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEditing ? 'تعديل المنتج' : 'إضافة منتج جديد'),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
       ),
       body: Form(
@@ -312,7 +312,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     value: _overallImageProgress,
                     minHeight: 8,
                     backgroundColor: Colors.grey.shade200,
-                    color: const Color(0xFF5E35B1),
+                    color: const Color(0xFF3D6B5E),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -321,7 +321,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                     'جارٍ رفع الصور... ${(_overallImageProgress * 100).round()}%',
                     style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF5E35B1),
+                        color: Color(0xFF3D6B5E),
                         fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -348,7 +348,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                         fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5E35B1),
+                    backgroundColor: Color(0xFF3D6B5E),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
@@ -378,7 +378,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             labelText: label,
             prefixIcon: Icon(icon),
             suffixIcon: IconButton(
-              icon: const Icon(Icons.add_circle, color: Color(0xFF5E35B1)),
+              icon: const Icon(Icons.add_circle, color: Color(0xFF3D6B5E)),
               onPressed: () {
                 final v = ctrl.text.trim();
                 if (v.isNotEmpty && !list.contains(v)) {
@@ -408,10 +408,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       label: Text(item, style: const TextStyle(fontSize: 12)),
                       deleteIcon: const Icon(Icons.close, size: 14),
                       backgroundColor:
-                          const Color(0xFF5E35B1).withValues(alpha: 0.1),
+                          Color(0xFF3D6B5E).withValues(alpha: 0.1),
                       side: BorderSide(
                           color:
-                              const Color(0xFF5E35B1).withValues(alpha: 0.3)),
+                              const Color(0xFF3D6B5E).withValues(alpha: 0.3)),
                       onDeleted: () => setState(() => list.remove(item)),
                     ))
                 .toList(),

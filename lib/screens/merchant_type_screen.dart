@@ -67,11 +67,11 @@ class _MerchantTypeScreenState extends State<MerchantTypeScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: const Text('نوع نشاطك التجاري',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
         automaticallyImplyLeading: false,
@@ -98,7 +98,7 @@ class _MerchantTypeScreenState extends State<MerchantTypeScreen> {
                 'كافيه، مطعم، مخبزة',
                 'محل إلكترونيات، أثاث، مواد بناء',
               ],
-              iconColor: Colors.deepPurple,
+              iconColor: const Color(0xFF3D6B5E),
               isSelected: _selectedType == 'shop',
               onTap: () => setState(() => _selectedType = 'shop'),
             ),
@@ -132,7 +132,7 @@ class _MerchantTypeScreenState extends State<MerchantTypeScreen> {
                 onPressed:
                     _selectedType == null || _isSaving ? null : _continue,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5E35B1),
+                  backgroundColor: const Color(0xFF3D6B5E),
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: Colors.grey[300],
                   shape: RoundedRectangleBorder(
@@ -189,7 +189,7 @@ class _TypeCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? iconColor.withValues(alpha: 0.08)
-              : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
+              : (isDark ? const Color(0xFF1B201E) : Colors.white),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected

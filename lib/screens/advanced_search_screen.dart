@@ -300,7 +300,6 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
         fs
             .collection('products')
             .where('isVisible', isEqualTo: true)
-            .where('isShopHidden', isEqualTo: false)
             .where('searchKeywords', arrayContains: primaryToken)
             .limit(40)
             .get(),
@@ -373,7 +372,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
                 : null,
           ),
         ),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         bottom: TabBar(
           controller: _tabController,
@@ -472,25 +471,25 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF5E35B1)
-              : const Color(0xFF5E35B1).withAlpha(20),
+              ? const Color(0xFF3D6B5E)
+              : const Color(0xFF3D6B5E).withAlpha(20),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF5E35B1).withAlpha(77)),
+          border: Border.all(color: const Color(0xFF3D6B5E).withAlpha(77)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(icon,
               size: 14,
-              color: isActive ? Colors.white : const Color(0xFF5E35B1)),
+              color: isActive ? Colors.white : const Color(0xFF3D6B5E)),
           const SizedBox(width: 4),
           Text(label,
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: isActive ? Colors.white : const Color(0xFF5E35B1))),
+                  color: isActive ? Colors.white : const Color(0xFF3D6B5E))),
           const SizedBox(width: 2),
           Icon(Icons.arrow_drop_down,
               size: 16,
-              color: isActive ? Colors.white : const Color(0xFF5E35B1)),
+              color: isActive ? Colors.white : const Color(0xFF3D6B5E)),
         ]),
       ),
     );
@@ -535,7 +534,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
                 children: [
                   Text(shop.category,
                       style: TextStyle(
-                          color: Colors.deepPurple[700], fontSize: 11)),
+                          color: Color(0xFF3D6B5E), fontSize: 11)),
                   Row(children: [
                     const Icon(Icons.star, color: Colors.amber, size: 13),
                     Text(
@@ -619,7 +618,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
                           Row(children: [
                             Text('${p.price.toStringAsFixed(0)} ج',
                                 style: const TextStyle(
-                                    color: Color(0xFF5E35B1),
+                                    color: Color(0xFF3D6B5E),
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13)),
                             if (p.hasPriceDrop) ...[
@@ -740,7 +739,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
                             title: Text(c),
                             leading: Radio<String>.adaptive(
                               value: c,
-                              activeColor: const Color(0xFF5E35B1),
+                              activeColor: const Color(0xFF3D6B5E),
                             ),
                             onTap: () {
                               setState(() => _selectedCategory = c);
@@ -771,7 +770,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
                             title: Text(s),
                             leading: Radio<String>.adaptive(
                               value: s,
-                              activeColor: const Color(0xFF5E35B1),
+                              activeColor: const Color(0xFF3D6B5E),
                             ),
                             onTap: () {
                               setState(() => _selectedSort = s);
@@ -802,7 +801,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
                             title: Text(r),
                             leading: Radio<String>.adaptive(
                               value: r,
-                              activeColor: const Color(0xFF5E35B1),
+                              activeColor: const Color(0xFF3D6B5E),
                             ),
                             onTap: () {
                               setState(() => _selectedRegion = r);
@@ -867,14 +866,14 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
                     Text(
                         '${_priceRange.start.toInt()} - ${_priceRange.end.toInt()} جنيه',
                         style: const TextStyle(
-                            color: Color(0xFF5E35B1),
+                            color: Color(0xFF3D6B5E),
                             fontWeight: FontWeight.bold)),
                     RangeSlider(
                       values: _priceRange,
                       min: 0,
                       max: 5000,
                       divisions: 50,
-                      activeColor: const Color(0xFF5E35B1),
+                      activeColor: Color(0xFF3D6B5E),
                       onChanged: (v) {
                         setS(() {
                           _priceRange = v;

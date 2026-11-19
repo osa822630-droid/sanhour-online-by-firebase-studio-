@@ -89,7 +89,7 @@ class ForceUpdateChecker {
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Row(children: [
-            Icon(Icons.system_update_alt, color: Color(0xFF5E35B1)),
+            Icon(Icons.system_update_alt, color: Color(0xFF3D6B5E)),
             SizedBox(width: 10),
             Text('تحديث مطلوب'),
           ]),
@@ -106,7 +106,7 @@ class ForceUpdateChecker {
               width: double.infinity,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5E35B1),
+                  backgroundColor: Color(0xFF3D6B5E),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(

@@ -49,15 +49,15 @@ class _AdminContentTabState extends State<AdminContentTab>
       children: [
         // شريط التبويبات الفرعي
         Container(
-          color: isDark ? const Color(0xFF211E3A) : Colors.white,
+          color: isDark ? const Color(0xFF1B201E) : Colors.white,
           child: TabBar(
             controller: _tabController,
             isScrollable: true,
             tabAlignment: TabAlignment.start,
-            labelColor: isDark ? Colors.white : Colors.deepPurple[900],
+            labelColor: isDark ? Colors.white : const Color(0xFF3D6B5E),
             unselectedLabelColor: Colors.grey,
             indicatorColor:
-                isDark ? Colors.deepPurpleAccent : Colors.deepPurple[900],
+                isDark ? const Color(0xFF73A899) : const Color(0xFF3D6B5E),
             tabs: const [
               Tab(text: 'المحلات', icon: Icon(Icons.store)),
               Tab(text: 'المنتجات', icon: Icon(Icons.shopping_bag)),
@@ -95,7 +95,7 @@ class _AdminContentTabState extends State<AdminContentTab>
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           color: isSuspended
               ? (isDark ? const Color(0xFF251A1E) : Colors.grey[100])
-              : (isDark ? const Color(0xFF23203A) : Colors.white),
+              : (isDark ? const Color(0xFF1B201E) : Colors.white),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: isSuspended
@@ -171,7 +171,7 @@ class _AdminContentTabState extends State<AdminContentTab>
         }
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          color: isDark ? const Color(0xFF23203A) : Colors.white,
+          color: isDark ? const Color(0xFF1B201E) : Colors.white,
           child: ListTile(
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -221,7 +221,7 @@ class _AdminContentTabState extends State<AdminContentTab>
         }
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          color: isDark ? const Color(0xFF23203A) : Colors.white,
+          color: isDark ? const Color(0xFF1B201E) : Colors.white,
           child: ListTile(
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -277,7 +277,7 @@ class _AdminContentTabState extends State<AdminContentTab>
 
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          color: isDark ? const Color(0xFF23203A) : Colors.white,
+          color: isDark ? const Color(0xFF1B201E) : Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(

@@ -118,7 +118,7 @@ class FavoritesGrid extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xFF5E35B1),
+                          color: Color(0xFF3D6B5E),
                           fontWeight: FontWeight.w600,
                           fontSize: 12,
                         ),

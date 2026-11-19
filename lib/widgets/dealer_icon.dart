@@ -16,7 +16,7 @@ class DealerIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? const Color(0xFF5E35B1);
+    final c = color ?? const Color(0xFF3D6B5E);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

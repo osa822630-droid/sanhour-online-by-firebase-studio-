@@ -57,7 +57,7 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
         children: [
           // 1. شريط البحث والتبويبات
           Container(
-            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+            color: isDark ? const Color(0xFF1B201E) : Colors.white,
             padding: const EdgeInsets.only(top: 10),
             child: Column(
               children: [
@@ -86,7 +86,7 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
                           borderSide: BorderSide.none),
                       filled: true,
                       fillColor: isDark
-                          ? const Color(0xFF252538)
+                          ? const Color(0xFF232927)
                           : Colors.grey[100],
                     ),
                     onChanged: (val) => setState(() => _searchQuery = val),
@@ -99,9 +99,9 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
                   controller: _tabController,
                   labelColor: isDark
                       ? const Color(0xFFB39DDB)
-                      : const Color(0xFF5E35B1),
+                      : const Color(0xFF3D6B5E),
                   unselectedLabelColor: Colors.grey,
-                  indicatorColor: const Color(0xFF5E35B1),
+                  indicatorColor: const Color(0xFF3D6B5E),
                   tabs: const [
                     Tab(text: 'نشط 🟢'),
                     Tab(text: 'منتهي / أرشيف 🔴'),
@@ -229,7 +229,7 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       color: isVisible
-          ? (isDark ? const Color(0xFF1E1E2E) : Colors.white)
+          ? (isDark ? const Color(0xFF1B201E) : Colors.white)
           : (isDark ? const Color(0xFF151522) : Colors.grey[100]),
       elevation: isVisible ? 2 : 0,
       child: Column(

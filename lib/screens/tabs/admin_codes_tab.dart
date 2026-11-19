@@ -97,7 +97,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
     };
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E0E1A) : Colors.grey[100],
+      backgroundColor: isDark ? const Color(0xFF121514) : Colors.grey[100],
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isLoading ? null : _generateCode,
         backgroundColor: themeColor,
@@ -117,13 +117,13 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+            color: isDark ? Color(0xFF1B201E) : Colors.white,
             child: Column(
               children: [
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF252538) : Colors.grey[200],
+                    color: isDark ? const Color(0xFF232927) : Colors.grey[200],
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -201,7 +201,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: isSelected
-                ? (isDark ? const Color(0xFF1E1E2E) : Colors.white)
+                ? (isDark ? const Color(0xFF1B201E) : Colors.white)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             boxShadow: isSelected
@@ -278,7 +278,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        color: isDark ? const Color(0xFF1B201E) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -440,7 +440,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
             Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF252538) : Colors.grey[200],
+                  color: isDark ? const Color(0xFF232927) : Colors.grey[200],
                   borderRadius: BorderRadius.circular(8)),
               child: SelectableText(
                 code,

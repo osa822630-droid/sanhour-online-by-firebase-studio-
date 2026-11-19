@@ -141,55 +141,55 @@ class _MainScreenState extends State<MainScreen> {
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: _onItemTapped,
-          backgroundColor: isDark ? const Color(0xFF23203A) : Colors.white,
-          indicatorColor: Colors.deepPurple.withValues(alpha: 0.15),
+          backgroundColor: isDark ? const Color(0xFF1B201E) : Colors.white,
+          indicatorColor: (isDark ? const Color(0xFF73A899) : const Color(0xFF3D6B5E)).withValues(alpha: 0.16),
           surfaceTintColor: Colors.transparent,
           height: 62,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           destinations: [
-            const NavigationDestination(
+            NavigationDestination(
               icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home, color: Colors.deepPurple),
+              selectedIcon: Icon(Icons.home, color: isDark ? const Color(0xFF73A899) : const Color(0xFF3D6B5E)),
               label: 'الرئيسية',
             ),
-            const NavigationDestination(
+            NavigationDestination(
               icon: Icon(Icons.favorite_border),
-              selectedIcon: Icon(Icons.favorite, color: Colors.deepPurple),
+              selectedIcon: Icon(Icons.favorite, color: const Color(0xFF3D6B5E)),
               label: 'المفضلة',
             ),
-            const NavigationDestination(
+            NavigationDestination(
               icon: Icon(Icons.local_offer_outlined),
-              selectedIcon: Icon(Icons.local_offer, color: Colors.deepPurple),
+              selectedIcon: Icon(Icons.local_offer, color: const Color(0xFF3D6B5E)),
               label: 'العروض',
             ),
-            const NavigationDestination(
+            NavigationDestination(
               icon: Icon(Icons.grid_view_outlined),
-              selectedIcon: Icon(Icons.grid_view, color: Colors.deepPurple),
+              selectedIcon: Icon(Icons.grid_view, color: const Color(0xFF3D6B5E)),
               label: 'الفئات',
             ),
             NavigationDestination(
               icon: DealerIcon(
                 size: 22,
                 color: _selectedIndex == 4
-                    ? Colors.deepPurple
+                    ? const Color(0xFF3D6B5E)
                     : isDark
                         ? Colors.grey[400]!
                         : Colors.grey[600]!,
               ),
-              selectedIcon: DealerIcon(size: 22, color: Colors.deepPurple),
+              selectedIcon: DealerIcon(size: 22, color: const Color(0xFF3D6B5E)),
               label: 'ديلز',
             ),
             NavigationDestination(
               icon: Icon(
                 Icons.campaign_outlined,
                 color: _selectedIndex == 5
-                    ? Colors.deepPurple
+                    ? const Color(0xFF3D6B5E)
                     : isDark
                         ? Colors.grey[400]
                         : Colors.grey[600],
               ),
               selectedIcon:
-                  const Icon(Icons.campaign, color: Colors.deepPurple),
+                  const Icon(Icons.campaign, color: Color(0xFF3D6B5E)),
               label: 'الإعلانات',
             ),
           ],
@@ -203,7 +203,7 @@ class _MainScreenState extends State<MainScreen> {
   // ════════════════════════════════════════════════════════════════════
   Widget _buildOptionsDrawer(BuildContext context, bool isDark) {
     return Drawer(
-      backgroundColor: isDark ? const Color(0xFF211E3A) : Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1B201E) : Colors.white,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,7 +215,7 @@ class _MainScreenState extends State<MainScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF5E35B1), Color(0xFF3949AB)],
+                    colors: [Color(0xFF3D6B5E), Color(0xFF4B5E6F)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -266,7 +266,7 @@ class _MainScreenState extends State<MainScreen> {
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(Icons.edit,
-                                    size: 12, color: Color(0xFF5E35B1)),
+                                    size: 12, color: Color(0xFF3D6B5E)),
                               ),
                             ),
                           ),
@@ -334,7 +334,7 @@ class _MainScreenState extends State<MainScreen> {
                   context,
                   icon: Icons.admin_panel_settings_outlined,
                   label: 'لوحة تحكم الإدارة',
-                  iconColor: const Color(0xFFD97706),
+                  iconColor: const Color(0xFFC28542),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/admin');
@@ -387,7 +387,7 @@ class _MainScreenState extends State<MainScreen> {
                 trailing: Switch(
                   value: tp.isDarkMode,
                   onChanged: (_) => tp.toggleTheme(),
-                  activeThumbColor: const Color(0xFF5E35B1),
+                  activeThumbColor: const Color(0xFF3D6B5E),
                 ),
               ),
             ),
@@ -491,7 +491,7 @@ class _MainScreenState extends State<MainScreen> {
   }) {
     return ListTile(
       leading:
-          Icon(icon, color: iconColor ?? const Color(0xFF5E35B1), size: 22),
+          Icon(icon, color: iconColor ?? const Color(0xFF3D6B5E), size: 22),
       title: Text(
         label,
         style: TextStyle(

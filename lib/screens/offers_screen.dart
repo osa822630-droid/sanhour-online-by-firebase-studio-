@@ -88,11 +88,11 @@ class _OffersScreenState extends State<OffersScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF18162B) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: const Text('العروض',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
       ),

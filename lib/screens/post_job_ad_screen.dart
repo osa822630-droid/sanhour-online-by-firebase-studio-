@@ -177,7 +177,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5E35B1),
+              backgroundColor: const Color(0xFF3D6B5E),
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
@@ -195,11 +195,11 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: const Text('نشر إعلان وظيفة',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         actions: [
           TextButton(
@@ -326,7 +326,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
                   }
                 },
                 icon: const Icon(Icons.remove_circle_outline,
-                    color: Color(0xFF5E35B1)),
+                    color: Color(0xFF3D6B5E)),
               ),
               Expanded(
                 child: Center(
@@ -340,7 +340,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
               IconButton(
                 onPressed: () => setState(() => _requiredCount++),
                 icon: const Icon(Icons.add_circle_outline,
-                    color: Color(0xFF5E35B1)),
+                    color: Color(0xFF3D6B5E)),
               ),
             ]),
             const SizedBox(height: 8),
@@ -373,7 +373,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _submit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5E35B1),
+                  backgroundColor: Color(0xFF3D6B5E),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
@@ -401,5 +401,5 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
       style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF5E35B1)));
+          color: Color(0xFF3D6B5E)));
 }

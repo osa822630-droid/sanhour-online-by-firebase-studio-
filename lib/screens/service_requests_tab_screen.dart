@@ -111,7 +111,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -148,7 +148,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
             },
             icon: const Icon(Icons.add),
             label: const Text('طلب خدمة'),
-            backgroundColor: const Color(0xFF5E35B1),
+            backgroundColor: Color(0xFF3D6B5E),
             foregroundColor: Colors.white,
           ),
         ],
@@ -259,7 +259,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF5E35B1)
+                      ? const Color(0xFF3D6B5E)
                       : (isDark ? Colors.grey[800] : Colors.grey[100]),
                   borderRadius: BorderRadius.circular(20),
                   border: isSelected
@@ -294,7 +294,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
       margin: const EdgeInsets.only(bottom: 14),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 2,
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      color: isDark ? const Color(0xFF1B201E) : Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -391,7 +391,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
                       icon: const Icon(Icons.list_alt, size: 16),
                       label: Text('عرض العروض (${req.bidsCount})'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF5E35B1),
+                        backgroundColor: const Color(0xFF3D6B5E),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
@@ -682,7 +682,7 @@ class _BidsListScreen extends StatelessWidget {
         title: Text('عروض: ${request.title}',
             style:
                 const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -740,13 +740,13 @@ class _BidsListScreen extends StatelessWidget {
               CircleAvatar(
                 radius: 20,
                 backgroundColor:
-                    const Color(0xFF5E35B1).withValues(alpha: 0.12),
+                    const Color(0xFF3D6B5E).withValues(alpha: 0.12),
                 child: Text(
                   bid.providerName.isNotEmpty
                       ? bid.providerName.substring(0, 1).toUpperCase()
                       : 'م',
                   style: const TextStyle(
-                      color: Color(0xFF5E35B1),
+                      color: Color(0xFF3D6B5E),
                       fontWeight: FontWeight.bold),
                 ),
               ),
@@ -761,7 +761,7 @@ class _BidsListScreen extends StatelessWidget {
                     Text(
                       'عرض سعر: ${bid.offeredPrice.toStringAsFixed(0)} جنيه',
                       style: const TextStyle(
-                          color: Color(0xFF5E35B1),
+                          color: Color(0xFF3D6B5E),
                           fontWeight: FontWeight.bold,
                           fontSize: 14),
                     ),
@@ -840,7 +840,7 @@ class _BidsListScreen extends StatelessWidget {
                         icon: const Icon(Icons.message, size: 15),
                         label: const Text('واتساب'),
                         style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF25D366),
+                            foregroundColor: Color(0xFF25D366),
                             side: const BorderSide(
                                 color: Color(0xFF25D366))),
                       ),

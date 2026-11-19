@@ -98,11 +98,11 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E0E1A) : Colors.grey[100],
+      backgroundColor: isDark ? const Color(0xFF121514) : Colors.grey[100],
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor:
-            isDark ? const Color(0xFF1A1A2E) : Colors.deepPurple[900],
+            isDark ? const Color(0xFF1B201E) : const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         title: Text(
           'الشكاوي والمقترحات (${_allComplaints.length})',
@@ -202,7 +202,7 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
       margin: const EdgeInsets.only(bottom: 14),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 2,
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      color: isDark ? const Color(0xFF1B201E) : Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -339,7 +339,7 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
                   label: Text(hasReply ? 'تعديل الرد' : 'إرسال رد'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
-                        hasReply ? Colors.blue : const Color(0xFF5E35B1),
+                        hasReply ? Colors.blue : Color(0xFF3D6B5E),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
@@ -410,7 +410,7 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5E35B1),
+                  backgroundColor: Color(0xFF3D6B5E),
                   foregroundColor: Colors.white),
               onPressed: () {
                 final text = replyCtrl.text.trim();

@@ -116,6 +116,18 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
   }
 
+  // ── التركيز على شريط البحث والتمرير إليه ────────────────────────
+  void _focusSearchBar() {
+    _scrollCtrl.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+    Future.delayed(const Duration(milliseconds: 320), () {
+      if (mounted) _searchFocusNode.requestFocus();
+    });
+  }
+
   Future<void> _loadInterests() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('user_interests');
@@ -527,6 +539,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── مساعدات UI ────────────────────────────────────────────────────
 
+  Widget _bar(double w) =>
+      Container(width: w, height: 2.5, color: Colors.white);
+
   // ── ديلز (بيع وشراء المستعمل) ────────────────────────────────
   Widget _buildDealerSection(BuildContext context) {
     return Column(
@@ -622,7 +637,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         MainScreen.switchTab(MainScreen.adsHubTab, adsSubTab: 1),
                     child: Container(
                       width: 200,
-                      margin: const EdgeInsetsDirectional.only(end: 12),
+                      margin: const EdgeInsets.only(left: 12),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: const Color(0xFF3D6B5E).withValues(alpha: 0.07),
@@ -706,7 +721,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         MainScreen.switchTab(MainScreen.adsHubTab, adsSubTab: 2),
                     child: Container(
                       width: 200,
-                      margin: const EdgeInsetsDirectional.only(end: 12),
+                      margin: const EdgeInsets.only(left: 12),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: urgent

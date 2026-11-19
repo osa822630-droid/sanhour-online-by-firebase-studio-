@@ -71,7 +71,7 @@ class _AdsHubScreenState extends State<AdsHubScreen>
           'مركز الإعلانات',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
         bottom: TabBar(

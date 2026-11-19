@@ -96,7 +96,7 @@ class _MerchantServicesTabState extends State<MerchantServicesTab> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF5E35B1), foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF3D6B5E), foregroundColor: Colors.white),
                 onPressed: () async {
                   if (nameCtrl.text.trim().isEmpty) return;
                   final data = {
@@ -134,7 +134,7 @@ class _MerchantServicesTabState extends State<MerchantServicesTab> {
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: _loadServices,
-        color: const Color(0xFF5E35B1),
+        color: const Color(0xFF3D6B5E),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             // ✅ Fix #102: عرض حالة الخطأ مع زر إعادة المحاولة
@@ -168,7 +168,7 @@ class _MerchantServicesTabState extends State<MerchantServicesTab> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showServiceDialog(),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         child: const Icon(Icons.add),
       ),
@@ -208,7 +208,7 @@ class _MerchantServicesTabState extends State<MerchantServicesTab> {
             if (service['description']?.isNotEmpty == true)
               Padding(padding: const EdgeInsets.only(top: 4), child: Text(service['description'], maxLines: 2, overflow: TextOverflow.ellipsis)),
             const SizedBox(height: 8),
-            Text('${service['price']} ج.م', style: const TextStyle(color: Color(0xFF5E35B1), fontWeight: FontWeight.bold)),
+            Text('${service['price']} ج.م', style: const TextStyle(color: Color(0xFF3D6B5E), fontWeight: FontWeight.bold)),
           ],
         ),
         trailing: Row(

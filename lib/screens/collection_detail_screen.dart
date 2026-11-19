@@ -56,7 +56,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
             children: [
               Row(children: [
                 const Icon(Icons.person_add_outlined,
-                    color: Color(0xFF5E35B1)),
+                    color: Color(0xFF3D6B5E)),
                 const SizedBox(width: 10),
                 const Text('دعوة شخص للقائمة',
                     style:
@@ -98,7 +98,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                 const SizedBox(width: 10),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5E35B1),
+                    backgroundColor: Color(0xFF3D6B5E),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
@@ -148,15 +148,15 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF5E35B1).withValues(alpha: 0.07),
+                    color: const Color(0xFF3D6B5E).withValues(alpha: 0.07),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                         color:
-                            const Color(0xFF5E35B1).withValues(alpha: 0.3)),
+                            const Color(0xFF3D6B5E).withValues(alpha: 0.3)),
                   ),
                   child: Row(children: [
                     CircleAvatar(
-                      backgroundColor: const Color(0xFF5E35B1),
+                      backgroundColor: const Color(0xFF3D6B5E),
                       child: Text(
                         ((foundUser!['name'] as String? ?? 'م').trim().isNotEmpty
                                 ? (foundUser!['name'] as String).trim()[0]
@@ -337,7 +337,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
           appBar: AppBar(
             title: Text(updated.name,
                 style: const TextStyle(fontWeight: FontWeight.bold)),
-            backgroundColor: const Color(0xFF5E35B1),
+            backgroundColor: Color(0xFF3D6B5E),
             foregroundColor: Colors.white,
             actions: [
               IconButton(
@@ -388,15 +388,15 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
-                      color: const Color(0xFF5E35B1).withValues(alpha: 0.07),
+                      color: const Color(0xFF3D6B5E).withValues(alpha: 0.07),
                       child: Row(children: [
                         const Icon(Icons.collections_bookmark,
-                            size: 16, color: Color(0xFF5E35B1)),
+                            size: 16, color: Color(0xFF3D6B5E)),
                         const SizedBox(width: 8),
                         Text(
                           '${updated.items.length} عنصر في القائمة',
                           style: const TextStyle(
-                              color: Color(0xFF5E35B1),
+                              color: Color(0xFF3D6B5E),
                               fontWeight: FontWeight.w600,
                               fontSize: 13),
                         ),
@@ -453,7 +453,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                                   ? Text(
                                       '${item.price.toStringAsFixed(0)} جنيه',
                                       style: const TextStyle(
-                                          color: Color(0xFF5E35B1)))
+                                          color: Color(0xFF3D6B5E)))
                                   : null,
                               trailing: IconButton(
                                 icon: const Icon(Icons.delete_outline,
@@ -513,7 +513,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
               child: const Text('إلغاء')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1),
+                backgroundColor: const Color(0xFF3D6B5E),
                 foregroundColor: Colors.white),
             onPressed: () {
               final name = ctrl.text.trim();

@@ -201,7 +201,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -228,7 +228,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             ],
           ],
         ),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
         actions: [
@@ -242,7 +242,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF5E35B1)))
+              child: CircularProgressIndicator(color: Color(0xFF3D6B5E)))
           : _notifications.isEmpty
               ? _buildEmptyState()
               : ListView(
@@ -320,7 +320,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     switch (type) {
       case 'collection_invite':
         icon = Icons.group_add;
-        color = Colors.deepPurple;
+        color = const Color(0xFF3D6B5E);
         break;
       case 'invite_accepted':
         icon = Icons.check_circle;
@@ -353,7 +353,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         break;
       default:
         icon = Icons.notifications;
-        color = const Color(0xFF5E35B1);
+        color = const Color(0xFF3D6B5E);
     }
 
     final isPendingInvite =
@@ -409,7 +409,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     width: 8,
                     height: 8,
                     decoration: const BoxDecoration(
-                        color: Color(0xFF5E35B1), shape: BoxShape.circle),
+                        color: Color(0xFF3D6B5E), shape: BoxShape.circle),
                   )
                 : null,
           ),

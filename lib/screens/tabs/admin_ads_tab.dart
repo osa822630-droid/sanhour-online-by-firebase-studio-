@@ -122,7 +122,7 @@ class _AdminAdsTabState extends State<AdminAdsTab> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E0E1A) : Colors.grey[100],
+      backgroundColor: isDark ? const Color(0xFF121514) : Colors.grey[100],
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(
           context,
@@ -133,7 +133,7 @@ class _AdminAdsTabState extends State<AdminAdsTab> {
         ),
         icon: const Icon(Icons.add),
         label: const Text('إعلان جديد'),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
       ),
       body: _isLoading
@@ -203,7 +203,7 @@ class _AdminAdsTabState extends State<AdminAdsTab> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+          color: isDark ? const Color(0xFF1B201E) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -361,7 +361,7 @@ class AdminAdCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      color: isDark ? const Color(0xFF1B201E) : Colors.white,
       elevation: 2,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -686,13 +686,13 @@ class _AdFormScreenState extends State<_AdFormScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: Text(
           isEditing ? 'تعديل الإعلان' : 'إضافة إعلان جديد',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         actions: [
           TextButton(
@@ -738,7 +738,7 @@ class _AdFormScreenState extends State<_AdFormScreen> {
                 value: _overallImageProgress,
                 minHeight: 8,
                 backgroundColor: Colors.grey.shade200,
-                color: const Color(0xFF5E35B1),
+                color: const Color(0xFF3D6B5E),
               ),
             ),
             const SizedBox(height: 6),
@@ -747,7 +747,7 @@ class _AdFormScreenState extends State<_AdFormScreen> {
                 'جارٍ رفع الصور... ${(_overallImageProgress * 100).round()}%',
                 style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF5E35B1),
+                    color: Color(0xFF3D6B5E),
                     fontWeight: FontWeight.w600),
               ),
             ),
@@ -776,7 +776,7 @@ class _AdFormScreenState extends State<_AdFormScreen> {
               contentPadding: EdgeInsets.zero,
               title: Text(e.value),
               value: selected,
-              activeColor: const Color(0xFF5E35B1),
+              activeColor: const Color(0xFF3D6B5E),
               onChanged: (v) {
                 setState(() {
                   if (v == true) {
@@ -874,7 +874,7 @@ class _AdFormScreenState extends State<_AdFormScreen> {
         style: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 14,
-          color: Color(0xFF5E35B1),
+          color: Color(0xFF3D6B5E),
         ),
       );
 }

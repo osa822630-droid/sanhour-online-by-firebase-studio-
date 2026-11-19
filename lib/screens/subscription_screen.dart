@@ -26,7 +26,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     'monthly': {
       ...SubscriptionService.tiers['monthly']!,
       'icon': Icons.calendar_month,
-      'color': const Color(0xFF5E35B1),
+      'color': const Color(0xFF3D6B5E),
     },
     'quarterly': {
       ...SubscriptionService.tiers['quarterly']!,
@@ -180,10 +180,10 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+      backgroundColor: isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: const Text('الاشتراك'),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
       ),
       // ✅ QA Fix #32: empty state واضح عند shopId == null
@@ -234,7 +234,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+        color: isDark ? const Color(0xFF1B201E) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)],
       ),
@@ -294,7 +294,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
         decoration: BoxDecoration(
           color: isSelected
               ? color.withValues(alpha: 0.08)
-              : (isDark ? const Color(0xFF1A1A2E) : Colors.white),
+              : (isDark ? const Color(0xFF1B201E) : Colors.white),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? color : Colors.grey.withValues(alpha: 0.2),
@@ -400,7 +400,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+        color: isDark ? const Color(0xFF1B201E) : Colors.white,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(

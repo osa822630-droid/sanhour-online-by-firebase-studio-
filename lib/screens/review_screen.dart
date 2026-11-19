@@ -161,7 +161,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('تم إرسال تقييمك بنجاح! شكراً لك.'),
-          backgroundColor: Color(0xFF5E35B1),
+          backgroundColor: Color(0xFF3D6B5E),
         ),
       );
     } catch (e) {
@@ -208,7 +208,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text('تقييم ${widget.itemName}'),
-          backgroundColor: const Color(0xFF5E35B1),
+          backgroundColor: const Color(0xFF3D6B5E),
           foregroundColor: Colors.white,
           centerTitle: true,
         ),
@@ -241,7 +241,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E1E2E) : Colors.grey[50],
+            color: isDark ? const Color(0xFF1B201E) : Colors.grey[50],
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
                 color: isDark ? Colors.white12 : Colors.grey.shade200),
@@ -296,7 +296,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
             onPressed:
                 (_isSubmitting || _isImageUploading) ? null : _submitReview,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5E35B1),
+              backgroundColor: Color(0xFF3D6B5E),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
@@ -337,7 +337,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       width: 90,
                       decoration: BoxDecoration(
                         color: isDark
-                            ? const Color(0xFF252538)
+                            ? const Color(0xFF232927)
                             : Colors.grey[200],
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
@@ -527,10 +527,10 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF5E35B1).withValues(alpha: 0.08),
+                  color: const Color(0xFF3D6B5E).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                      color: const Color(0xFF5E35B1).withValues(alpha: 0.25)),
+                      color: const Color(0xFF3D6B5E).withValues(alpha: 0.25)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -538,13 +538,13 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     Row(
                       children: [
                         const Icon(Icons.store,
-                            size: 16, color: Color(0xFF5E35B1)),
+                            size: 16, color: Color(0xFF3D6B5E)),
                         const SizedBox(width: 6),
                         const Text('رد البائع',
                             style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
-                                color: Color(0xFF5E35B1))),
+                                color: Color(0xFF3D6B5E))),
                         const Spacer(),
                         if (repliedAt != null)
                           Text(

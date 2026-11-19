@@ -230,7 +230,7 @@ class _HorizontalCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text('${product.price.toStringAsFixed(0)} جنيه',
                   style: const TextStyle(
-                      color: Color(0xFF5E35B1),
+                      color: Color(0xFF3D6B5E),
                       fontWeight: FontWeight.bold,
                       fontSize: 13)),
               if (product.hasPriceDrop && product.oldPrice > 0)

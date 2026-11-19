@@ -152,7 +152,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
               child: const Text('لاحقاً')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1)),
+                backgroundColor: const Color(0xFF3D6B5E)),
             onPressed: () {
               Navigator.pop(context);
               Navigator.push(context,
@@ -199,7 +199,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openReviewScreen,
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         icon: const Icon(Icons.rate_review, color: Colors.white),
         label:
             const Text('أضف تقييم', style: TextStyle(color: Colors.white)),
@@ -222,11 +222,12 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
               child: TabBar(
                 controller: _tabController,
                 labelColor: isDark
-                    ? const Color(0xFFB39DDB)
-                    : const Color(0xFF5E35B1),
+                    ? Color(0xFFB39DDB)
+                    : const Color(0xFF3D6B5E),
                 unselectedLabelColor: Colors.grey,
-                indicatorColor: const Color(0xFF5E35B1),
+                indicatorColor: const Color(0xFF3D6B5E),
                 isScrollable: true,
+          tabAlignment: TabAlignment.start,
                 tabs: [
                   const Tab(
                       text: 'نظرة عامة',
@@ -294,7 +295,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
       expandedHeight: 260,
       floating: false,
       pinned: true,
-      backgroundColor: const Color(0xFF5E35B1),
+      backgroundColor: const Color(0xFF3D6B5E),
       title: scrolled
           ? Text(widget.shop.name, style: const TextStyle(fontSize: 17))
           : null,
@@ -376,7 +377,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                                   fit: BoxFit.cover,
                                 )
                               : const Icon(Icons.storefront,
-                                  size: 28, color: Color(0xFF5E35B1)),
+                                  size: 28, color: Color(0xFF3D6B5E)),
                         ),
                       ),
                     ),
@@ -454,7 +455,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                     ? 'اتصال  (${widget.shop.phone})'
                     : 'لا يوجد هاتف'),
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5E35B1),
+                    backgroundColor: const Color(0xFF3D6B5E),
                     foregroundColor: Colors.white),
               )),
               const SizedBox(width: 10),
@@ -580,7 +581,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(children: [
                     const Icon(Icons.map_outlined,
-                        color: Color(0xFF5E35B1), size: 20),
+                        color: Color(0xFF3D6B5E), size: 20),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -593,7 +594,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                       'عرض على الخريطة 🗺️',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF5E35B1),
+                        color: Color(0xFF3D6B5E),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -608,7 +609,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
               _sectionHeader('مواعيد العمل'),
               Row(children: [
                 const Icon(Icons.access_time,
-                    color: Color(0xFF5E35B1), size: 20),
+                    color: Color(0xFF3D6B5E), size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(widget.shop.workingHours,
@@ -756,7 +757,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
               return ChoiceChip(
                 label: Text(cat),
                 selected: sel,
-                selectedColor: const Color(0xFF5E35B1),
+                selectedColor: const Color(0xFF3D6B5E),
                 labelStyle: TextStyle(
                   color: sel
                       ? Colors.white
@@ -807,7 +808,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF5E35B1).withValues(alpha: 0.85),
+                      color: const Color(0xFF3D6B5E).withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: const Text(
@@ -850,7 +851,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
               Row(children: [
                 Text('${p.price.toStringAsFixed(0)} جنيه',
                     style: const TextStyle(
-                        color: Color(0xFF5E35B1),
+                        color: Color(0xFF3D6B5E),
                         fontWeight: FontWeight.bold)),
                 if (p.hasPriceDrop) ...[
                   const SizedBox(width: 6),
@@ -983,11 +984,11 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: const Color(0xFF5E35B1).withValues(alpha: 0.1),
+                color: const Color(0xFF3D6B5E).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(Icons.miscellaneous_services,
-                  color: Color(0xFF5E35B1)),
+                  color: Color(0xFF3D6B5E)),
             ),
             title: Text(s['name'] ?? '',
                 style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -1001,7 +1002,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
             trailing: s['price'] != null && (s['price'] as num) > 0
                 ? Text('${s['price']} ج',
                     style: const TextStyle(
-                        color: Color(0xFF5E35B1),
+                        color: Color(0xFF3D6B5E),
                         fontWeight: FontWeight.bold,
                         fontSize: 15))
                 : null,
@@ -1029,7 +1030,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
           margin: const EdgeInsets.all(16),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF5E35B1).withValues(alpha: 0.06),
+            color: const Color(0xFF3D6B5E).withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(children: [
@@ -1038,7 +1039,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                   style: const TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF5E35B1))),
+                      color: Color(0xFF3D6B5E))),
               Row(
                   children: List.generate(
                       5,
@@ -1100,7 +1101,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
               icon: const Icon(Icons.add_comment),
               label: const Text('أضف أول تقييم'),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5E35B1),
+                  backgroundColor: Color(0xFF3D6B5E),
                   foregroundColor: Colors.white),
             ),
           ]),
@@ -1128,11 +1129,11 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                         CircleAvatar(
                           radius: 18,
                           backgroundColor:
-                              const Color(0xFF5E35B1).withValues(alpha: 0.15),
+                              const Color(0xFF3D6B5E).withValues(alpha: 0.15),
                           child: Text(
                             uName.isNotEmpty ? uName[0] : 'م',
                             style: const TextStyle(
-                                color: Color(0xFF5E35B1),
+                                color: Color(0xFF3D6B5E),
                                 fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -1190,11 +1191,11 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                           width: double.infinity,
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF5E35B1)
+                            color: Color(0xFF3D6B5E)
                                 .withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: const Color(0xFF5E35B1)
+                              color: const Color(0xFF3D6B5E)
                                   .withValues(alpha: 0.25),
                             ),
                           ),
@@ -1202,7 +1203,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Icon(Icons.reply,
-                                  size: 16, color: Color(0xFF5E35B1)),
+                                  size: 16, color: Color(0xFF3D6B5E)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(

@@ -94,10 +94,11 @@ class _SubCategoryListState extends State<SubCategoryList>
     return Column(
       children: [
         Container(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           child: TabBar(
             controller: _tabController,
             isScrollable: true,
+          tabAlignment: TabAlignment.start,
             indicatorColor: Theme.of(context).primaryColor,
             labelColor: Theme.of(context).primaryColor,
             unselectedLabelColor: Colors.grey,
@@ -220,13 +221,13 @@ class _SubCategoryPageState extends State<_SubCategoryPage>
                     PopupMenuButton<String>(
                       onSelected: (v) => setState(() => _sortBy = v),
                       icon: Row(mainAxisSize: MainAxisSize.min, children: [
-                        const Icon(Icons.swap_vert, size: 18, color: Color(0xFF5E35B1)),
+                        const Icon(Icons.swap_vert, size: 18, color: Color(0xFF3D6B5E)),
                         const SizedBox(width: 4),
                         Text(
                           _sortBy == 'default' ? 'ترتيب' :
                           _sortBy == 'rating' ? 'التقييم' :
                           _sortBy == 'views' ? 'المشاهدات' : 'المفضلة',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF5E35B1)),
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF3D6B5E)),
                         ),
                       ]),
                       itemBuilder: (_) => [
@@ -281,7 +282,7 @@ class _SubCategoryPageState extends State<_SubCategoryPage>
       value: value,
       child: Row(children: [
         if (_sortBy == value)
-          const Icon(Icons.check, color: Color(0xFF5E35B1), size: 16)
+          const Icon(Icons.check, color: Color(0xFF3D6B5E), size: 16)
         else
           const SizedBox(width: 16),
         const SizedBox(width: 6),

@@ -37,7 +37,7 @@ class ErrorStateWidget extends StatelessWidget {
                 icon: const Icon(Icons.refresh),
                 label: const Text('إعادة المحاولة'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF5E35B1),
+                  backgroundColor: Color(0xFF3D6B5E),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),

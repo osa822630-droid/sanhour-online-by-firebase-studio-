@@ -266,7 +266,7 @@ class _EditShopScreenState extends State<EditShopScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('تعديل بيانات المتجر'),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
       ),
       body: Form(
@@ -288,7 +288,7 @@ class _EditShopScreenState extends State<EditShopScreen> {
                     height: 110,
                     decoration: BoxDecoration(
                       color: isDark
-                          ? const Color(0xFF252538)
+                          ? const Color(0xFF232927)
                           : Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
@@ -333,7 +333,7 @@ class _EditShopScreenState extends State<EditShopScreen> {
                         height: 110,
                         decoration: BoxDecoration(
                           color: isDark
-                              ? const Color(0xFF252538)
+                              ? Color(0xFF232927)
                               : Colors.grey[100],
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
@@ -397,7 +397,7 @@ class _EditShopScreenState extends State<EditShopScreen> {
                     value: _overallGalleryProgress,
                     minHeight: 8,
                     backgroundColor: Colors.grey.shade200,
-                    color: const Color(0xFF5E35B1),
+                    color: Color(0xFF3D6B5E),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -406,7 +406,7 @@ class _EditShopScreenState extends State<EditShopScreen> {
                     'جارٍ رفع الوسائط... ${(_overallGalleryProgress * 100).round()}%',
                     style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF5E35B1),
+                        color: Color(0xFF3D6B5E),
                         fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -510,7 +510,7 @@ class _EditShopScreenState extends State<EditShopScreen> {
                         : 'معرّف المالك الحالي: ${widget.shop.ownerId}',
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.manage_accounts_outlined,
-                        color: Color(0xFF5E35B1)),
+                        color: Color(0xFF3D6B5E)),
                   ),
                 ),
               ],

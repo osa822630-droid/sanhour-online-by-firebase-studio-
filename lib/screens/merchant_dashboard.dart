@@ -112,7 +112,7 @@ class _MerchantDashboardState extends State<MerchantDashboard>
             ),
           ],
         ),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         actions: [
           if (_currentShop != null) ...[
@@ -169,6 +169,7 @@ class _MerchantDashboardState extends State<MerchantDashboard>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
           isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: [
             const Tab(text: 'تسويق', icon: Icon(Icons.campaign, size: 18)),
             const Tab(
@@ -247,7 +248,7 @@ class _MerchantDashboardState extends State<MerchantDashboard>
                   Icon(
                     Icons.check,
                     color: _currentShop?.id == shop.id
-                        ? const Color(0xFF5E35B1)
+                        ? const Color(0xFF3D6B5E)
                         : Colors.transparent,
                     size: 18,
                   ),
@@ -262,7 +263,7 @@ class _MerchantDashboardState extends State<MerchantDashboard>
         const PopupMenuItem(
           value: 'add_new',
           child: Row(children: [
-            Icon(Icons.add_business, color: Color(0xFF5E35B1)),
+            Icon(Icons.add_business, color: Color(0xFF3D6B5E)),
             SizedBox(width: 8),
             Text('تفعيل متجر جديد'),
           ]),
@@ -281,11 +282,11 @@ class _MerchantDashboardState extends State<MerchantDashboard>
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFF5E35B1).withValues(alpha: 0.1),
+                color: const Color(0xFF3D6B5E).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.store_outlined,
-                  size: 60, color: Color(0xFF5E35B1)),
+                  size: 60, color: Color(0xFF3D6B5E)),
             ),
             const SizedBox(height: 20),
             const Text('ليس لديك متجر نشط',
@@ -301,7 +302,7 @@ class _MerchantDashboardState extends State<MerchantDashboard>
               icon: const Icon(Icons.add_business),
               label: const Text('تفعيل متجر جديد'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1),
+                backgroundColor: Color(0xFF3D6B5E),
                 foregroundColor: Colors.white,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -336,7 +337,7 @@ class _MerchantDashboardState extends State<MerchantDashboard>
       onPressed: isProducts ? _addProduct : _addOffer,
       label: Text(isProducts ? 'إضافة منتج' : 'إضافة عرض'),
       icon: Icon(isProducts ? Icons.add_box : Icons.local_offer),
-      backgroundColor: const Color(0xFF5E35B1),
+      backgroundColor: const Color(0xFF3D6B5E),
       foregroundColor: Colors.white,
     );
   }

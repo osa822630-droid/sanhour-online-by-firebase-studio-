@@ -133,7 +133,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           if (auth.user == null || auth.isGuest) {
@@ -150,7 +150,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
         },
         icon: const Icon(Icons.add),
         label: const Text('نشر وظيفة'),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
       ),
       body: Column(
@@ -223,7 +223,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
         children: [
           Row(children: [
             const Icon(Icons.notifications_active_outlined,
-                size: 14, color: Color(0xFF5E35B1)),
+                size: 14, color: Color(0xFF3D6B5E)),
             const SizedBox(width: 6),
             Text(
               'فعّل إشعارات المجالات اللي تهمك:',
@@ -250,7 +250,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: isSubbed
-                          ? const Color(0xFF5E35B1)
+                          ? const Color(0xFF3D6B5E)
                           : (isDark ? Colors.grey[800] : Colors.grey[100]),
                       borderRadius: BorderRadius.circular(20),
                       border: isSubbed
@@ -297,7 +297,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
       margin: const EdgeInsets.only(bottom: 14),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 2,
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      color: isDark ? const Color(0xFF1B201E) : Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -308,13 +308,13 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple.withValues(alpha: 0.12),
+                  color: const Color(0xFF3D6B5E).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   JobAdModel.categoryLabel(job.category),
                   style: const TextStyle(
-                      color: Colors.deepPurple,
+                      color: Color(0xFF3D6B5E),
                       fontWeight: FontWeight.bold,
                       fontSize: 11),
                 ),
@@ -381,7 +381,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
                 icon: const Icon(Icons.message, size: 16),
                 label: const Text('واتساب'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF25D366),
+                  foregroundColor: Color(0xFF25D366),
                   side: const BorderSide(color: Color(0xFF25D366)),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8)),

@@ -38,13 +38,13 @@ class _AboutScreenState extends State<AboutScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title: const Text(
           'عن التطبيق',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
@@ -56,7 +56,7 @@ class _AboutScreenState extends State<AboutScreen> {
               width: double.infinity,
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF5E35B1), Color(0xFF3949AB)],
+                  colors: [Color(0xFF3D6B5E), Color(0xFF4B5E6F)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -81,7 +81,7 @@ class _AboutScreenState extends State<AboutScreen> {
                     child: const Icon(
                       Icons.storefront,
                       size: 50,
-                      color: Color(0xFF5E35B1),
+                      color: Color(0xFF3D6B5E),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -171,7 +171,7 @@ class _AboutScreenState extends State<AboutScreen> {
               title: 'الموقع',
               child: Row(
                 children: const [
-                  Icon(Icons.location_on, color: Color(0xFF5E35B1), size: 20),
+                  Icon(Icons.location_on, color: Color(0xFF3D6B5E), size: 20),
                   SizedBox(width: 8),
                   Text('الفيوم — سنهور القبلية، مصر',
                       style: TextStyle(fontSize: 14)),
@@ -194,8 +194,8 @@ class _AboutScreenState extends State<AboutScreen> {
                   icon: const Icon(Icons.support_agent),
                   label: const Text('تواصل معنا'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF5E35B1),
-                    side: const BorderSide(color: Color(0xFF5E35B1)),
+                    foregroundColor: Color(0xFF3D6B5E),
+                    side: const BorderSide(color: Color(0xFF3D6B5E)),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
@@ -230,7 +230,7 @@ class _AboutScreenState extends State<AboutScreen> {
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        color: isDark ? const Color(0xFF1B201E) : Colors.white,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -238,7 +238,7 @@ class _AboutScreenState extends State<AboutScreen> {
             children: [
               Row(
                 children: [
-                  Icon(icon, color: const Color(0xFF5E35B1), size: 20),
+                  Icon(icon, color: const Color(0xFF3D6B5E), size: 20),
                   const SizedBox(width: 8),
                   Text(
                     title,
@@ -268,7 +268,7 @@ class _FeatureRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFF5E35B1), size: 18),
+          Icon(icon, color: const Color(0xFF3D6B5E), size: 18),
           const SizedBox(width: 10),
           Expanded(
               child: Text(text, style: const TextStyle(fontSize: 13))),

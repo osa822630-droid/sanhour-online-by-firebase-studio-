@@ -23,7 +23,7 @@ class _InterestsScreenState extends State<InterestsScreen> {
     {'label': 'أجهزة إلكترونية',  'icon': Icons.phone_android,     'color': 0xFF1E88E5},
     {'label': 'صحة وجمال',        'icon': Icons.health_and_safety, 'color': 0xFF43A047},
     {'label': 'خدمات منزلية',     'icon': Icons.handyman,          'color': 0xFFFB8C00},
-    {'label': 'تعليم وتدريب',     'icon': Icons.school,            'color': 0xFF3949AB},
+    {'label': 'تعليم وتدريب',     'icon': Icons.school,            'color': 0xFF4B5E6F},
     {'label': 'مواصلات وسيارات',  'icon': Icons.directions_car,    'color': 0xFF6D4C41},
     {'label': 'خدمات مهنية',      'icon': Icons.gavel,             'color': 0xFF546E7A},
     {'label': 'ذهب ومجوهرات',     'icon': Icons.diamond,           'color': 0xFFFFB300},
@@ -75,7 +75,7 @@ class _InterestsScreenState extends State<InterestsScreen> {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft, end: Alignment.bottomRight,
-            colors: [Color(0xFF4527A0), Color(0xFF7B1FA2)],
+            colors: [Color(0xFF26483F), Color(0xFF3D6B5E)],
           ),
         ),
         child: SafeArea(
@@ -183,7 +183,7 @@ class _InterestsScreenState extends State<InterestsScreen> {
                             width: double.infinity, height: 50,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF5E35B1),
+                                backgroundColor: Color(0xFF3D6B5E),
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                               ),

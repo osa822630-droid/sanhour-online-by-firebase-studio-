@@ -159,7 +159,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
     }
 
     return Container(
-      color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+      color: isDark ? const Color(0xFF1B201E) : Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 5),
       child: Column(
         children: [
@@ -188,7 +188,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
                         borderSide: BorderSide.none),
                     filled: true,
                     fillColor:
-                        isDark ? const Color(0xFF252538) : Colors.grey[100],
+                        isDark ? const Color(0xFF232927) : Colors.grey[100],
                   ),
                   onChanged: (val) => setState(() => _searchQuery = val),
                 ),
@@ -223,7 +223,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
               IconButton(
                 tooltip: 'إدارة الخدمات',
                 icon: const Icon(Icons.miscellaneous_services,
-                    color: Color(0xFF5E35B1)),
+                    color: Color(0xFF3D6B5E)),
                 onPressed: () => _showServicesManager(),
               ),
             ],
@@ -245,7 +245,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
                       setState(
                           () => _selectedCategory = selected ? cat : 'الكل');
                     },
-                    selectedColor: const Color(0xFF5E35B1),
+                    selectedColor: const Color(0xFF3D6B5E),
                     labelStyle: TextStyle(
                       color: isSelected
                           ? Colors.white
@@ -254,12 +254,12 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
                           isSelected ? FontWeight.bold : FontWeight.normal,
                     ),
                     backgroundColor:
-                        isDark ? const Color(0xFF252538) : Colors.grey[50],
+                        isDark ? const Color(0xFF232927) : Colors.grey[50],
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                       side: BorderSide(
                           color: isSelected
-                              ? const Color(0xFF5E35B1)
+                              ? const Color(0xFF3D6B5E)
                               : Colors.grey.withValues(alpha: 0.3)),
                     ),
                   ),
@@ -278,9 +278,9 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
 
     return Card(
       color: isSelected
-          ? const Color(0xFF5E35B1).withValues(alpha: 0.15)
+          ? const Color(0xFF3D6B5E).withValues(alpha: 0.15)
           : (isVisible
-              ? (isDark ? const Color(0xFF1E1E2E) : Colors.white)
+              ? (isDark ? const Color(0xFF1B201E) : Colors.white)
               : (isDark ? const Color(0xFF151522) : Colors.grey[100])),
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       child: ListTile(
@@ -564,7 +564,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5E35B1),
+                    backgroundColor: const Color(0xFF3D6B5E),
                     foregroundColor: Colors.white),
                 icon: const Icon(Icons.add),
                 label: const Text('إضافة الخدمة'),

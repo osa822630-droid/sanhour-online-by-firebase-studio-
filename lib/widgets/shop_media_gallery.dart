@@ -62,7 +62,7 @@ class _ShopMediaGalleryState extends State<ShopMediaGallery> {
           child: Row(
             children: [
               const Icon(Icons.photo_library_outlined,
-                  color: Color(0xFF5E35B1), size: 20),
+                  color: Color(0xFF3D6B5E), size: 20),
               const SizedBox(width: 8),
               const Text(
                 'صور وفيديوهات المحل',
@@ -116,7 +116,7 @@ class _ShopMediaGalleryState extends State<ShopMediaGallery> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: _selectedIndex == i
-                            ? const Color(0xFF5E35B1)
+                            ? const Color(0xFF3D6B5E)
                             : Colors.transparent,
                         width: 2.5,
                       ),
@@ -358,7 +358,7 @@ class _VideoPlayerState extends State<_VideoPlayer> {
                   _ctrl!,
                   allowScrubbing: true,
                   colors: const VideoProgressColors(
-                    playedColor: Color(0xFF7C4DFF),
+                    playedColor: Color(0xFF73A899),
                     bufferedColor: Colors.white38,
                     backgroundColor: Colors.white12,
                   ),
