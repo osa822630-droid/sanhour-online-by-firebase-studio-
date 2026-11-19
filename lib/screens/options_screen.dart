@@ -118,7 +118,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
       appBar: AppBar(
         title: const Text('الإعدادات والخيارات',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
@@ -177,13 +177,13 @@ class _OptionsScreenState extends State<OptionsScreen> {
               ),
               value: isDark,
               onChanged: (_) => themeProvider.toggleTheme(),
-              activeThumbColor: const Color(0xFF5E35B1),
+              activeThumbColor: const Color(0xFF3D6B5E),
             ),
 
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.interests_outlined,
-                  color: Color(0xFF5E35B1)),
+                  color: Color(0xFF3D6B5E)),
               title: const Text('تعديل اهتماماتي',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               subtitle: const Text('اختر الفئات المفضلة لقسم اخترنا لك',
@@ -204,7 +204,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
           _card([
             ListTile(
               leading: const Icon(Icons.auto_stories_outlined,
-                  color: Color(0xFF5E35B1)),
+                  color: Color(0xFF3D6B5E)),
               title: const Text('دليل الاستخدام',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               subtitle: const Text(
@@ -225,7 +225,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                      colors: [Color(0xFF4527A0), Color(0xFF7B1FA2)]),
+                      colors: [Color(0xFF26483F), Color(0xFF3D6B5E)]),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.auto_awesome,
@@ -276,7 +276,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.inbox_outlined,
-                    color: Color(0xFF5E35B1)),
+                    color: Color(0xFF3D6B5E)),
                 title: const Text('شكاواي واقتراحاتي'),
                 subtitle: const Text('تتبع ردود الإدارة على رسائلك',
                     style: TextStyle(fontSize: 12)),
@@ -308,7 +308,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
             if (!authProvider.isGuest) ...[
               ListTile(
                 leading:
-                    const Icon(Icons.edit_outlined, color: Color(0xFF5E35B1)),
+                    const Icon(Icons.edit_outlined, color: Color(0xFF3D6B5E)),
                 title: const Text('تعديل الحساب'),
                 subtitle: const Text('الاسم، الصورة، اسم المستخدم',
                     style: TextStyle(fontSize: 12)),
@@ -339,7 +339,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
             ] else
               ListTile(
                 leading:
-                    const Icon(Icons.login, color: Color(0xFF5E35B1)),
+                    const Icon(Icons.login, color: Color(0xFF3D6B5E)),
                 title: const Text('تسجيل الدخول / إنشاء حساب'),
                 onTap: () => Navigator.pushAndRemoveUntil(
                     context,
@@ -403,19 +403,19 @@ class _OptionsScreenState extends State<OptionsScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: const Color(0xFF5E35B1), size: 22),
+              Icon(icon, color: const Color(0xFF3D6B5E), size: 22),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(label,
                     style: const TextStyle(
-                        color: Color(0xFF5E35B1),
+                        color: Color(0xFF3D6B5E),
                         fontWeight: FontWeight.bold,
                         fontSize: 14),
                     overflow: TextOverflow.ellipsis),
               ),
               const SizedBox(width: 4),
               const Icon(Icons.arrow_forward_ios,
-                  size: 14, color: Color(0xFF5E35B1)),
+                  size: 14, color: Color(0xFF3D6B5E)),
             ],
           ),
         ),
@@ -424,7 +424,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
   }
 
   Widget _infoTile(String label, IconData icon, String fieldKey) => ListTile(
-        leading: Icon(icon, color: const Color(0xFF5E35B1)),
+        leading: Icon(icon, color: const Color(0xFF3D6B5E)),
         title: Text(label),
         trailing: const Icon(Icons.arrow_forward_ios,
             size: 14, color: Colors.grey),
@@ -445,13 +445,13 @@ class _OptionsScreenState extends State<OptionsScreen> {
     if (auth.isGuest) {
       return Card(
         margin: const EdgeInsets.all(16),
-        color: const Color(0xFF5E35B1).withValues(alpha: 0.08),
+        color: const Color(0xFF3D6B5E).withValues(alpha: 0.08),
         elevation: 2,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: ListTile(
           leading: const CircleAvatar(
-            backgroundColor: Color(0xFF5E35B1),
+            backgroundColor: Color(0xFF3D6B5E),
             child: Icon(Icons.person_off, color: Colors.white),
           ),
           title: const Text('أنت تتصفح كضيف',
@@ -459,7 +459,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
           subtitle: const Text('سجّل دخولك للاستفادة من كل المميزات'),
           trailing: ElevatedButton(
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF5E35B1),
+                backgroundColor: const Color(0xFF3D6B5E),
                 foregroundColor: Colors.white),
             onPressed: () => Navigator.pushAndRemoveUntil(
                 context,
@@ -501,7 +501,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
                 MaterialPageRoute(builder: (_) => const AccountEditScreen())),
             child: CircleAvatar(
               radius: 30,
-              backgroundColor: const Color(0xFF5E35B1),
+              backgroundColor: const Color(0xFF3D6B5E),
               backgroundImage: (photoUrl?.isNotEmpty == true)
                   ? NetworkImage(photoUrl!)
                   : null,
@@ -532,16 +532,16 @@ class _OptionsScreenState extends State<OptionsScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF5E35B1).withValues(alpha: 0.1),
+                    color: Color(0xFF3D6B5E).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(roleIcon, size: 12, color: const Color(0xFF5E35B1)),
+                    Icon(roleIcon, size: 12, color: const Color(0xFF3D6B5E)),
                     const SizedBox(width: 4),
                     Text(roleLabel,
                         style: const TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF5E35B1),
+                            color: Color(0xFF3D6B5E),
                             fontWeight: FontWeight.bold)),
                   ]),
                 ),
@@ -550,7 +550,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.edit_outlined,
-                color: Color(0xFF5E35B1), size: 20),
+                color: Color(0xFF3D6B5E), size: 20),
             onPressed: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const AccountEditScreen())),
           ),
@@ -659,11 +659,11 @@ class _FirestoreTextScreen extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
       appBar: AppBar(
         title:
             Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF5E35B1),
+        backgroundColor: Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
@@ -688,7 +688,7 @@ class _FirestoreTextScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                      colors: [Color(0xFF5E35B1), Color(0xFF3949AB)]),
+                      colors: [Color(0xFF3D6B5E), Color(0xFF4B5E6F)]),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(children: [
@@ -713,7 +713,7 @@ class _FirestoreTextScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                  color: isDark ? Color(0xFF1B201E) : Colors.white,
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
