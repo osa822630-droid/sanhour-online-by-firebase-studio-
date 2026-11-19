@@ -77,8 +77,8 @@ class _MerchantServicesTabState extends State<MerchantServicesTab> {
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          top: 20, left: 16, right: 16,
+        padding: EdgeInsetsDirectional.only(
+          top: 20, end: 16, start: 16,
           bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
         ),
         child: Column(

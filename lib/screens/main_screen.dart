@@ -1,6 +1,7 @@
 // lib/screens/main_screen.dart
 // ✅ Tab الإعلانات → AdsHubScreen (مركز شامل: إعلانات + وظائف + خدمات)
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
@@ -34,6 +35,7 @@ class MainScreen extends StatefulWidget {
       GlobalKey<ScaffoldState>();
 
   static void openDrawer() {
+    HapticFeedback.selectionClick();
     scaffoldKey.currentState?.openDrawer();
   }
 
@@ -109,10 +111,13 @@ class _MainScreenState extends State<MainScreen> {
     AdsHubScreen(),
   ];
 
-  void _onItemTapped(int index) => setState(() {
+  void _onItemTapped(int index) {
+    if (index != _selectedIndex) HapticFeedback.selectionClick();
+    setState(() {
         _selectedIndex = index;
         _activatedTabs.add(index);
       });
+  }
 
   @override
   Widget build(BuildContext context) {

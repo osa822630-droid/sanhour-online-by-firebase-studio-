@@ -201,7 +201,7 @@ class _AddOfferScreenState extends State<AddOfferScreen> {
         content: Text(_isEditing ? '✅ تم تحديث العرض' : '✅ تم نشر العرض'),
         backgroundColor: Colors.green,
       ));
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(milliseconds: 250));
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {

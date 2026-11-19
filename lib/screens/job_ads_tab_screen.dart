@@ -245,7 +245,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
                   onTap: () => _toggleSubscription(cat),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.only(left: 6),
+                    margin: const EdgeInsetsDirectional.only(end: 6),
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
@@ -261,7 +261,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
                     child: Row(children: [
                       if (isSubbed)
                         const Padding(
-                          padding: EdgeInsets.only(left: 4),
+                          padding: EdgeInsetsDirectional.only(end: 4),
                           child: Icon(Icons.notifications_active,
                               size: 13, color: Colors.white),
                         ),

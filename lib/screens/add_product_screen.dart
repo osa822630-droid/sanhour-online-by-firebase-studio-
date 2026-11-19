@@ -157,7 +157,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
         content: Text(_isEditing ? '✅ تم تعديل المنتج' : '✅ تم إضافة المنتج'),
         backgroundColor: Colors.green,
       ));
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(milliseconds: 250));
       if (!mounted) return;
       navigator.pop(true);
     } catch (e) {

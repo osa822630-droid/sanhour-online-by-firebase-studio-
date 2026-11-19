@@ -116,7 +116,7 @@ class _ProviderRegistrationScreenState
         backgroundColor: Colors.green,
         duration: Duration(seconds: 3),
       ));
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(milliseconds: 250));
       if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {

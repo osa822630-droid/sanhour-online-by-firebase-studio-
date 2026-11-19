@@ -111,7 +111,7 @@ class _ShopMediaGalleryState extends State<ShopMediaGallery> {
                     duration: const Duration(milliseconds: 200),
                     width: 64,
                     height: 64,
-                    margin: const EdgeInsets.only(left: 8),
+                    margin: const EdgeInsetsDirectional.only(end: 8),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(

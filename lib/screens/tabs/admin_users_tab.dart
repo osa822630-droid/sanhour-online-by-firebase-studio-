@@ -198,8 +198,8 @@ class _AdminUsersTabState extends State<AdminUsersTab>
                     : _filteredUsers.isEmpty
                         ? _buildEmptyState()
                         : ListView.builder(
-                            padding: const EdgeInsets.only(
-                                left: 16, right: 16, bottom: 80),
+                            padding: const EdgeInsetsDirectional.only(
+                                end: 16, start: 16, bottom: 80),
                             itemCount: _filteredUsers.length,
                             itemBuilder: (ctx, i) =>
                                 _buildUserCard(_filteredUsers[i], isDark),

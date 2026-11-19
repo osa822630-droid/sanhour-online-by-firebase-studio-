@@ -360,7 +360,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                 children: [
                   if (widget.shop.coverUrl.isNotEmpty)
                     Container(
-                      margin: const EdgeInsets.only(left: 12),
+                      margin: const EdgeInsetsDirectional.only(end: 12),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
@@ -490,7 +490,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                               builder: (_) => DetailScreen(item: offer))),
                       child: Container(
                         width: 240,
-                        margin: const EdgeInsets.only(left: 10),
+                        margin: const EdgeInsetsDirectional.only(end: 10),
                         decoration: BoxDecoration(
                           color: isDark
                               ? Colors.red.withValues(alpha: 0.12)
@@ -1171,7 +1171,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                             scrollDirection: Axis.horizontal,
                             itemCount: r.images!.length,
                             itemBuilder: (_, imgIdx) => Padding(
-                              padding: const EdgeInsets.only(left: 8),
+                              padding: const EdgeInsetsDirectional.only(end: 8),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
                                 child: CachedImage(

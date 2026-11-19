@@ -654,7 +654,7 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
   Widget _buildFilterChip(String label) {
     bool isSelected = _selectedCategory == label;
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsetsDirectional.only(start: 8),
       child: ChoiceChip(
         label: Text(label),
         selected: isSelected,

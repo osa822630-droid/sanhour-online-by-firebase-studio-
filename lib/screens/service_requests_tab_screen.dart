@@ -254,7 +254,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                margin: const EdgeInsets.only(left: 6),
+                margin: const EdgeInsetsDirectional.only(end: 6),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(

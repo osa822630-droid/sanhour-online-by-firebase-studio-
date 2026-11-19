@@ -552,7 +552,7 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
                   onTap: () => setState(() => _selectedColor = c),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.only(left: 8),
+                    margin: const EdgeInsetsDirectional.only(end: 8),
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(

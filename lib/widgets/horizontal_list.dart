@@ -103,7 +103,7 @@ class _HorizontalCard extends StatelessWidget {
           MaterialPageRoute(builder: (_) => ShopDetailScreen(shop: shop))),
       child: Container(
         width: 150,
-        margin: const EdgeInsets.only(left: 10),
+        margin: const EdgeInsetsDirectional.only(end: 10),
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),
@@ -175,7 +175,7 @@ class _HorizontalCard extends StatelessWidget {
           MaterialPageRoute(builder: (_) => DetailScreen(item: product))),
       child: Container(
         width: 140,
-        margin: const EdgeInsets.only(left: 10),
+        margin: const EdgeInsetsDirectional.only(end: 10),
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),
@@ -253,7 +253,7 @@ class _HorizontalCard extends StatelessWidget {
           MaterialPageRoute(builder: (_) => DetailScreen(item: offer))),
       child: Container(
         width: 160,
-        margin: const EdgeInsets.only(left: 10),
+        margin: const EdgeInsetsDirectional.only(end: 10),
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),

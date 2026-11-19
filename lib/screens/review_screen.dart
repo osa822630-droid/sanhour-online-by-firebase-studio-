@@ -506,7 +506,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                   itemCount: reviewImages.length,
                   itemBuilder: (context, imgIndex) {
                     return Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
+                      padding: const EdgeInsetsDirectional.only(end: 8.0),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: CachedImage(

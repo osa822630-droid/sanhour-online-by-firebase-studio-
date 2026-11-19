@@ -237,7 +237,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
               children: categories.map((cat) {
                 final isSelected = _selectedCategory == cat;
                 return Padding(
-                  padding: const EdgeInsets.only(left: 8.0),
+                  padding: const EdgeInsetsDirectional.only(end: 8.0),
                   child: ChoiceChip(
                     label: Text(cat),
                     selected: isSelected,
@@ -522,10 +522,10 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
         return Padding(
-          padding: EdgeInsets.only(
+          padding: EdgeInsetsDirectional.only(
             top: 20,
-            left: 16,
-            right: 16,
+            end: 16,
+            start: 16,
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
           ),
           child: Column(mainAxisSize: MainAxisSize.min, children: [

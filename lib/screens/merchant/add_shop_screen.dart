@@ -207,7 +207,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
               content: Text('🎉 تم إنشاء المحل بنجاح!'),
               backgroundColor: Colors.green),
         );
-        await Future.delayed(const Duration(milliseconds: 600));
+        await Future.delayed(const Duration(milliseconds: 250));
         if (mounted) Navigator.pop(context, true);
       }
     } catch (e) {

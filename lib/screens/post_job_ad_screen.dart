@@ -119,7 +119,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
         backgroundColor: Colors.green,
       ));
       // ✅ إصلاح: تأخير بسيط قبل الإغلاق حتى تظهر رسالة النجاح فعلياً
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(milliseconds: 250));
       if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
