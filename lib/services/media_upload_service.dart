@@ -185,8 +185,21 @@ class MediaUploadService {
           );
         }
 
-        final snapshot = await task;
-        final url = await snapshot.ref.getDownloadURL();
+        final snapshot = await task.timeout(
+          const Duration(seconds: 25),
+          onTimeout: () {
+            task?.cancel();
+            throw const MediaUploadException(
+              'انتهت مهلة رفع الصورة. تحقق من اتصال الإنترنت أو قواعد التخزين وحاول مجدداً.',
+            );
+          },
+        );
+        final url = await snapshot.ref.getDownloadURL().timeout(
+          const Duration(seconds: 12),
+          onTimeout: () => throw const MediaUploadException(
+            'انتهت مهلة استلام رابط الصورة. حاول مجدداً.',
+          ),
+        );
 
         if (onProgress != null) {
           onProgress(MediaUploadProgress(

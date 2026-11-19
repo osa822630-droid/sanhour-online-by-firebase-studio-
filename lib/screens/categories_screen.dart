@@ -24,6 +24,10 @@ class CategoriesScreen extends StatefulWidget {
     this.initialSubCategory,
   });
 
+  /// يسمح بالتبديل البرمجي لفئة محددة مع إبقاء الشريط السفلي ظاهراً
+  static final ValueNotifier<String?> categoryRequest =
+      ValueNotifier<String?>(null);
+
   @override
   State<CategoriesScreen> createState() => _CategoriesScreenState();
 }
@@ -33,24 +37,45 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   String? _selectedSubCategory;
   String? _selectedSubSubCategory;
   String _sortBy = 'default';
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
   List<Shop> _categoryShops = [];
+      _searchQuery = '';
+      _searchController.clear();
   bool _loadingCategoryShops = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialCategory != null) {
+    CategoriesScreen.categoryRequest.addListener(_onCategoryRequested);
+    final req = CategoriesScreen.categoryRequest.value ?? widget.initialCategory;
+    if (req != null) {
       WidgetsBinding.instance
-          .addPostFrameCallback((_) => _applyInitialCategory());
+          .addPostFrameCallback((_) => _applyCategoryByName(req));
     }
   }
 
-  void _applyInitialCategory() {
+  @override
+  void dispose() {
+    CategoriesScreen.categoryRequest.removeListener(_onCategoryRequested);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onCategoryRequested() {
+    final req = CategoriesScreen.categoryRequest.value;
+    if (req != null && mounted) {
+      CategoriesScreen.categoryRequest.value = null;
+      _applyCategoryByName(req);
+    }
+  }
+
+  void _applyCategoryByName(String categoryName) {
     if (!mounted) return;
     final provider = context.read<ShopsProvider>();
     CategoryModel? match;
     for (final c in provider.categories) {
-      if (c.name == widget.initialCategory) {
+      if (c.name == categoryName) {
         match = c;
         break;
       }
@@ -96,6 +121,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       _selectedSubCategory = null;
       _selectedSubSubCategory = null;
       _categoryShops = [];
+      _searchQuery = '';
+      _searchController.clear();
     });
   }
 
@@ -116,7 +143,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? const Color(0xFF0E0E1A) : const Color(0xFFF8F7FF),
+          isDark ? const Color(0xFF18162B) : const Color(0xFFF8F7FF),
       appBar: AppBar(
         title: Text(_selectedCategory?.name ?? 'الفئات',
             style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -133,7 +160,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             ? null
             : [
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.sort),
+                  icon: const Icon(Icons.swap_vert_rounded),
+                  tooltip: 'ترتيب النتائج',
                   onSelected: (v) => setState(() => _sortBy = v),
                   itemBuilder: (_) => [
                     _sortItem('default', 'الافتراضي'),
@@ -160,9 +188,56 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  // ── شبكة الفئات الرئيسية ──────────────────────────────────────────
+  Widget _buildSearchField(bool isDark, String hint) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: const Icon(Icons.search_rounded, size: 22),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear_rounded, size: 20),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: isDark ? const Color(0xFF23203A) : Colors.white,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: isDark ? const Color(0xFF3A3461) : Colors.grey.shade300,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: isDark ? const Color(0xFF3A3461) : Colors.grey.shade300,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── شبكة الفئات الرئيسية (إخفاء الفئات الفارغة + بحث مدمج) ───────────
   Widget _buildCategoryGrid(ShopsProvider provider, bool isDark) {
-    final cats = provider.categories;
+    final activeCatNames =
+        provider.shops.map((s) => s.category.trim()).toSet();
+    final cats = provider.categories.where((c) {
+      if (!activeCatNames.contains(c.name.trim())) return false;
+      if (_searchQuery.isNotEmpty) {
+        return c.name.toLowerCase().contains(_searchQuery);
+      }
+      return true;
+    }).toList();
     if (cats.isEmpty) {
       return ListView(children: [
         const SizedBox(height: 80),
@@ -179,10 +254,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       ]);
     }
 
-    return RefreshIndicator(
-      onRefresh: () => provider.fetchCategories(refresh: true),
-      color: const Color(0xFF5E35B1),
-      child: GridView.builder(
+    return Column(
+      children: [
+        _buildSearchField(isDark, 'ابحث في الفئات...'),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              await Future.wait([
+                provider.fetchCategories(refresh: true),
+                provider.fetchShops(refresh: true),
+              ]);
+            },
+            color: const Color(0xFF5E35B1),
+            child: GridView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
@@ -198,7 +282,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             onTap: () => _selectCategory(cat),
             child: Container(
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                color: isDark ? const Color(0xFF23203A) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
@@ -236,38 +320,77 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             ),
           );
         },
-      ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   // ── محتوى الفئة المختارة: chips هرمية + قائمة المحلات ────────────
   Widget _buildCategoryContent(ShopsProvider provider, bool isDark) {
     final cat = _selectedCategory!;
-    final shops = _filterAndSortShops(provider);
-    final subSubs = _selectedSubCategory == null
+    final allCatShops = _categoryShops.isNotEmpty
+        ? _categoryShops
+        : provider.shops
+            .where((s) => s.category.trim() == cat.name.trim())
+            .toList();
+
+    // ✅ إخفاء الفئات الفرعية الفارغة
+    final nonEmptySubs = cat.subCategories.where((sub) {
+      final subNorm = sub.trim();
+      return allCatShops.any((s) =>
+          s.name.contains(subNorm) ||
+          s.description.contains(subNorm) ||
+          (s.searchKeywords?.any((k) => k.contains(subNorm)) ?? false));
+    }).toList();
+
+    // ✅ إخفاء الفئات الدقيقة الفارغة
+    final rawSubSubs = _selectedSubCategory == null
         ? const <String>[]
         : (cat.subSubCategories[_selectedSubCategory] ?? const <String>[]);
+    final nonEmptySubSubs = rawSubSubs.where((ss) {
+      final ssNorm = ss.trim();
+      return allCatShops.any((s) =>
+          s.name.contains(ssNorm) ||
+          s.description.contains(ssNorm) ||
+          (s.searchKeywords?.any((k) => k.contains(ssNorm)) ?? false));
+    }).toList();
+
+    var shops = _filterAndSortShops(provider);
+    if (_searchQuery.isNotEmpty) {
+      shops = shops
+          .where((s) =>
+              s.name.toLowerCase().contains(_searchQuery) ||
+              s.description.toLowerCase().contains(_searchQuery) ||
+              s.location.toLowerCase().contains(_searchQuery))
+          .toList();
+    }
 
     return RefreshIndicator(
       onRefresh: () => _selectCategory(cat,
           subCategory: _selectedSubCategory, forceRefresh: true),
       color: const Color(0xFF5E35B1),
       child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
-          if (cat.subCategories.isNotEmpty)
+          SliverToBoxAdapter(
+            child: _buildSearchField(isDark, 'ابحث داخل ${cat.name}...'),
+          ),
+          if (nonEmptySubs.isNotEmpty)
             SliverToBoxAdapter(
               child: _buildChipRow(
-                options: cat.subCategories,
+                options: nonEmptySubs,
                 selected: _selectedSubCategory,
                 onSelect: _selectSubCategory,
                 isDark: isDark,
               ),
             ),
 
-          if (_selectedSubCategory != null && subSubs.isNotEmpty)
+          if (_selectedSubCategory != null && nonEmptySubSubs.isNotEmpty)
             SliverToBoxAdapter(
               child: _buildChipRow(
-                options: subSubs,
+                options: nonEmptySubSubs,
                 selected: _selectedSubSubCategory,
                 onSelect: _selectSubSubCategory,
                 isDark: isDark,

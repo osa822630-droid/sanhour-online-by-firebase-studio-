@@ -5,7 +5,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/theme_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
@@ -28,27 +27,7 @@ class OptionsScreen extends StatefulWidget {
 }
 
 class _OptionsScreenState extends State<OptionsScreen> {
-  bool _showStartupAds = true;
   bool _isDeleting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAdsPreference();
-  }
-
-  Future<void> _loadAdsPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() => _showStartupAds = prefs.getBool('show_startup_ads') ?? true);
-  }
-
-  Future<void> _toggleAdsPreference(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('show_startup_ads', value);
-    if (!mounted) return;
-    setState(() => _showStartupAds = value);
-  }
 
   Future<void> _performSoftDelete(
       BuildContext dialogContext, app_auth.AuthProvider authProvider) async {
@@ -200,18 +179,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
               onChanged: (_) => themeProvider.toggleTheme(),
               activeThumbColor: const Color(0xFF5E35B1),
             ),
-            const Divider(height: 1),
-            SwitchListTile(
-              title: const Text('إعلانات عند فتح التطبيق',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('عرض أحدث العروض عند بدء التطبيق',
-                  style: TextStyle(fontSize: 12)),
-              secondary:
-                  const Icon(Icons.campaign, color: Color(0xFF5E35B1)),
-              value: _showStartupAds,
-              onChanged: _toggleAdsPreference,
-              activeThumbColor: const Color(0xFF5E35B1),
-            ),
+
             const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.interests_outlined,

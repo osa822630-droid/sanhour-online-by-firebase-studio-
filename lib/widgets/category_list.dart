@@ -1,20 +1,20 @@
-// lib_widgets_category_list.dart
+// lib/widgets/category_list.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:provider/provider.dart';
 import '../providers/shops_provider.dart';
 import '../models/category_model.dart';
-import '../screens/categories_screen.dart';
+import '../screens/main_screen.dart';
 
 class CategoryListWidget extends StatelessWidget {
   const CategoryListWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Selector<ShopsProvider, List<CategoryModel>>(
-      selector: (_, provider) => provider.categories,
-      builder: (context, categories, child) {
-        if (categories.isEmpty) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Consumer<ShopsProvider>(
+      builder: (context, provider, child) {
+        if (provider.categories.isEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Provider.of<ShopsProvider>(context, listen: false)
                 .fetchCategories();
@@ -22,39 +22,36 @@ class CategoryListWidget extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 10.0),
-          color: Colors.white,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.0),
-                child: Text(
-                  'استكشف الفئات',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 110,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  itemCount: categories.length,
-                  scrollCacheExtent: const ScrollCacheExtent.pixels(500),
-                  itemBuilder: (context, index) {
-                    final cat = categories[index];
-                    return _buildCategoryItem(
-                      context,
-                      cat.name,
-                      CategoryModel.getIconData(cat.iconName),
-                      Color(cat.colorValue),
-                    );
-                  },
-                ),
-              ),
-            ],
+        // ✅ إخفاء الفئات الفارغة التي لا تحتوي على أي محل نشط
+        final activeCatNames =
+            provider.shops.map((s) => s.category.trim()).toSet();
+        final visibleCategories = activeCatNames.isEmpty
+            ? const <CategoryModel>[]
+            : provider.categories
+                .where((c) => activeCatNames.contains(c.name.trim()))
+                .toList();
+
+        if (visibleCategories.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return SizedBox(
+          height: 108,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            itemCount: visibleCategories.length,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+            itemBuilder: (context, index) {
+              final cat = visibleCategories[index];
+              return _buildCategoryItem(
+                context,
+                cat.name,
+                CategoryModel.getIconData(cat.iconName),
+                Color(cat.colorValue),
+                isDark,
+              );
+            },
           ),
         );
       },
@@ -62,11 +59,17 @@ class CategoryListWidget extends StatelessWidget {
   }
 
   Widget _buildCategoryItem(
-      BuildContext context, String categoryName, IconData icon, Color color) {
+    BuildContext context,
+    String categoryName,
+    IconData icon,
+    Color color,
+    bool isDark,
+  ) {
     return Container(
-      width: 85,
+      width: 84,
       margin: const EdgeInsets.symmetric(horizontal: 4.0),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Material(
             color: Colors.transparent,
@@ -74,21 +77,28 @@ class CategoryListWidget extends StatelessWidget {
               onTap: () => _navigateToCategory(context, categoryName),
               borderRadius: BorderRadius.circular(50),
               child: Container(
-                padding: const EdgeInsets.all(12),
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: color.withValues(alpha: isDark ? 0.22 : 0.12),
                   shape: BoxShape.circle,
-                  border:
-                      Border.all(color: color.withValues(alpha: 0.2), width: 1),
+                  border: Border.all(
+                    color: color.withValues(alpha: isDark ? 0.45 : 0.25),
+                    width: 1.2,
+                  ),
                 ),
-                child: Icon(icon, color: color, size: 28),
+                child: Icon(icon, color: color, size: 26),
               ),
             ),
           ),
           const SizedBox(height: 6),
           Text(
             categoryName,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white.withValues(alpha: 0.9) : const Color(0xFF1F1C36),
+            ),
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -99,11 +109,7 @@ class CategoryListWidget extends StatelessWidget {
   }
 
   void _navigateToCategory(BuildContext context, String categoryName) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CategoriesScreen(initialCategory: categoryName),
-      ),
-    );
+    // ✅ التبديل إلى تبويب الفئات داخل MainScreen مع إبقاء الشريط السفلي ظاهراً
+    MainScreen.switchTab(MainScreen.categoriesTab, categoryName: categoryName);
   }
 }

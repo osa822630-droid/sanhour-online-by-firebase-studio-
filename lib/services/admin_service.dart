@@ -256,14 +256,18 @@ class AdminService {
     await _firestore.collection('settings_private').doc('gemini').set({
       'apiKey': key.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    }).timeout(const Duration(seconds: 12));
     try {
       await _firestore
           .collection('settings')
           .doc('general')
-          .update({'geminiApiKey': FieldValue.delete()});
+          .update({'geminiApiKey': FieldValue.delete()})
+          .timeout(const Duration(seconds: 6));
     } catch (_) {}
-    await AuditLogService.logSettingsUpdated({'geminiApiKey': 'updated'});
+    try {
+      await AuditLogService.logSettingsUpdated({'geminiApiKey': 'updated'})
+          .timeout(const Duration(seconds: 6));
+    } catch (_) {}
   }
 
   // ==========================================================

@@ -38,9 +38,12 @@ class MainScreen extends StatefulWidget {
   }
 
   static final ValueNotifier<int?> tabSwitchRequest = ValueNotifier<int?>(null);
-  static void switchTab(int tabIndex, {int? adsSubTab}) {
+  static void switchTab(int tabIndex, {int? adsSubTab, String? categoryName}) {
     if (adsSubTab != null) {
       AdsHubScreen.subTabRequest.value = adsSubTab;
+    }
+    if (categoryName != null) {
+      CategoriesScreen.categoryRequest.value = categoryName;
     }
     tabSwitchRequest.value = tabIndex;
   }
@@ -174,7 +177,7 @@ class _MainScreenState extends State<MainScreen> {
                         : Colors.grey[600]!,
               ),
               selectedIcon: DealerIcon(size: 22, color: Colors.deepPurple),
-              label: 'سوق',
+              label: 'ديلز',
             ),
             NavigationDestination(
               icon: Icon(

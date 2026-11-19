@@ -271,7 +271,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      await batch.commit();
+      await batch.commit().timeout(const Duration(seconds: 12));
 
       auth.updateUserLocally(
         name: _nameCtrl.text.trim(),

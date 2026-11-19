@@ -97,13 +97,16 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
     try {
       final firestore = FirebaseFirestore.instance;
       final codesFuture = ApiService.getAllCodes()
+          .timeout(const Duration(seconds: 12))
           .catchError((_) => <Map<String, dynamic>>[]);
       final adsFuture = ApiService.getActiveAds()
+          .timeout(const Duration(seconds: 12))
           .catchError((_) => <AdModel>[]);
       final totalUsersFuture = firestore
           .collection('users')
           .count()
           .get()
+          .timeout(const Duration(seconds: 12))
           .then<int>((s) => s.count ?? 0)
           .catchError((_) => 0);
       final suspendedUsersFuture = firestore
@@ -111,6 +114,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
           .where('isSuspended', isEqualTo: true)
           .count()
           .get()
+          .timeout(const Duration(seconds: 12))
           .then<int>((s) => s.count ?? 0)
           .catchError((_) => 0);
       final recentUsersFuture = firestore
@@ -118,11 +122,12 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
           .orderBy('createdAt', descending: true)
           .limit(500)
           .get()
+          .timeout(const Duration(seconds: 12))
           .then<List<Map<String, dynamic>>>(
-              (s) => s.docs.map((doc) => doc.data()).toList())
+              (s) => s.docs.map((d) => d.data()).toList())
           .catchError((_) => <Map<String, dynamic>>[]);
 
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         codesFuture,
         adsFuture,
         totalUsersFuture,
@@ -315,7 +320,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
               title: '📦 ترتيب المنتجات (Top 100)',
               subtitle: 'تحليل أداء المنتجات حسب القسم',
               icon: Icons.shopping_bag,
-              color: Colors.green,
+              color: const Color(0xFF3949AB),
               reportType: 'products',
               isDark: isDark,
             ),
@@ -340,7 +345,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+          color: isDark ? const Color(0xFF23203A) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
               color: isDark ? Colors.white24 : Colors.grey.shade300)),
@@ -397,12 +402,16 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-            colors: [Color(0xFF1B5E20), Color(0xFF4CAF50)]),
+            colors: [Color(0xFF4527A0), Color(0xFF5E35B1)],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: const Color(0xFFFFC72C).withValues(alpha: 0.35), width: 1.2),
         boxShadow: [
           BoxShadow(
-              color: Colors.green.withValues(alpha: 0.4),
-              blurRadius: 10,
+              color: const Color(0xFF5E35B1).withValues(alpha: 0.32),
+              blurRadius: 12,
               offset: const Offset(0, 5))
         ],
       ),
@@ -456,7 +465,7 @@ class _AdminOverviewTabState extends State<AdminOverviewTab> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      color: isDark ? const Color(0xFF23203A) : Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         contentPadding:
@@ -700,7 +709,7 @@ class _DetailedReportScreenState extends State<DetailedReportScreen> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+      color: isDark ? const Color(0xFF23203A) : Colors.white,
       child: ListTile(
         leading: SizedBox(
           width: 80,

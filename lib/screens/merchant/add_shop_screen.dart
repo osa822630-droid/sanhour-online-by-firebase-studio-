@@ -214,7 +214,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
       if (!mounted) return;
       final msg = e is MediaUploadException
           ? e.userMessage
-          : 'فشل إنشاء المحل، تحقق من البيانات وحاول مجدداً';
+          : 'فشل إنشاء المحل: ${e.toString().replaceFirst('Exception: ', '')}';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: Colors.red),
       );

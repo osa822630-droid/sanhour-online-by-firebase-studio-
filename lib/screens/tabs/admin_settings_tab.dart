@@ -30,6 +30,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
   bool _isLoading = false;
   bool _isCleaning = false;
   bool _isSendingNotif = false;
+  bool _startupAdsEnabled = true;
 
   // إشعارات مستهدفة
   final _notifTitleCtrl = TextEditingController();
@@ -87,6 +88,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
           // ✅ تحميل إعدادات التحديث الإجباري الموجودة
           _updateVersionCtrl.text = data['minRequiredVersion'] ?? '';
           _updateMessageCtrl.text = data['updateMessage'] ?? '';
+          _startupAdsEnabled = data['startupAdsEnabled'] != false;
         });
       }
     } catch (e) {
@@ -95,6 +97,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
   }
 
   Future<void> _saveSettings() async {
+    if (_isLoading) return;
     setState(() => _isLoading = true);
     try {
       await ApiService.updateAppSettings({
@@ -104,15 +107,17 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
         'aboutUs': _aboutUsCtrl.text.trim(),
         'termsAndConditions': _termsCtrl.text.trim(),
         'privacyPolicy': _privacyCtrl.text.trim(),
-      });
-      // ✅ Fix #17: مفتاح Gemini في settings_private/gemini — لا يُكتب في
-      // settings/general المقروءة للعالم ولا يُنسخ في audit log مع الإعدادات
-      await ApiService.saveGeminiApiKey(_geminiKeyCtrl.text.trim());
+        'startupAdsEnabled': _startupAdsEnabled,
+      }).timeout(const Duration(seconds: 12));
+      if (_geminiKeyCtrl.text.trim().isNotEmpty) {
+        await ApiService.saveGeminiApiKey(_geminiKeyCtrl.text.trim())
+            .timeout(const Duration(seconds: 12));
+      }
       if (!mounted) return;
-      _showSnackBar('تم حفظ الإعدادات بنجاح ✅', Colors.green);
+      _showSnackBar('تم حفظ التغييرات بنجاح ✅', Colors.green);
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar('حدث خطأ أثناء الحفظ: $e', Colors.red);
+      _showSnackBar('تعذّر الحفظ (تحقق من الاتصال أو الصلاحيات): $e', Colors.red);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -199,8 +204,9 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
 
   // ✅ يفتح SeederScreen الجديدة بدلاً من استدعاء DatabaseSeeder.seedDatabase() مباشرة
   Future<void> _seedDatabase() async {
-    if (!BuildFlags.mockModeEnabled) {
-      _showSnackBar('غير متاح في بيئة الإنتاج', Colors.orange);
+    final isSuperAdmin = context.read<AuthProvider>().user?.isSuperAdmin == true;
+    if (!BuildFlags.mockModeEnabled && !isSuperAdmin) {
+      _showSnackBar('متاح لمدير النظام الرئيسي فقط', Colors.orange);
       return;
     }
     if (!mounted) return;
@@ -591,11 +597,47 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
             _divider(),
             const SizedBox(height: 24),
 
-            // ── أدوات المطور (مقصورة على السوبر أدمن فقط F-006) ─────────────────────
+            // ── إعلانات عند فتح التطبيق (خيار حصري للإدارة) ──────────
+            _sectionTitle(
+                'إعلانات بدء التشغيل',
+                'تحكم حصري للإدارة في عرض الإعلانات عند فتح التطبيق',
+                Icons.campaign_rounded,
+                color: const Color(0xFF5E35B1)),
+            _cardWrap(isDark, [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('تفعيل الإعلانات عند فتح التطبيق',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: const Text(
+                    'عند التفعيل تظهر الإعلانات المنبثقة لجميع المستخدمين عند فتح التطبيق',
+                    style: TextStyle(fontSize: 12)),
+                value: _startupAdsEnabled,
+                activeThumbColor: const Color(0xFF5E35B1),
+                onChanged: (val) async {
+                  setState(() => _startupAdsEnabled = val);
+                  try {
+                    await ApiService.updateAppSettings({'startupAdsEnabled': val})
+                        .timeout(const Duration(seconds: 10));
+                    if (!mounted) return;
+                    _showSnackBar(
+                      val ? '✅ تم تفعيل إعلانات فتح التطبيق' : 'تم إيقاف إعلانات فتح التطبيق',
+                      const Color(0xFF5E35B1),
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+                    _showSnackBar('تعذّر تحديث الخيار: $e', Colors.red);
+                  }
+                },
+              ),
+            ]),
+
+            const SizedBox(height: 24),
+
+            // ── أدوات المطور (متاحة لـ Super Admin فقط — F-006) ────────
             if (context.watch<AuthProvider>().user?.isSuperAdmin == true) ...[
             _sectionTitle(
                 'Developer Tools',
-                'أدوات خطرة — للسوبر أدمن فقط',
+                'أدوات خطرة — للمطورين فقط',
                 Icons.developer_mode,
                 color: Colors.red[700]!),
             _cardWrap(isDark, [
@@ -638,8 +680,8 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                 ),
               ),
             ]),
-            ],
 
+            ],
             const SizedBox(height: 40),
           ],
         ),
@@ -697,7 +739,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        color: isDark ? const Color(0xFF23203A) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(

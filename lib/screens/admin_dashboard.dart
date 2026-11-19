@@ -132,9 +132,10 @@ class _AdminDashboardState extends State<AdminDashboard>
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
+          tabAlignment: TabAlignment.start,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
-          indicatorColor: Colors.deepPurpleAccent,
+          indicatorColor: const Color(0xFFFFC72C),
           indicatorWeight: 3,
           labelStyle:
               const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
@@ -150,16 +151,16 @@ class _AdminDashboardState extends State<AdminDashboard>
             FloatingActionButton.small(
               heroTag: 'admin_add_shop',
               tooltip: 'إضافة محل جديد',
-              backgroundColor: Colors.green,
+              backgroundColor: const Color(0xFF5E35B1),
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => const AddShopScreen(adminBypass: true),
                 ),
               ),
-              child: const Icon(Icons.add_business, color: Colors.white),
+              child: const Icon(Icons.add_business_rounded, color: Color(0xFFFFC72C)),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
           ],
           const GeminiChatButton(),
         ],

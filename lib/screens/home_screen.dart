@@ -272,23 +272,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       title: Row(
                         children: [
-                          // هامبرغر
-                          GestureDetector(
-                            onTap: () => MainScreen.openDrawer(),
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 4),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _bar(22),
-                                  const SizedBox(height: 4),
-                                  _bar(17),
-                                  const SizedBox(height: 4),
-                                  _bar(13),
-                                ],
-                              ),
+                          // ✅ زر القائمة الجانبية بمساحة لمس قياسية 48×48 سهل الفتح
+                          IconButton(
+                            onPressed: () => MainScreen.openDrawer(),
+                            tooltip: 'القائمة',
+                            icon: const Icon(Icons.menu_rounded,
+                                color: Colors.white, size: 26),
+                            constraints: const BoxConstraints(
+                              minWidth: 44,
+                              minHeight: 44,
                             ),
+                            padding: EdgeInsets.zero,
                           ),
                           const SizedBox(width: 6),
 
@@ -325,13 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
 
-                          // ✅ أيقونة البحث — تُركّز على الشريط أسفله
-                          IconButton(
-                            icon: const Icon(Icons.search,
-                                color: Colors.white, size: 22),
-                            tooltip: 'بحث',
-                            onPressed: _focusSearchBar,
-                          ),
+                          const SizedBox(width: 44),
                         ],
                       ),
                     ),
@@ -403,7 +391,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
 
                           // الفئات
-                          if (provider.categories.isNotEmpty) ...[
+                          if (provider.categories.any((c) => provider.shops.any((s) => s.category.trim() == c.name.trim()))) ...[
                             _sectionHeader(
                               'استكشف الفئات',
                               onViewAll: () =>
@@ -463,7 +451,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               !provider.isLoading)
                             _emptyState(context, provider),
 
-                          // ── سنهور ديلر ────────────────────────
+                          // ── ديلز ────────────────────────
                           if (_resultType == _typeAll)
                             _buildDealerSection(context),
 
@@ -536,12 +524,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _bar(double w) =>
       Container(width: w, height: 2.5, color: Colors.white);
 
-  // ── سنهور ديلر (بيع وشراء المستعمل) ────────────────────────────────
+  // ── ديلز (بيع وشراء المستعمل) ────────────────────────────────
   Widget _buildDealerSection(BuildContext context) {
     return Column(
       children: [
         _sectionHeader(
-          '🏷️ سنهور ديلر',
+          '🏷️ ديلز',
           onViewAll: () => MainScreen.switchTab(MainScreen.dealerTab),
         ),
         Container(

@@ -49,10 +49,11 @@ class _AdminContentTabState extends State<AdminContentTab>
       children: [
         // شريط التبويبات الفرعي
         Container(
-          color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+          color: isDark ? const Color(0xFF211E3A) : Colors.white,
           child: TabBar(
             controller: _tabController,
             isScrollable: true,
+            tabAlignment: TabAlignment.start,
             labelColor: isDark ? Colors.white : Colors.deepPurple[900],
             unselectedLabelColor: Colors.grey,
             indicatorColor:
@@ -94,7 +95,7 @@ class _AdminContentTabState extends State<AdminContentTab>
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           color: isSuspended
               ? (isDark ? const Color(0xFF251A1E) : Colors.grey[100])
-              : (isDark ? const Color(0xFF1E1E2E) : Colors.white),
+              : (isDark ? const Color(0xFF23203A) : Colors.white),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: isSuspended
@@ -170,7 +171,7 @@ class _AdminContentTabState extends State<AdminContentTab>
         }
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+          color: isDark ? const Color(0xFF23203A) : Colors.white,
           child: ListTile(
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -220,7 +221,7 @@ class _AdminContentTabState extends State<AdminContentTab>
         }
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+          color: isDark ? const Color(0xFF23203A) : Colors.white,
           child: ListTile(
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -276,7 +277,7 @@ class _AdminContentTabState extends State<AdminContentTab>
 
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+          color: isDark ? const Color(0xFF23203A) : Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(

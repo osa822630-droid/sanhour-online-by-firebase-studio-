@@ -8,7 +8,7 @@ class AppFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF1A1A2E) : const Color(0xFF2D1B69);
+    final bgColor = isDark ? const Color(0xFF211E3A) : const Color(0xFF2D1B69);
 
     return Container(
       color: bgColor,
@@ -18,13 +18,21 @@ class AppFooter extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple,
-                  borderRadius: BorderRadius.circular(8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  'assets/images/app_icon.png',
+                  width: 36,
+                  height: 36,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 36,
+                    height: 36,
+                    color: const Color(0xFF5E35B1),
+                    child: const Icon(Icons.storefront,
+                        color: Colors.white, size: 20),
+                  ),
                 ),
-                child: const Icon(Icons.storefront, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 10),
               const Text(

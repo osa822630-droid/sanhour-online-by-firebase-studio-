@@ -42,6 +42,8 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
   Stream<QuerySnapshot>? _myAdsStream;
   String? _lastMyAdsUserId;
 
+  final Set<String> _nonEmptyDealerCats = {'الكل'};
+
   Stream<QuerySnapshot> _getBrowseStream() {
     if (_browseStream == null || _lastBrowseCat != _selectedCat) {
       _lastBrowseCat = _selectedCat;
@@ -61,6 +63,32 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
     return _browseStream!;
   }
 
+  Future<void> _refreshDealerData() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('dealer_listings')
+          .where('isActive', isEqualTo: true)
+          .limit(200)
+          .get();
+      final activeCats = <String>{'الكل'};
+      for (final d in snap.docs) {
+        final c = (d.data()['category'] ?? '').toString().trim();
+        if (c.isNotEmpty) activeCats.add(c);
+      }
+      if (mounted) {
+        setState(() {
+          _nonEmptyDealerCats
+            ..clear()
+            ..addAll(activeCats);
+          if (!_nonEmptyDealerCats.contains(_selectedCat)) {
+            _selectedCat = 'الكل';
+          }
+          _browseStream = null;
+        });
+      }
+    } catch (_) {}
+  }
+
   Stream<QuerySnapshot> _getMyAdsStream(String userId) {
     if (_myAdsStream == null || _lastMyAdsUserId != userId) {
       _lastMyAdsUserId = userId;
@@ -78,6 +106,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _refreshDealerData();
   }
 
   @override
@@ -95,16 +124,16 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-                color: Colors.deepOrangeAccent.withValues(alpha: 0.2),
+                color: const Color(0xFFFFC72C).withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.electric_moped,
-                color: Colors.deepOrangeAccent, size: 22),
+            child: const Icon(Icons.handshake_rounded,
+                color: const Color(0xFFFFC72C), size: 22),
           ),
           const SizedBox(width: 10),
           const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('سنهور ديلر',
+                Text('ديلز',
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 Text('بيع وشراء المستعمل',
@@ -145,7 +174,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
           SizedBox(width: 8),
           Expanded(
               child: Text(
-            'سنهور ديلر وسيط فقط — التطبيق لا يضمن جودة المنتجات.',
+            'ديلز وسيط فقط — التطبيق لا يضمن جودة المنتجات.',
             style: TextStyle(fontSize: 11, color: Colors.orange),
           )),
         ]),
@@ -256,7 +285,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                        color: Colors.deepOrangeAccent,
+                        color: const Color(0xFFFFC72C),
                         borderRadius: BorderRadius.circular(4)),
                     child: const Text('مستعمل',
                         style: TextStyle(color: Colors.white, fontSize: 9)),
@@ -356,7 +385,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                               ]),
                               SizedBox(height: 6),
                               Text(
-                                'سنهور ديلر وسيط فقط بين البائع والمشتري. التطبيق لا يضمن جودة المنتج ولا يتحمل أي مسؤولية عن الصفقات. تأكد من المعاينة الشخصية قبل الشراء.',
+                                'ديلز وسيط فقط بين البائع والمشتري. التطبيق لا يضمن جودة المنتج ولا يتحمل أي مسؤولية عن الصفقات. تأكد من المعاينة الشخصية قبل الشراء.',
                                 style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.orange,
@@ -503,7 +532,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                       Icon(Icons.info_outline,
                           color: Color(0xFF5E35B1), size: 18),
                       SizedBox(width: 8),
-                      Text('قواعد سنهور ديلر',
+                      Text('قواعد ديلز',
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF5E35B1))),

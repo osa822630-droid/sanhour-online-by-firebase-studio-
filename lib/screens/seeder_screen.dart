@@ -2,6 +2,8 @@
 // ✅ واجهة رفع البيانات التجريبية — تعرض تقدم كل مرحلة بشكل مرئي واضح
 // تُستخدَم فقط في kDebugMode — غير مرئية في الإنتاج
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/database_seeder.dart';
 import '../utils/constants.dart';
 
@@ -47,7 +49,8 @@ class _SeederScreenState extends State<SeederScreen> {
 
   Future<void> _startSeed() async {
     // ✅ إصلاح مشكلة #5
-    if (!BuildFlags.mockModeEnabled) return;
+    final isSuperAdmin = context.read<AuthProvider>().user?.isSuperAdmin == true;
+    if (!BuildFlags.mockModeEnabled && !isSuperAdmin) return;
     setState(() {
       _isRunning = true;
       _isDone = false;
@@ -85,7 +88,8 @@ class _SeederScreenState extends State<SeederScreen> {
   @override
   Widget build(BuildContext context) {
     // ✅ إصلاح مشكلة #5
-    if (!BuildFlags.mockModeEnabled) {
+    final isSuperAdmin = context.watch<AuthProvider>().user?.isSuperAdmin == true;
+    if (!BuildFlags.mockModeEnabled && !isSuperAdmin) {
       return const Scaffold(
         body: Center(child: Text('غير متاح في بيئة الإنتاج')),
       );
