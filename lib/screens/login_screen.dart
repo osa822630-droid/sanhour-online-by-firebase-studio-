@@ -125,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5E35B1),
+              backgroundColor: const Color(0xFF3D6B5E),
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.lock_reset, size: 18),
@@ -268,7 +268,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.center,
-            colors: [Color(0xFF4527A0), Color(0xFF5E35B1)],
+            colors: [Color(0xFF26483F), Color(0xFF3D6B5E)],
           ),
         ),
         child: SafeArea(
@@ -503,7 +503,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   child: ElevatedButton(
                                     onPressed: isLoading ? null : _submit,
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF5E35B1),
+                                      backgroundColor: const Color(0xFF3D6B5E),
                                       foregroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(
                                           borderRadius:
@@ -562,12 +562,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                     label: const Text('تصفح كزائر'),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: Theme.of(context).brightness == Brightness.dark
-                                          ? const Color(0xFFD6BCFA)
-                                          : const Color(0xFF5E35B1),
+                                          ? const Color(0xFF73A899)
+                                          : const Color(0xFF3D6B5E),
                                       side: BorderSide(
                                           color: Theme.of(context).brightness == Brightness.dark
-                                              ? const Color(0xFF9F7AEA)
-                                              : const Color(0xFF5E35B1),
+                                              ? const Color(0xFF73A899)
+                                              : const Color(0xFF3D6B5E),
                                           width: 1.5),
                                       shape: RoundedRectangleBorder(
                                           borderRadius:

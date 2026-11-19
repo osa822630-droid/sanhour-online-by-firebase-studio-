@@ -312,7 +312,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF2A136E),
+      backgroundColor: const Color(0xFF1A332C),
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -327,7 +327,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF4527A0), Color(0xFF2A136E)],
+                  colors: [Color(0xFF3D6B5E), Color(0xFF1A332C)],
                 ),
               ),
             ),
@@ -341,7 +341,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 width: 30,
                 height: 30,
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFC72C)),
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE0A865)),
                   strokeWidth: 2.8,
                 ),
               ),

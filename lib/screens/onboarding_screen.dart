@@ -27,7 +27,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   static const List<_OnboardingPage> _pages = [
     _OnboardingPage(
       icon: Icons.storefront,
-      color: Color(0xFF5E35B1),
+      color: Color(0xFF3D6B5E),
       title: 'مرحباً بك في سنهور أونلاين',
       subtitle: 'سنهور كلها في جيبك',
       description:
@@ -35,7 +35,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingPage(
       icon: Icons.search_rounded,
-      color: Color(0xFF512DA8),
+      color: Color(0xFF355F54),
       title: 'ابحث عن أي شيء',
       subtitle: 'بحث متقدم وفلترة ذكية',
       description:
@@ -43,7 +43,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingPage(
       icon: Icons.favorite_rounded,
-      color: Color(0xFF4527A0),
+      color: Color(0xFF4B5E6F),
       title: 'المفضلة والقوائم',
       subtitle: 'احفظ ما يعجبك',
       description:
@@ -51,7 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingPage(
       icon: Icons.local_offer_rounded,
-      color: Color(0xFF3949AB),
+      color: Color(0xFF2E5449),
       title: 'عروض وخصومات يومية',
       subtitle: 'لا يفوتك أي خصم',
       description:
@@ -60,7 +60,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     // ✅ Item #46: تصحيح وصف ديلز ليعكس هويته كسوق للمستعمل بدلاً من التوصيل
     _OnboardingPage(
       icon: Icons.sell_rounded,
-      color: Color(0xFF4A2596),
+      color: Color(0xFF3B5B6B),
       title: 'ديلز (سوق المستعمل)',
       subtitle: 'بيع واشتري المستعمل بسهولة',
       description:
@@ -68,7 +68,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     _OnboardingPage(
       icon: Icons.handyman,
-      color: Color(0xFF311B92),
+      color: Color(0xFF26483F),
       title: 'طلبات الخدمات والوظائف',
       subtitle: 'مركز الإعلانات المتكامل',
       description:
@@ -230,10 +230,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       height: 96,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) =>
-                          Icon(page.icon, size: 72, color: const Color(0xFFFFC72C)),
+                          Icon(page.icon, size: 72, color: const Color(0xFFE0A865)),
                     ),
                   )
-                : Icon(page.icon, size: 72, color: const Color(0xFFFFC72C)),
+                : Icon(page.icon, size: 72, color: const Color(0xFFE0A865)),
               ),
               const SizedBox(height: 48),
               Text(
