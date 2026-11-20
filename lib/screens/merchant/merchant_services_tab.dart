@@ -178,7 +178,7 @@ class _MerchantServicesTabState extends State<MerchantServicesTab> {
   Widget _buildEmptyState() {
     return ListView( // To allow pull to refresh
       children: [
-        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+        SizedBox(height: MediaQuery.sizeOf(context).height * 0.2),
         const Center(
           child: Column(
             children: [

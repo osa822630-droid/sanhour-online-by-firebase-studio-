@@ -213,13 +213,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(
-              color: isDark ? const Color(0xFF3A3461) : Colors.grey.shade300,
+              color: isDark ? const Color(0xFF2B3330) : Colors.grey.shade300,
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(
-              color: isDark ? const Color(0xFF3A3461) : Colors.grey.shade300,
+              color: isDark ? const Color(0xFF2B3330) : Colors.grey.shade300,
             ),
           ),
         ),

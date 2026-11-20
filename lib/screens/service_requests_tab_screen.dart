@@ -119,7 +119,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
             FloatingActionButton(
               heroTag: 'provider',
               mini: true,
-              backgroundColor: Colors.teal,
+              backgroundColor: const Color(0xFF3D6B5E),
               foregroundColor: Colors.white,
               tooltip: 'تسجيلي كمزوّد خدمة',
               onPressed: () => Navigator.push(
@@ -420,7 +420,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
                       icon: const Icon(Icons.price_check, size: 16),
                       label: const Text('تقديم عرض سعر'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
+                        backgroundColor: const Color(0xFF3D6B5E),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
@@ -621,7 +621,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
                           }
                         },
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
+                      backgroundColor: const Color(0xFF3D6B5E),
                       foregroundColor: Colors.white),
                   child: isSubmitting
                       ? const SizedBox(

@@ -155,7 +155,7 @@ class _HorizontalCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4)),
                     child: const Text('مميز',
                         style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 11.5,
                             color: Colors.orange,
                             fontWeight: FontWeight.bold)),
                   ),
@@ -211,7 +211,7 @@ class _HorizontalCard extends StatelessWidget {
                     child: Text('-${product.discountPercentage.toInt()}%',
                         style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 9,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.bold)),
                   ),
                 ),
@@ -236,7 +236,7 @@ class _HorizontalCard extends StatelessWidget {
                 Text(product.oldPrice.toStringAsFixed(0),
                     style: const TextStyle(
                         decoration: TextDecoration.lineThrough,
-                        fontSize: 10,
+                        fontSize: 11.5,
                         color: Colors.grey)),
             ]),
           ),
@@ -287,7 +287,7 @@ class _HorizontalCard extends StatelessWidget {
                   child: Text('${offer.discount}% خصم',
                       style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.bold)),
                 ),
               ),
@@ -302,7 +302,7 @@ class _HorizontalCard extends StatelessWidget {
                         color: Colors.orange,
                         borderRadius: BorderRadius.circular(4)),
                     child: const Text('ينتهي قريباً',
-                        style: TextStyle(color: Colors.white, fontSize: 9)),
+                        style: TextStyle(color: Colors.white, fontSize: 11.5)),
                   ),
                 ),
             ]),
@@ -318,7 +318,7 @@ class _HorizontalCard extends StatelessWidget {
                       fontWeight: FontWeight.bold, fontSize: 12)),
               const SizedBox(height: 3),
               Text('حتى: ${offer.validUntil.day}/${offer.validUntil.month}',
-                  style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  style: const TextStyle(fontSize: 11.5, color: Colors.grey)),
             ]),
           ),
         ]),

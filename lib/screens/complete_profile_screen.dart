@@ -257,7 +257,7 @@ class _SuccessDialogState extends State<_SuccessDialog>
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: isDark
-                        ? Color(0xFFB39DDB)
+                        ? Color(0xFF73A899)
                         : const Color(0xFF3D6B5E)),
               ),
               const SizedBox(height: 8),

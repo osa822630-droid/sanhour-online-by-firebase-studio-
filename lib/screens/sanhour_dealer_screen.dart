@@ -305,7 +305,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                         color: Color(0xFFE0A865),
                         borderRadius: BorderRadius.circular(4)),
                     child: const Text('مستعمل',
-                        style: TextStyle(color: Colors.white, fontSize: 9)),
+                        style: TextStyle(color: Colors.white, fontSize: 11.5)),
                   )),
             ]),
           )),

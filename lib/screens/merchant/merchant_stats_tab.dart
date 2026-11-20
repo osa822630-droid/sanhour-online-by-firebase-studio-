@@ -102,7 +102,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
           child: TabBar(
             controller: _tabController,
             labelColor: isDark
-                ? const Color(0xFFB39DDB)
+                ? const Color(0xFF73A899)
                 : const Color(0xFF3D6B5E),
             unselectedLabelColor: Colors.grey,
             indicatorColor: const Color(0xFF3D6B5E),
@@ -280,7 +280,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                 underline: Container(),
                 style: TextStyle(
                     color: isDark
-                        ? Color(0xFFB39DDB)
+                        ? Color(0xFF73A899)
                         : const Color(0xFF3D6B5E),
                     fontWeight: FontWeight.bold,
                     fontSize: 13),
@@ -390,7 +390,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
               child: Text('$rank',
                   style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 10,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.bold)),
             ),
           ],

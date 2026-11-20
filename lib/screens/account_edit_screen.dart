@@ -11,6 +11,7 @@ import '../providers/auth_provider.dart';
 import '../models/user.dart';
 import '../services/media_upload_service.dart';
 import '../services/referral_service.dart';
+import '../widgets/cached_image.dart';
 
 class AccountEditScreen extends StatefulWidget {
   const AccountEditScreen({super.key});
@@ -353,11 +354,10 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
                             _newPhoto != null
                                 ? Image.file(_newPhoto!, fit: BoxFit.cover)
                                 : _currentPhotoUrl.isNotEmpty
-                                    ? Image.network(
-                                        _currentPhotoUrl,
+                                    ? CachedImage(
+                                        imageUrl: _currentPhotoUrl,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) =>
-                                            _avatar(user),
+                                        errorWidget: _avatar(user),
                                       )
                                     : _avatar(user),
                             if (_photoProgress != null &&
@@ -383,7 +383,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
                                         '${((_photoProgress ?? 0) * 100).round()}%',
                                         style: const TextStyle(
                                             color: Colors.white,
-                                            fontSize: 10,
+                                            fontSize: 11.5,
                                             fontWeight: FontWeight.bold),
                                       ),
                                     ],
@@ -459,7 +459,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF252535) : Colors.grey[100],
+                color: isDark ? const Color(0xFF232927) : Colors.grey[100],
                 borderRadius: BorderRadius.circular(10),
                 border:
                     Border.all(color: Colors.grey.withValues(alpha: 0.3)),
@@ -479,7 +479,7 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
                       color: Colors.grey.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6)),
                   child: const Text('للقراءة فقط',
-                      style: TextStyle(fontSize: 10, color: Colors.grey)),
+                      style: TextStyle(fontSize: 11.5, color: Colors.grey)),
                 ),
               ]),
             ),

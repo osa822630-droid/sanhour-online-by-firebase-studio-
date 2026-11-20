@@ -131,7 +131,7 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
       appBar: AppBar(
         title: const Text('تسجيل بيانات الخدمة',
             style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.teal,
+        backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
         centerTitle: true,
         actions: [
@@ -297,7 +297,7 @@ class _AddServiceProviderScreenState extends State<AddServiceProviderScreen> {
                       fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
+                  backgroundColor: const Color(0xFF3D6B5E),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),

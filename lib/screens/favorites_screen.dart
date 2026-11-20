@@ -91,7 +91,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
             indicatorWeight: 2.5,
             labelPadding: EdgeInsets.zero,
             labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-            unselectedLabelStyle: const TextStyle(fontSize: 10),
+            unselectedLabelStyle: const TextStyle(fontSize: 11.5),
             tabs: const [
               Tab(height: 44, iconMargin: EdgeInsets.only(bottom: 2), text: 'قوائمي', icon: Icon(Icons.collections_bookmark, size: 15)),
               Tab(height: 44, iconMargin: EdgeInsets.only(bottom: 2), text: 'محلات',  icon: Icon(Icons.store, size: 15)),

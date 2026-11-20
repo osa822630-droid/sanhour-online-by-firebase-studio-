@@ -628,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Text(
                               category,
                               style: const TextStyle(
-                                  color: Color(0xFF3D6B5E), fontSize: 10),
+                                  color: Color(0xFF3D6B5E), fontSize: 11.5),
                             ),
                           ),
                         ],

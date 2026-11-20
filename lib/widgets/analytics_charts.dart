@@ -102,7 +102,7 @@ class BarChartWidget extends StatelessWidget {
                     width: barWidth + 20,
                     child: Text(
                       item.label,
-                      style: TextStyle(fontSize: 10, color: labelColor),
+                      style: TextStyle(fontSize: 11.5, color: labelColor),
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -110,7 +110,7 @@ class BarChartWidget extends StatelessWidget {
                   ),
                   Text('${item.value.toInt()}',
                       style: TextStyle(
-                          fontSize: 9,
+                          fontSize: 11.5,
                           color: subLabelColor,
                           fontWeight: FontWeight.bold)),
                 ],

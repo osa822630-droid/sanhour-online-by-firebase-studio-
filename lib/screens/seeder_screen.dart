@@ -192,7 +192,7 @@ class _SeederScreenState extends State<SeederScreen> {
                 cardColor = Colors.green.shade50;
                 iconColor = Colors.green;
               } else if (isActive) {
-                cardColor = const Color(0xFFF3E5F5);
+                cardColor = const Color(0xFFE8F1EE);
                 iconColor = const Color(0xFF3D6B5E);
               } else {
                 cardColor = Colors.grey.shade50;
@@ -268,13 +268,13 @@ class _SeederScreenState extends State<SeederScreen> {
                       else if (isDone)
                         Text('100%',
                             style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 11.5,
                                 color: Colors.green.shade700,
                                 fontWeight: FontWeight.bold))
                       else
                         Text('في الانتظار',
                             style: TextStyle(
-                                fontSize: 10, color: Colors.grey.shade400)),
+                                fontSize: 11.5, color: Colors.grey.shade400)),
                     ],
                   ),
                 ),

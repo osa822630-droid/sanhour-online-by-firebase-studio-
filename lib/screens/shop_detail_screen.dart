@@ -222,7 +222,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
               child: TabBar(
                 controller: _tabController,
                 labelColor: isDark
-                    ? Color(0xFFB39DDB)
+                    ? Color(0xFF73A899)
                     : const Color(0xFF3D6B5E),
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: const Color(0xFF3D6B5E),
@@ -815,7 +815,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                       '📌 مثبت',
                       style: TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -833,7 +833,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
                       child: Text('-${p.discountPercentage.toInt()}%',
                           style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 10,
+                              fontSize: 11.5,
                               fontWeight: FontWeight.bold)),
                     )),
             ]),

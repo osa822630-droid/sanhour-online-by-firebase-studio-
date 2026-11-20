@@ -344,7 +344,7 @@ class _AddShopScreenState extends State<AddShopScreen> {
                                               Text('شعار *',
                                                   style: TextStyle(
                                                       color: Colors.grey[500],
-                                                      fontSize: 10)),
+                                                      fontSize: 11.5)),
                                             ])
                                       : null,
                                 ),

@@ -332,7 +332,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
                 title: const Text('حذف الحساب',
                     style: TextStyle(color: Colors.red)),
                 subtitle: const Text('يُحذف نهائياً بعد 15 يوماً',
-                    style: TextStyle(fontSize: 10)),
+                    style: TextStyle(fontSize: 11.5)),
                 onTap: () =>
                     _showDeleteAccountDialog(context, authProvider),
               ),

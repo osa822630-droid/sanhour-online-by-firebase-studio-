@@ -424,7 +424,7 @@ class _MediaGalleryPickerWidgetState extends State<MediaGalleryPickerWidget> {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(label,
-                  style: const TextStyle(color: Colors.white, fontSize: 10)),
+                  style: const TextStyle(color: Colors.white, fontSize: 11.5)),
             ),
           ),
         ],
@@ -460,7 +460,7 @@ class _MediaGalleryPickerWidgetState extends State<MediaGalleryPickerWidget> {
             Text('صورة/فيديو',
                 style: TextStyle(
                     color: const Color(0xFF3D6B5E).withValues(alpha: 0.5),
-                    fontSize: 9)),
+                    fontSize: 11.5)),
           ],
         ),
       ),

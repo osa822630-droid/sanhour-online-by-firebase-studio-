@@ -98,7 +98,7 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
                 TabBar(
                   controller: _tabController,
                   labelColor: isDark
-                      ? const Color(0xFFB39DDB)
+                      ? const Color(0xFF73A899)
                       : const Color(0xFF3D6B5E),
                   unselectedLabelColor: Colors.grey,
                   indicatorColor: const Color(0xFF3D6B5E),

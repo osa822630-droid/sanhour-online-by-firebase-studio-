@@ -466,7 +466,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       Text(
                         DateFormat('dd/MM/yyyy').format(review.createdAt),
                         style:
-                            const TextStyle(fontSize: 10, color: Colors.grey),
+                            const TextStyle(fontSize: 11.5, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -550,7 +550,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           Text(
                             DateFormat('dd/MM').format(repliedAt),
                             style: const TextStyle(
-                                fontSize: 10, color: Colors.grey),
+                                fontSize: 11.5, color: Colors.grey),
                           ),
                       ],
                     ),

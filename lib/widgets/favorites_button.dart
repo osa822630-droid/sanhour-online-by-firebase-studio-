@@ -123,7 +123,7 @@ class _AddToCollectionSheetState extends State<_AddToCollectionSheet> {
           color: isDark ? const Color(0xFF1B201E) : Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        height: MediaQuery.of(context).size.height * 0.5,
+        height: MediaQuery.sizeOf(context).height * 0.5,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

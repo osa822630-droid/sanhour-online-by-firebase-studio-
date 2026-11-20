@@ -601,7 +601,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
                             child: Text('-${p.discountPercentage.toInt()}%',
                                 style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 9,
+                                    fontSize: 11.5,
                                     fontWeight: FontWeight.bold)),
                           )),
                   ])),
@@ -626,7 +626,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
                               Text(p.oldPrice.toStringAsFixed(0),
                                   style: const TextStyle(
                                       decoration: TextDecoration.lineThrough,
-                                      fontSize: 10,
+                                      fontSize: 11.5,
                                       color: Colors.grey)),
                             ],
                           ]),

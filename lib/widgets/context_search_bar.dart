@@ -190,7 +190,7 @@ class _ContextSearchBarState extends State<ContextSearchBar>
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF252535) : Colors.white,
+            color: isDark ? const Color(0xFF232927) : Colors.white,
             borderRadius: BorderRadius.circular(30),
             border: Border.all(
               color: _focusNode.hasFocus

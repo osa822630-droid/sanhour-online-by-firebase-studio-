@@ -195,7 +195,7 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
                             Text(
                               subSubs.join('، '),
                               style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 11.5,
                                   color: isDark
                                       ? Colors.grey[400]
                                       : Colors.grey[700]),

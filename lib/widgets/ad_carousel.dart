@@ -40,7 +40,7 @@ class _AdCarouselState extends State<AdCarousel> {
       _currentIndex = 0;
     }
 
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     final carouselHeight = (screenWidth * 9 / 16).clamp(160.0, 220.0);
 
     return Column(

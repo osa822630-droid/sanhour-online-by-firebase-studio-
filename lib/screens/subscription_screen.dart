@@ -328,7 +328,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(plan['badge'] as String,
-                        style: const TextStyle(color: Colors.white, fontSize: 10,
+                        style: const TextStyle(color: Colors.white, fontSize: 11.5,
                             fontWeight: FontWeight.bold)),
                   ),
                 ],
