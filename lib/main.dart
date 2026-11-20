@@ -226,6 +226,7 @@ class _MyAppState extends State<MyApp> {
             debugShowCheckedModeBanner: false,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             builder: (context, child) =>
+                // ignore: deprecated_member_use
                 MaterialUiCompatibilityBridge(child: child!),
             supportedLocales: const [Locale('ar', 'EG')],
             locale: const Locale('ar', 'EG'),
