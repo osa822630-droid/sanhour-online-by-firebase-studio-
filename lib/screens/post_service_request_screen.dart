@@ -1,6 +1,6 @@
 // lib/screens/post_service_request_screen.dart
 // نشر طلب خدمة — متاح لأي مستخدم مسجّل
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/notification_service.dart';
 import 'package:provider/provider.dart';

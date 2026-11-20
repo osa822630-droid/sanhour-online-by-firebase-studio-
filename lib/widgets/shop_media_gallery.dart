@@ -1,6 +1,6 @@
 // lib/widgets/shop_media_gallery.dart
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:video_player/video_player.dart';
 import 'cached_image.dart';
 

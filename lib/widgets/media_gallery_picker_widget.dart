@@ -16,7 +16,7 @@
 // - تتبع تقدم رفع منفصل للصور والفيديوهات الجديدة عبر imageProgress/videoProgress.
 // - removedUrls: تتيح للمستدعي حذف الملفات المُزالة من Storage إن أراد.
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../services/media_upload_service.dart';
 import '../utils/image_helper.dart';
 import 'cached_image.dart';

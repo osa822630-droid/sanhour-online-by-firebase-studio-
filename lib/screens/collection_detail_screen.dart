@@ -1,7 +1,7 @@
 // lib/screens/collection_detail_screen.dart
 // ✅ إلغاء حوار الهدية/الخصم عند الدعوة
 // ✅ دعوة عبر رقم الهاتف (بكل الصيغ) أو اسم المستخدم + فتح العنصر عند النقر
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';

@@ -1,5 +1,5 @@
 // lib/screens/merchant/merchant_stats_tab.dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../../services/api_service.dart';
 import '../../widgets/analytics_charts.dart';
 import '../../widgets/cached_image.dart';

@@ -10,7 +10,7 @@
 // - formatDuration(): تنسيق المدة كـ "م:ث" للعرض في الواجهة.
 // - showMediaSourcePicker(): نافذة اختيار موحَّدة (صورة/فيديو × كاميرا/معرض).
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:video_player/video_player.dart';

@@ -1,6 +1,6 @@
 // lib/widgets/analytics_charts.dart
 import 'dart:math' as math;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class AnalyticsCharts extends StatelessWidget {
   const AnalyticsCharts({super.key});

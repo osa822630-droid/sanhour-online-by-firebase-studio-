@@ -1,7 +1,7 @@
 // lib/screens/interests_screen.dart
 // ✅ Item #47: مطابقة مسميات الاهتمامات مع الفئات الفعلية للمحلات في قاعدة البيانات
 // ✅ Item #52: دعم الفتح من الإعدادات (fromSettings: true) لتعديل الاهتمامات لاحقاً
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';

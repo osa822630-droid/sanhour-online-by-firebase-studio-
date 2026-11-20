@@ -1,7 +1,7 @@
 // lib/screens/merchant_dashboard.dart
 // ✅ Phase 1 Fix #09: إصلاح TabController Mismatch.
 // ✅ إخفاء أزرار إدارة الفريق وإعدادات المتجر عن أعضاء الفريق غير المالكين
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';

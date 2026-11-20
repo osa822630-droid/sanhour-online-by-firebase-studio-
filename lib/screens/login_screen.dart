@@ -2,7 +2,7 @@
 // ✅ Phase 2 Fix #25: إضافة Form + GlobalKey + AutovalidateMode + Validators.
 // ✅ Pre-Launch Fix: دعم التبديل السلس بين تسجيل الدخول وإنشاء حساب جديد (زبون / تاجر) + كود الدعوة + استعادة كلمة المرور الفعالة
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';

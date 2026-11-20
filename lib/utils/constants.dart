@@ -1,6 +1,6 @@
 // lib/utils/constants.dart
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 // =========================================================
 // 0. أعلام البناء (Build Flags)

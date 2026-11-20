@@ -1,6 +1,5 @@
 // lib_widgets_sub_category_list.dart
-import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:sanhour_online/providers/favorites_provider.dart';
 import 'package:sanhour_online/screens/shop_detail_screen.dart';

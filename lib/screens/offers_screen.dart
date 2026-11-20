@@ -1,6 +1,6 @@
 // lib/screens/offers_screen.dart
 // ✅ شريط بحث موحّد مع فلاتر الفئة والترتيب والصلاحية
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/shops_provider.dart';
 import '../models/offer.dart';

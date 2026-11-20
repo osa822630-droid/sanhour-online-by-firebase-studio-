@@ -2,7 +2,7 @@
 // ✅ نظام صور متعدد باستخدام MultiImagePickerWidget مع اختيار صورة الغلاف
 // ✅ coverImageIndex مُحفوظ ومُمرَّر للـ ProductService
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/shops_provider.dart';
 import '../services/api_service.dart';

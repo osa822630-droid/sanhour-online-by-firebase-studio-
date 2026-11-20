@@ -2,7 +2,7 @@
 // ✅ مزامنة الكاش في ShopsProvider بعد الإضافة أو التعديل أو الحذف
 // ✅ تحديث اسم الفئة تلقائياً في المحلات والمنتجات المرتبطة عند تغيير اسم الفئة الرئيسية
 // ✅ دعم الوضع الليلي (Dark Mode) بالكامل
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../models/category_model.dart';

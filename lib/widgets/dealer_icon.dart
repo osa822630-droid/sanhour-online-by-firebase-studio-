@@ -1,6 +1,6 @@
 // lib/widgets/dealer_icon.dart
 // ✅ أيقونة سنهور ديلر المحترفة — موتوسيكل توصيل واضح وجميل
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class DealerIcon extends StatelessWidget {
   final double size;

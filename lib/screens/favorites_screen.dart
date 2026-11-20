@@ -1,6 +1,6 @@
 // lib/screens/favorites_screen.dart
 // ✅ إصلاح مشكلة المساحة الفارغة في TabBar — TabAlignment.fill لملء العرض الكامل
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/favorites_provider.dart';
 import '../providers/auth_provider.dart';

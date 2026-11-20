@@ -1,6 +1,6 @@
 // lib/screens/ads_hub_screen.dart
 // ✅ مركز الإعلانات — 3 تابات: إعلانات تجارية | وظائف | طلبات خدمات
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'all_ads_screen.dart';
 import 'job_ads_tab_screen.dart';
 import 'service_requests_tab_screen.dart';

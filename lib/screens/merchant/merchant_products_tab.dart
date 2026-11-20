@@ -1,5 +1,5 @@
 // lib/screens/merchant/merchant_products_tab.dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../../services/api_service.dart';
 import '../../models/shop.dart';
 import '../../models/product.dart';

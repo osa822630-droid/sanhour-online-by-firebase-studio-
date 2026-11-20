@@ -1,7 +1,7 @@
 // lib/screens/merchant_type_screen.dart
 // ✅ شاشة اختيار نوع النشاط التجاري: صاحب محل أم مزوّد خدمة
 // تظهر عند التسجيل كتاجر وتحدد businessType في Firestore
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';

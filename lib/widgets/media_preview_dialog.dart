@@ -1,6 +1,6 @@
 // lib/widgets/media_preview_dialog.dart
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:video_player/video_player.dart';
 import 'cached_image.dart';
 

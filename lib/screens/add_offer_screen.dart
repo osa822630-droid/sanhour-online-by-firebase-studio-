@@ -3,7 +3,7 @@
 // ✅ coverImageIndex + newPrice + bundleDetails + giftDescription + دعم تكرار العرض
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../utils/app_theme.dart';
 import '../models/offer.dart';
 import '../models/product.dart';

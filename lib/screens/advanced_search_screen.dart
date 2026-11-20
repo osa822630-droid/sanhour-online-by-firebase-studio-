@@ -1,6 +1,6 @@
 // lib/screens/advanced_search_screen.dart
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/shops_provider.dart';

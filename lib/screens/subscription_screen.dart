@@ -1,6 +1,6 @@
 // lib/screens/subscription_screen.dart
 // ✅ Refactored: كل منطق Firestore مُفوَّض لـ SubscriptionService
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/auth_provider.dart';

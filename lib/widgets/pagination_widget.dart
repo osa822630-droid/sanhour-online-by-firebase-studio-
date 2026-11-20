@@ -1,5 +1,5 @@
 // lib_widgets_pagination_widget.dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class PaginationWidget extends StatefulWidget {
   final Future<void> Function() onLoadMore;

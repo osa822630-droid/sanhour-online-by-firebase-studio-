@@ -1,6 +1,6 @@
 // lib/widgets/error_state_widget.dart
 // ✅ Pro #215: Shared error state widget — يُستخدم في كل الشاشات بدلاً من إعادة كتابة نفس الكود
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 export 'empty_state_widget.dart';
 
 class ErrorStateWidget extends StatelessWidget {

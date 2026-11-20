@@ -1,6 +1,6 @@
 // lib/screens/main_screen.dart
 // ✅ Tab الإعلانات → AdsHubScreen (مركز شامل: إعلانات + وظائف + خدمات)
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';

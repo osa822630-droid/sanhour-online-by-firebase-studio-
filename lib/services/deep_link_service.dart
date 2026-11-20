@@ -1,7 +1,7 @@
 // lib/services/deep_link_service.dart
 // ✅ نظام الروابط الديناميكية — يدعم كل أنواع المحتوى
 // الفكرة: رابط يُفتح في المتصفح ويوجّه لصفحة في التطبيق أو App Store
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';

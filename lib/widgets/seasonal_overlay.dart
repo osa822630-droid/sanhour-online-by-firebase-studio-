@@ -1,7 +1,7 @@
 // lib/widgets/seasonal_overlay.dart
 // ✅ Fix #179: الزينة الموسمية تُعرض للجميع ماعدا الأدمن (لا تُشتِّت في لوحة الإدارة)
 // ✅ Fix #180: Image.network → Image.asset لضمان العمل بدون إنترنت + صور محددة مسبقاً
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';

@@ -1,6 +1,6 @@
 // lib/screens/admin_dashboard.dart
 // ✅ P1-5 Fix: منع منح صلاحيات كاملة عند user == null أو عند غياب مفتاح الصلاحية (استخدام ?? false)
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'tabs/admin_overview_tab.dart';

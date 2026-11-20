@@ -1,6 +1,6 @@
 // lib/screens/tabs/admin_settings_tab.dart
 // ✅ إزالة المتغير الميت _isSeeding وعرض رسائل الخطأ عند فشل تفعيل/إلغاء التحديث الإجباري أو تحديث الثيم
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

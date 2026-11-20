@@ -2,7 +2,7 @@
 // ✅ إصلاح: الرد يكتب حقل 'reply' (بدلاً من 'adminReply') ليتوافق مع my_complaints_screen
 // ✅ إضافة: الرد يُنشئ إشعاراً في notifications collection ليظهر للمستخدم المسجل فوراً (مع استثناء الزوار 'guest')
 // ✅ إصلاح: التخلص من replyCtrl بعد إغلاق ديالوج الرد لمنع تسريب الذاكرة
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

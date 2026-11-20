@@ -1,7 +1,7 @@
 // lib/utils/design_tokens.dart
 // ✅ نظام التوكنز الموحّد لتطبيق سنهور أونلاين (Calm Eucalyptus & Warm Sand)
 // يفرض شبكة مسافات 4dp، و4 درجات حواف، و4 مقاسات أيقونات، ومنحنيات حركة قياسية.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// شبكة المسافات القياسية (مضاعفات 4dp)
 class AppSpacing {

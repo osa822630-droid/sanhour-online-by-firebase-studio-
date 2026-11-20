@@ -3,7 +3,7 @@
 // قبل هذا الإصلاح، كان الـ Firestore stream يظل نشطاً إلى ما لا نهاية حتى بعد
 // تدمير ThemeProvider، مما يُسبب memory leak وأحياناً "setState after dispose".
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 

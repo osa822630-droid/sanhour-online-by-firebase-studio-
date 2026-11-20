@@ -1,5 +1,5 @@
 // lib/widgets/empty_state_widget.dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class EmptyStateWidget extends StatelessWidget {
   final String message;

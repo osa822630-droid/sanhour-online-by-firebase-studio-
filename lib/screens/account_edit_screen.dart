@@ -1,7 +1,7 @@
 // lib/screens/account_edit_screen.dart
 // شاشة تعديل الحساب — الاسم، اسم المستخدم، الصورة الشخصية، وكود الدعوة
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';

@@ -2,7 +2,7 @@
 import '../utils/date_helper.dart';
 // شاشة شكاواي واقتراحاتي — تتبع حالة كل رسالة والرد عليها
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';

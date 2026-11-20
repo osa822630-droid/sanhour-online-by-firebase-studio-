@@ -1,7 +1,7 @@
 // lib/widgets/multi_image_picker_widget.dart
 import 'dart:io';
 import 'package:flutter/foundation.dart' show listEquals;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../utils/image_helper.dart';
 import 'cached_image.dart';
 import 'media_preview_dialog.dart';

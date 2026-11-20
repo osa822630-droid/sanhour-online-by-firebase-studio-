@@ -1,6 +1,6 @@
 // lib/screens/onboarding_screen.dart
 // ✅ إضافة fromSettings: true — يسمح بعرض الشاشة من الإعدادات دون مسح بيانات المستخدم
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'interests_screen.dart';
 

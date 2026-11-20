@@ -1,7 +1,7 @@
 // lib/utils/app_theme.dart
 // ✅ هوية «الأوكالبتوس الهادئ والرملي الدافئ» (Calm Eucalyptus & Warm Sand)
 // معايرة منفصلة للوضع الفاتح والوضع الليلي وفق OKLCH و WCAG 2.2 AA/AAA
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'design_tokens.dart';
 
 class AppColors {

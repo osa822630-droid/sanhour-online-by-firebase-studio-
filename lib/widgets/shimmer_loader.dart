@@ -1,6 +1,6 @@
 // lib/widgets/shimmer_loader.dart
 // ✅ Pro #214: Shimmer loading widget قابل للاستخدام في كل الشاشات
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ShimmerLoader extends StatefulWidget {
   final double width;

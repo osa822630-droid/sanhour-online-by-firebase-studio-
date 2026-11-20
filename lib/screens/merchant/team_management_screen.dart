@@ -1,6 +1,6 @@
 // lib/screens/merchant/team_management_screen.dart
 // ✅ P0-5 Fix: إدارة وعرض أعضاء الفريق عبر Cloud Function (manageShopTeam) دون فهرسة مجموعة users من العميل
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../../models/shop.dart';
 import '../../utils/constants.dart';

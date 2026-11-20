@@ -3,7 +3,7 @@
 // ✅ عرض كل الإعلانات (نشطة + منتهية) للأدمن عبر AdService.getAllAds()
 // ✅ دعم تعديل الإعلان بالكامل (نص، صور، أماكن الظهور، المدة، الإجراء عند الضغط)
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../models/ad_model.dart';

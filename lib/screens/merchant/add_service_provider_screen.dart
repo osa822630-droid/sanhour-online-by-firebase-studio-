@@ -1,6 +1,6 @@
 // lib/screens/merchant/add_service_provider_screen.dart
 // شاشة تسجيل مزوّد الخدمة المتنقّل — تُعرَض بعد اختيار "مزوّد خدمة" من merchant_type_screen
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../../models/service_request_model.dart';

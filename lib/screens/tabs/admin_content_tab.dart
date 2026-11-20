@@ -2,7 +2,7 @@
 // ✅ إضافة حد (Pagination limit) للاستماع الحي لكل قسم لتجنب تحميل آلاف الوثائق دفعة واحدة
 // ✅ توحيد قراءة حقول مقدمي الخدمات (categories / serviceCategory و isActive / isAvailable)
 // ✅ دعم الوضع الليلي (Dark Mode) بالكامل
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/api_service.dart';
 import '../../widgets/cached_image.dart';

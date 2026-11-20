@@ -1,5 +1,5 @@
 // lib/widgets/gemini_chat_button.dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/shops_provider.dart';

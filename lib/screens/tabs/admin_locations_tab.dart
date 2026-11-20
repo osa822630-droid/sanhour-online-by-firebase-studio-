@@ -1,7 +1,7 @@
 // lib/screens/tabs/admin_locations_tab.dart
 // ✅ إدارة المناطق الجغرافية — إضافة وتعديل وحذف أسماء المناطق
 // ومزامنتها في كل من settings/general و settings/locations
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminLocationsTab extends StatefulWidget {

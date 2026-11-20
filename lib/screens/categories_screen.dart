@@ -4,7 +4,7 @@
 // الفرعية أعلى القائمة. اختيار فئة فرعية يعرض شريط chips ثانٍ تحته مباشرةً
 // للفئات الفرعية الدقيقة (subSubCategories).
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/shops_provider.dart';
 import '../models/category_model.dart';

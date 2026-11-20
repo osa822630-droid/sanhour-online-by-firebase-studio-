@@ -1,5 +1,5 @@
 // lib/screens/merchant/merchant_offers_tab.dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/date_helper.dart';
 import '../../services/api_service.dart';

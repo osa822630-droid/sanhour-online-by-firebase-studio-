@@ -2,7 +2,7 @@
 // ✅ Fix #164: كل النصوص مترجمة للعربية
 // ✅ Fix #113: validators null-safe بدون force-unwrap
 // ✅ Fix #122: دعم كود الدعوة الاختياري والوضع الليلي الكامل
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'main_screen.dart';

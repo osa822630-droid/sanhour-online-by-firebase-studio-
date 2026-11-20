@@ -1,6 +1,6 @@
 // lib/screens/about_screen.dart
 // شاشة "عن التطبيق" — معلومات المشروع وتفاصيل الإصدار
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'report_problem_screen.dart';
 

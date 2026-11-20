@@ -1,6 +1,6 @@
 // lib/widgets/stat_card.dart
 // ✅ Fix #142: استخراج StatCard كـ shared widget لتجنب التكرار
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class StatCard extends StatelessWidget {
   final String title;

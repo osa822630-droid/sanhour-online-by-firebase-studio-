@@ -1,5 +1,5 @@
 // lib/screens/merchant/product_order_screen.dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/product.dart';
 import '../../models/shop.dart';

@@ -1,6 +1,6 @@
 // lib/screens/provider_registration_screen.dart
 // استمارة تسجيل مزوّد الخدمة — تحدد المجالات التي يستقبل إشعاراتها
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import '../models/service_request_model.dart';

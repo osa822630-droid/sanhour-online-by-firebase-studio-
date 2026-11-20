@@ -1,7 +1,7 @@
 // lib/screens/seeder_screen.dart
 // ✅ واجهة رفع البيانات التجريبية — تعرض تقدم كل مرحلة بشكل مرئي واضح
 // تُستخدَم فقط في kDebugMode — غير مرئية في الإنتاج
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/database_seeder.dart';
