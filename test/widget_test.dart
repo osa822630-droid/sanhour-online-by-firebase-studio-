@@ -261,6 +261,8 @@ void main() {
         ),
       );
 
+      await tester.pumpAndSettle();
+
       expect(find.text('إجمالي المستخدمين'), findsOneWidget);
       expect(find.text('150'), findsOneWidget);
     });

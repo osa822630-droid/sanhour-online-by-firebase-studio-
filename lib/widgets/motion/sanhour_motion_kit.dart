@@ -2,7 +2,6 @@
 // مكتبة الحركات والويدجتس التفاعلية لسنهور أونلاين (60fps آمنة على أندرويد 10 + دعم تقليل الحركة)
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show FontFeature;
 import 'package:material_ui/material_ui.dart';
 
 // ============================================================================
@@ -1101,7 +1100,7 @@ class _ReceiptPrinterDialogState extends State<ReceiptPrinterDialog>
           ClipRect(
             child: SizeTransition(
               sizeFactor: _reveal,
-              axisAlignment: -1.0,
+              alignment: Alignment.topCenter,
               child: Container(
                 width: 242,
                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
