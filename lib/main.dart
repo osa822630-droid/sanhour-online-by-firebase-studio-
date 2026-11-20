@@ -1,7 +1,7 @@
 // lib/main.dart
 import 'dart:async';
 import 'dart:ui';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:material_ui/material_ui.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
@@ -59,40 +59,43 @@ void main() async {
   await initializeDateFormatting('ar');
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-  PlatformDispatcher.instance.onError = (error, stack) {
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  try {
-    await FirebaseAppCheck.instance.activate(
-      providerAndroid: kDebugMode
-          ? const AndroidDebugProvider()
-          : const AndroidPlayIntegrityProvider(),
-      providerApple: kDebugMode
-          ? const AppleDebugProvider()
-          : const AppleAppAttestProvider(),
-    );
-  } catch (e) {
-    developer.log('AppCheck activate skipped: $e', name: 'AppCheck');
-  }
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
 
-  try {
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: true,
-      cacheSizeBytes: 100 * 1024 * 1024,
-    );
-  } catch (e) {
-    developer.log('Firestore persistence error: $e');
-  }
+    try {
+      await FirebaseAppCheck.instance.activate(
+        providerAndroid: kDebugMode
+            ? const AndroidDebugProvider()
+            : const AndroidPlayIntegrityProvider(),
+        providerApple: kDebugMode
+            ? const AppleDebugProvider()
+            : const AppleAppAttestProvider(),
+      );
+    } catch (e) {
+      developer.log('AppCheck activate skipped: $e', name: 'AppCheck');
+    }
 
-  try {
-    await NotificationService().init();
-  } catch (e) {
-    developer.log('Notification init error: $e');
+    try {
+      FirebaseFirestore.instance.settings = const Settings(
+        persistenceEnabled: true,
+        cacheSizeBytes: 100 * 1024 * 1024,
+      );
+    } catch (e) {
+      developer.log('Firestore persistence error: $e');
+    }
+
+    try {
+      await NotificationService().init();
+    } catch (e) {
+      developer.log('Notification init error: $e');
+    }
   }
 
   runApp(const MyApp());
