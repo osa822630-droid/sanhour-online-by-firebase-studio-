@@ -145,7 +145,10 @@ class _MainScreenState extends State<MainScreen> {
         floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
-          onDestinationSelected: _onItemTapped,
+          onDestinationSelected: (index) {
+            HapticFeedback.selectionClick();
+            _onItemTapped(index);
+          },
           backgroundColor: isDark ? const Color(0xFF1B201E) : Colors.white,
           indicatorColor: (isDark ? const Color(0xFF73A899) : const Color(0xFF3D6B5E)).withValues(alpha: 0.16),
           surfaceTintColor: Colors.transparent,

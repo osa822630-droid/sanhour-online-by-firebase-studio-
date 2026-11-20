@@ -1,5 +1,6 @@
 // lib/widgets/stat_card.dart
 // ✅ Fix #142: استخراج StatCard كـ shared widget لتجنب التكرار
+import 'dart:ui' show FontFeature;
 import 'package:material_ui/material_ui.dart';
 
 class StatCard extends StatelessWidget {
@@ -39,7 +40,11 @@ class StatCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               value,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
             ),
             const SizedBox(height: 2),
             Text(

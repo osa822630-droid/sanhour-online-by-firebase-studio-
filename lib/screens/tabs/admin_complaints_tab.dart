@@ -418,7 +418,7 @@ class _AdminComplaintsTabState extends State<AdminComplaintsTab>
                 if (text.isEmpty) return;
                 Navigator.pop(ctx, text);
               },
-              child: const Text('إرسال'),
+              child: const Text('إرسال الرد'),
             ),
           ],
         ),

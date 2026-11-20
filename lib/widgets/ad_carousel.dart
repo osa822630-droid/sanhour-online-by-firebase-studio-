@@ -54,7 +54,7 @@ class _AdCarouselState extends State<AdCarousel> {
             aspectRatio: 16 / 9,
             autoPlayCurve: Curves.fastOutSlowIn,
             enableInfiniteScroll: ads.length > 1,
-            autoPlayAnimationDuration: const Duration(milliseconds: 800),
+            autoPlayAnimationDuration: const Duration(milliseconds: 420),
             viewportFraction: 0.9,
             onPageChanged: (index, reason) {
               if (!mounted) return;

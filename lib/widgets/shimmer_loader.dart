@@ -52,6 +52,16 @@ class _ShimmerLoaderState extends State<ShimmerLoader>
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+        ),
+      );
+    }
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final base = isDark ? const Color(0xFF2A2A3A) : const Color(0xFFE8E8E8);
     final highlight =

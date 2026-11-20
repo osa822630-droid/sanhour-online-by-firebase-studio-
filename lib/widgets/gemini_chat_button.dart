@@ -358,7 +358,7 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
   Widget _dot(int delay) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.4, end: 1.0),
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 320),
       curve: Curves.easeInOut,
       builder: (_, v, __) => Opacity(
         opacity: v,

@@ -321,7 +321,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                         child: OutlinedButton(
                           onPressed: () =>
                               _loadItemsStats(type, loadMore: true),
-                          child: const Text('عرض المزيد'),
+                          child: const Text('عرض باقي الإحصائيات'),
                         ),
                       );
                     }

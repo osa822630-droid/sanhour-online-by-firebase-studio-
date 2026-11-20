@@ -209,11 +209,11 @@ class _SuccessDialogState extends State<_SuccessDialog>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600));
+        vsync: this, duration: const Duration(milliseconds: 300));
     _scaleAnim = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
     _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
     _ctrl.forward();
-    Future.delayed(const Duration(milliseconds: 1800), () {
+    Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) Navigator.pop(context);
     });
   }
