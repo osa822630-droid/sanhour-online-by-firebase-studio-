@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/shops_provider.dart';
 import '../services/gemini_service.dart';
+import 'motion/sanhour_motion_kit.dart';
 
 /// زرار AI عائم يظهر في كل الشاشات الرئيسية
 class GeminiChatButton extends StatelessWidget {
@@ -210,23 +211,37 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
             ),
           ),
 
-          // ─── Suggestions ───
-          if (_suggestionsLoaded && _suggestions.isNotEmpty && _messages.length <= 2)
-            SizedBox(
-              height: 44,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemCount: _suggestions.length,
-                itemBuilder: (_, i) => ActionChip(
-                  label: Text(_suggestions[i], style: const TextStyle(fontSize: 12)),
-                  backgroundColor: Color(0xFF3D6B5E).withValues(alpha: 0.08),
-                  side: BorderSide(color: const Color(0xFF3D6B5E).withValues(alpha: 0.3)),
-                  onPressed: () => _send(_suggestions[i]),
+          // ─── Suggestions (M3E Prompt Chips) ───
+          if (_messages.length <= 2)
+            Builder(builder: (context) {
+              final chips = _suggestionsLoaded && _suggestions.isNotEmpty
+                  ? _suggestions
+                  : const [
+                      'أقرب صيدلية مفتوحة؟',
+                      'أقوى عروض اليوم',
+                      'أفضل مطاعم سنهور',
+                      'فني صيانة سريع',
+                    ];
+              return SizedBox(
+                height: 44,
+                child: ScrollFadeList(
+                  axis: Axis.horizontal,
+                  fadeFraction: 0.05,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemCount: chips.length,
+                    itemBuilder: (_, i) => M3EMagneticChip(
+                      label: chips[i],
+                      icon: Icons.auto_awesome,
+                      selected: false,
+                      onTap: () => _send(chips[i]),
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              );
+            }),
 
           // ─── Input ───
           Container(

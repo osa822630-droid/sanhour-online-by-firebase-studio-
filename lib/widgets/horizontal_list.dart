@@ -8,6 +8,7 @@ import '../models/shop.dart';
 import '../models/product.dart';
 import '../models/offer.dart';
 import 'cached_image.dart';
+import 'motion/sanhour_motion_kit.dart';
 
 class HorizontalList extends StatelessWidget {
   final String title;
@@ -97,7 +98,7 @@ class _HorizontalCard extends StatelessWidget {
   }
 
   Widget _buildShopCard(BuildContext context, Shop shop) {
-    return GestureDetector(
+    return ShiftCard(
       onTap: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => ShopDetailScreen(shop: shop))),
       child: Container(
@@ -114,17 +115,20 @@ class _HorizontalCard extends StatelessWidget {
           ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-            child: SizedBox(
-                height: 110,
-                width: double.infinity,
-                child: CachedImage(
-                    imageUrl: shop.imageUrl,
-                    width: 150,
-                    height: 110,
-                    fallbackIcon: Icons.storefront,
-                    fit: BoxFit.cover)),
+          Hero(
+            tag: 'shop_hero_${shop.id}',
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+              child: SizedBox(
+                  height: 110,
+                  width: double.infinity,
+                  child: CachedImage(
+                      imageUrl: shop.imageUrl,
+                      width: 150,
+                      height: 110,
+                      fallbackIcon: Icons.storefront,
+                      fit: BoxFit.cover)),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(8),
@@ -169,7 +173,7 @@ class _HorizontalCard extends StatelessWidget {
   }
 
   Widget _buildProductCard(BuildContext context, Product product) {
-    return GestureDetector(
+    return ShiftCard(
       onTap: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => DetailScreen(item: product))),
       child: Container(

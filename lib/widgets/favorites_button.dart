@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/favorites_provider.dart';
+import 'motion/sanhour_motion_kit.dart';
 
 class FavoriteButton extends StatelessWidget {
   final dynamic item;
@@ -30,7 +31,11 @@ class FavoriteButton extends StatelessWidget {
               provider.isFavorite('service', item.id);
         } catch (_) {}
 
-        return GestureDetector(
+        return ClickSparkHeart(
+          isFavorite: isFav,
+          size: iconSize,
+          activeColor: activeColor,
+          inactiveColor: inactiveColor,
           onTap: () async {
             final auth = context.read<AuthProvider>();
             if (auth.isGuest) {
@@ -39,7 +44,14 @@ class FavoriteButton extends StatelessWidget {
             }
             await provider.toggleFavorite(item);
             if (!context.mounted) return;
-            if (!isFav) _showSaveToCollectionSheet(context, item);
+            if (!isFav) {
+              SonnerToast.show(
+                context,
+                'تمت الإضافة إلى المفضلة',
+                type: SonnerToastType.success,
+              );
+              _showSaveToCollectionSheet(context, item);
+            }
           },
           onLongPress: () {
             final auth = context.read<AuthProvider>();
@@ -49,33 +61,18 @@ class FavoriteButton extends StatelessWidget {
             }
             _showSaveToCollectionSheet(context, item);
           },
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 1.0, end: isFav ? 1.2 : 1.0),
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.elasticOut,
-            builder: (_, scale, child) =>
-                Transform.scale(scale: scale, child: child),
-            child: Icon(
-              isFav ? Icons.favorite : Icons.favorite_border,
-              color: isFav ? activeColor : inactiveColor,
-              size: iconSize,
-            ),
-          ),
         );
       },
     );
   }
 
   void _showGuestMessage(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('سجّل دخولك أولاً لحفظ العناصر في المفضلة'),
-        action: SnackBarAction(
-          label: 'دخول',
-          textColor: Colors.amber,
-          onPressed: () => Navigator.pushNamed(context, '/login'),
-        ),
-      ),
+    SonnerToast.show(
+      context,
+      'سجّل دخولك أولاً لحفظ العناصر في المفضلة',
+      type: SonnerToastType.warning,
+      actionLabel: 'دخول',
+      onAction: () => Navigator.pushNamed(context, '/login'),
     );
   }
 
@@ -113,17 +110,10 @@ class _AddToCollectionSheetState extends State<_AddToCollectionSheet> {
     final collections = provider.collections;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1B201E) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        height: MediaQuery.sizeOf(context).height * 0.5,
+    return FamilyDrawer(
+      child: SizedBox(
+        key: ValueKey<bool>(_isCreating),
+        height: MediaQuery.sizeOf(context).height * (_isCreating ? 0.56 : 0.46),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

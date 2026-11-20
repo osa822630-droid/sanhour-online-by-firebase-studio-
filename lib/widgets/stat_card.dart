@@ -1,7 +1,7 @@
 // lib/widgets/stat_card.dart
 // ✅ Fix #142: استخراج StatCard كـ shared widget لتجنب التكرار
-import 'dart:ui' show FontFeature;
 import 'package:material_ui/material_ui.dart';
+import 'motion/sanhour_motion_kit.dart';
 
 class StatCard extends StatelessWidget {
   final String title;
@@ -38,12 +38,11 @@ class StatCard extends StatelessWidget {
               child: Icon(icon, color: color, size: 22),
             ),
             const SizedBox(height: 10),
-            Text(
-              value,
+            CountUpText(
+              value: value,
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                fontFeatures: [FontFeature.tabularFigures()],
               ),
             ),
             const SizedBox(height: 2),

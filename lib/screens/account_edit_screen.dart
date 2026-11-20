@@ -2,6 +2,7 @@
 // شاشة تعديل الحساب — الاسم، اسم المستخدم، الصورة الشخصية، وكود الدعوة
 import 'dart:io';
 import 'package:material_ui/material_ui.dart';
+import '../widgets/motion/sanhour_motion_kit.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -550,27 +551,13 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
 
             const SizedBox(height: 40),
 
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isSaving ? null : _save,
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3D6B5E),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    elevation: 0),
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                            color: Colors.white, strokeWidth: 2))
-                    : const Text('حفظ التغييرات',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
+            DynamicButton(
+              state: _isSaving
+                  ? DynamicButtonState.loading
+                  : DynamicButtonState.idle,
+              idleLabel: 'حفظ التغييرات',
+              loadingLabel: 'جاري الحفظ...',
+              onPressed: _save,
             ),
             const SizedBox(height: 24),
           ],

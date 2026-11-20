@@ -11,6 +11,7 @@ import '../../services/api_service.dart';
 import '../../services/audit_log_service.dart';
 import '../../services/dealer_listing_service.dart';
 import '../../services/subscription_service.dart';
+import '../../widgets/motion/sanhour_motion_kit.dart';
 
 class AdminCodesTab extends StatefulWidget {
   const AdminCodesTab({super.key});
@@ -120,21 +121,16 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
             color: isDark ? Color(0xFF1B201E) : Colors.white,
             child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF232927) : Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      _buildTypeButton('🏪 المتاجر', 0, Colors.blue.shade800, isDark),
-                      _buildTypeButton(
-                          '📢 الإعلانات', 1, Colors.deepOrange.shade800, isDark),
-                      _buildTypeButton('🤝 ديلز', 2, Colors.teal.shade800, isDark),
-                      _buildTypeButton('🔄 التجديد', 3, Colors.indigo.shade800, isDark),
-                    ],
-                  ),
+                DirectionAwareTabs(
+                  tabs: const ['المتاجر', 'الإعلانات', 'ديلز', 'التجديد'],
+                  selectedIndex: _selectedTypeIndex,
+                  activeColor: themeColor,
+                  onChanged: (idx) {
+                    setState(() {
+                      _selectedTypeIndex = idx;
+                      _loadCodes();
+                    });
+                  },
                 ),
                 const SizedBox(height: 12),
 
@@ -186,62 +182,13 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
     );
   }
 
-  Widget _buildTypeButton(String title, int index, Color color, bool isDark) {
-    bool isSelected = _selectedTypeIndex == index;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _selectedTypeIndex = index;
-            _loadCodes();
-          });
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? (isDark ? const Color(0xFF1B201E) : Colors.white)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected
-                ? [
-                    const BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 4,
-                        offset: Offset(0, 2))
-                  ]
-                : [],
-          ),
-          child: Text(
-            title,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isSelected ? color : Colors.grey[600],
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildFilterChip(String label, String status, Color color) {
-    bool isSelected = _filterStatus == status;
-    return ChoiceChip(
-      label: Text(label),
+    final isSelected = _filterStatus == status;
+    return M3EMagneticChip(
+      label: label,
       selected: isSelected,
-      onSelected: (val) => setState(() => _filterStatus = status),
-      selectedColor: color.withValues(alpha: 0.2),
-      labelStyle: TextStyle(
-        color: isSelected ? color : Colors.grey,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        fontSize: 12,
-      ),
-      side: isSelected
-          ? BorderSide(color: color)
-          : BorderSide(color: Colors.grey.shade300),
+      color: color,
+      onTap: () => setState(() => _filterStatus = status),
     );
   }
 
@@ -364,8 +311,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                       icon: const Icon(Icons.copy, color: Colors.blue),
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: code));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('تم نسخ الكود ✅')));
+                        SonnerToast.show(context, 'تم نسخ الكود بنجاح', type: SonnerToastType.success);
                       },
                     ),
                   IconButton(
@@ -443,8 +389,8 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
               decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF232927) : Colors.grey[200],
                   borderRadius: BorderRadius.circular(8)),
-              child: SelectableText(
-                code,
+              child: ScrambleText(
+                text: code,
                 style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -490,19 +436,26 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
   }
 
   Future<void> _deleteCode(String id, String collection) async {
-    bool confirm = await showDialog(
+    final bool confirm = await showDialog<bool>(
             context: context,
             builder: (c) => AlertDialog(
                     title: const Text('حذف الكود'),
-                    content: const Text('هل تريد حذف هذا الكود من السجل؟'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text('اضغط مطولاً لتأكيد حذف هذا الكود نهائياً من السجل.'),
+                        const SizedBox(height: 16),
+                        HoldToConfirmButton(
+                          label: 'اضغط مطولاً للحذف',
+                          onConfirmed: () => Navigator.pop(c, true),
+                        ),
+                      ],
+                    ),
                     actions: [
                       TextButton(
                           onPressed: () => Navigator.pop(c, false),
                           child: const Text('إلغاء')),
-                      TextButton(
-                          onPressed: () => Navigator.pop(c, true),
-                          child: const Text('حذف',
-                              style: TextStyle(color: Colors.red))),
                     ])) ??
         false;
 

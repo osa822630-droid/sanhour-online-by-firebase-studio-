@@ -336,12 +336,15 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
         background: Stack(
           fit: StackFit.expand,
           children: [
-            CachedImage(
-              imageUrl: widget.shop.coverUrl.isNotEmpty
-                  ? widget.shop.coverUrl
-                  : widget.shop.imageUrl,
-              fit: BoxFit.cover,
-              fallbackIcon: Icons.storefront_outlined,
+            Hero(
+              tag: 'shop_hero_${widget.shop.id}',
+              child: CachedImage(
+                imageUrl: widget.shop.coverUrl.isNotEmpty
+                    ? widget.shop.coverUrl
+                    : widget.shop.imageUrl,
+                fit: BoxFit.cover,
+                fallbackIcon: Icons.storefront_outlined,
+              ),
             ),
             Container(
               decoration: const BoxDecoration(

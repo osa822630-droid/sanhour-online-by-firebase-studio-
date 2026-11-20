@@ -20,6 +20,7 @@ import '../screens/login_screen.dart';
 import '../widgets/cached_image.dart';
 import '../services/api_service.dart';
 import '../widgets/force_update_dialog.dart';
+import '../widgets/motion/sanhour_motion_kit.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -335,15 +336,11 @@ class _SplashScreenState extends State<SplashScreen> {
           const Positioned(
             left: 0,
             right: 0,
-            bottom: 44,
+            bottom: 40,
             child: Center(
-              child: SizedBox(
-                width: 30,
-                height: 30,
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFE0A865)),
-                  strokeWidth: 2.8,
-                ),
+              child: LogoTraceLoader(
+                size: 46,
+                color: Color(0xFFE0A865),
               ),
             ),
           ),

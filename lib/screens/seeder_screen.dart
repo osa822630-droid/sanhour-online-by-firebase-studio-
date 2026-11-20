@@ -2,6 +2,7 @@
 // ✅ واجهة رفع البيانات التجريبية — تعرض تقدم كل مرحلة بشكل مرئي واضح
 // تُستخدَم فقط في kDebugMode — غير مرئية في الإنتاج
 import 'package:material_ui/material_ui.dart';
+import '../widgets/motion/sanhour_motion_kit.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/database_seeder.dart';
@@ -349,37 +350,16 @@ class _SeederScreenState extends State<SeederScreen> {
           const SizedBox(height: 24),
 
           // ── زر البدء ─────────────────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: ElevatedButton.icon(
-              onPressed: _isRunning ? null : _startSeed,
-              icon: _isRunning
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2.5))
-                  : Icon(_isDone
-                      ? Icons.refresh
-                      : Icons.cloud_upload_outlined),
-              label: Text(
-                _isRunning
-                    ? 'جارٍ الرفع... $overall%'
-                    : _isDone
-                        ? 'رفع مجدداً'
-                        : 'بدء رفع البيانات التجريبية',
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    _isDone ? Colors.green : Color(0xFF3D6B5E),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
+          TactileButton(
+            color: _isDone ? Colors.green : const Color(0xFF3D6B5E),
+            isLoading: _isRunning,
+            icon: _isDone ? Icons.refresh : Icons.cloud_upload_outlined,
+            label: _isRunning
+                ? 'جارٍ الرفع... $overall%'
+                : _isDone
+                    ? 'رفع مجدداً'
+                    : 'بدء رفع البيانات التجريبية',
+            onPressed: _isRunning ? null : _startSeed,
           ),
 
           const SizedBox(height: 32),

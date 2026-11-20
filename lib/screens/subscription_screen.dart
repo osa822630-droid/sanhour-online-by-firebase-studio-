@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/auth_provider.dart';
 import '../services/subscription_service.dart';
 import '../utils/logger.dart';
+import '../widgets/motion/sanhour_motion_kit.dart';
 
 class SubscriptionScreen extends StatefulWidget {
   final String? shopId;
@@ -129,10 +130,23 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
     if (result.success && result.newEndDate != null) {
       final d = result.newEndDate!;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('✅ تم تجديد الاشتراك حتى ${d.day}/${d.month}/${d.year}'),
-        backgroundColor: Colors.green,
-      ));
+      final plan = _plans[_selectedPlan]!;
+      SonnerToast.show(
+        context,
+        'تم تجديد الاشتراك حتى ${d.day}/${d.month}/${d.year}',
+        type: SonnerToastType.success,
+      );
+      await ReceiptPrinterDialog.show(
+        context,
+        title: 'إيصال تجديد الاشتراك',
+        rows: {
+          'الباقة': '${plan['label'] ?? _selectedPlan}',
+          'القيمة': '${plan['price']} جنيه',
+          'ساري حتى': '${d.day}/${d.month}/${d.year}',
+          'الحالة': 'نشط الآن',
+        },
+        footerNote: 'سنهور أونلاين — شكراً لثقتك',
+      );
       await _loadSubscription();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -363,29 +377,14 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Widget _buildRenewButton() {
     final plan = _plans[_selectedPlan]!;
-    return SizedBox(
-      width: double.infinity,
-      height: 52,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: plan['color'] as Color,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          elevation: 3,
-        ),
-        onPressed: _isRenewing ? null : _renewSubscription,
-        icon: _isRenewing
-            ? const SizedBox(
-                width: 20, height: 20,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-            : const Icon(Icons.refresh_rounded),
-        label: Text(
-          _isRenewing
-              ? 'جارٍ التجديد...'
-              : 'تجديد الاشتراك — ${plan['price']} جنيه',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-      ),
+    return TactileButton(
+      color: plan['color'] as Color,
+      isLoading: _isRenewing,
+      icon: Icons.refresh_rounded,
+      label: _isRenewing
+          ? 'جارٍ التجديد...'
+          : 'تجديد الاشتراك — ${plan['price']} جنيه',
+      onPressed: _isRenewing ? null : _renewSubscription,
     );
   }
 

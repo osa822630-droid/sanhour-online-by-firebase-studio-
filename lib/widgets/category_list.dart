@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/shops_provider.dart';
 import '../models/category_model.dart';
 import '../screens/main_screen.dart';
+import 'motion/sanhour_motion_kit.dart';
 
 class CategoryListWidget extends StatelessWidget {
   const CategoryListWidget({super.key});
@@ -36,21 +37,25 @@ class CategoryListWidget extends StatelessWidget {
 
         return SizedBox(
           height: 108,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-            itemCount: visibleCategories.length,
-            scrollCacheExtent: const ScrollCacheExtent.pixels(500),
-            itemBuilder: (context, index) {
-              final cat = visibleCategories[index];
-              return _buildCategoryItem(
-                context,
-                cat.name,
-                CategoryModel.getIconData(cat.iconName),
-                Color(cat.colorValue),
-                isDark,
-              );
-            },
+          child: ScrollFadeList(
+            axis: Axis.horizontal,
+            fadeFraction: 0.04,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              itemCount: visibleCategories.length,
+              scrollCacheExtent: const ScrollCacheExtent.pixels(500),
+              itemBuilder: (context, index) {
+                final cat = visibleCategories[index];
+                return _buildCategoryItem(
+                  context,
+                  cat.name,
+                  CategoryModel.getIconData(cat.iconName),
+                  Color(cat.colorValue),
+                  isDark,
+                );
+              },
+            ),
           ),
         );
       },
