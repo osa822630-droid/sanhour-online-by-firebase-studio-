@@ -275,7 +275,7 @@ class ShopService {
             ? await resolveOwnerAssignment(targetOwnerIdentifier)
             : {'ownerId': ownerId, 'pendingOwnerPhone': null};
         final directRef = _firestore.collection('shops').doc();
-        await directRef.set({
+        final payload = <String, dynamic>{
           ...shopData,
           'id': directRef.id,
           'ownerId': assignment['ownerId'] ?? ownerId,
@@ -290,7 +290,19 @@ class ShopService {
           'favoriteCount': 0,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
-        }).timeout(const Duration(seconds: 12));
+        };
+        for (var attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await directRef.set(payload).timeout(const Duration(seconds: 15));
+            break;
+          } on FirebaseException catch (fe) {
+            final transient = fe.code == 'unavailable' ||
+                fe.code == 'deadline-exceeded' ||
+                fe.code == 'aborted';
+            if (!transient || attempt == 3) rethrow;
+            await Future.delayed(Duration(milliseconds: 700 * attempt));
+          }
+        }
         createdShopId = directRef.id;
       }
 

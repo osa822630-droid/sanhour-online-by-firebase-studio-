@@ -107,18 +107,19 @@ class AppTheme {
       primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Tajawal'),
       // ✅ شريط علوي نظيف ومحايد (أبيض ناعم مع حد سفلي رقيق 1px — أسلوب 2026 الهادئ)
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.cardLight,
-        foregroundColor: AppColors.textPrimaryLt,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0.5,
         centerTitle: true,
-        iconTheme: IconThemeData(color: AppColors.textPrimaryLt, size: AppIconSize.lg),
+        iconTheme: IconThemeData(color: Colors.white, size: AppIconSize.lg),
+        actionsIconTheme: IconThemeData(color: Colors.white, size: AppIconSize.lg),
         titleTextStyle: TextStyle(
           fontFamily: 'Tajawal',
           fontSize: 18,
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimaryLt,
+          color: Colors.white,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -246,18 +247,19 @@ class AppTheme {
       primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Tajawal'),
       // ✅ شريط علوي ليلي محايد وهادئ (فحمي أوكالبتوسي ناعم بدون إجهاد عين)
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.cardDark,
-        foregroundColor: AppColors.textPrimaryDk,
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0.5,
         centerTitle: true,
-        iconTheme: IconThemeData(color: AppColors.textPrimaryDk, size: AppIconSize.lg),
+        iconTheme: IconThemeData(color: Colors.white, size: AppIconSize.lg),
+        actionsIconTheme: IconThemeData(color: Colors.white, size: AppIconSize.lg),
         titleTextStyle: TextStyle(
           fontFamily: 'Tajawal',
           fontSize: 18,
           fontWeight: FontWeight.w700,
-          color: AppColors.textPrimaryDk,
+          color: Colors.white,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

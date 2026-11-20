@@ -212,9 +212,12 @@ class _AddShopScreenState extends State<AddShopScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      final rawErr = e.toString();
       final msg = e is MediaUploadException
           ? e.userMessage
-          : 'فشل إنشاء المحل: ${e.toString().replaceFirst('Exception: ', '')}';
+          : (rawErr.contains('unavailable') || rawErr.contains('deadline-exceeded'))
+              ? 'تعذّر الاتصال بخادم البيانات حالياً. تأكد من استقرار الإنترنت وحاول مرة أخرى.'
+              : 'فشل إنشاء المحل: ${rawErr.replaceFirst('Exception: ', '')}';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: Colors.red),
       );

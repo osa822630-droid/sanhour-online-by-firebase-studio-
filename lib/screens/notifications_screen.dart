@@ -243,14 +243,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF3D6B5E)))
-          : _notifications.isEmpty
-              ? _buildEmptyState()
-              : ListView(
-                  children: [
-                    ..._buildGroupedNotifications(isDark),
-                    const AppFooter(),
-                  ],
-                ),
+          : RefreshIndicator(
+              color: const Color(0xFF3D6B5E),
+              onRefresh: () async {
+                _listen();
+                await Future.delayed(const Duration(milliseconds: 400));
+              },
+              child: _notifications.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 80),
+                        _buildEmptyState(),
+                      ],
+                    )
+                  : ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        ..._buildGroupedNotifications(isDark),
+                        const AppFooter(),
+                      ],
+                    ),
+            ),
     );
   }
 

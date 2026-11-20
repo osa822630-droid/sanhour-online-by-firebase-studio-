@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' show FirebaseAuth;
 import 'package:image_picker/image_picker.dart';
 import '../providers/auth_provider.dart';
 import '../models/user.dart';
@@ -246,7 +247,8 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
     try {
       String photoUrl = _currentPhotoUrl;
       if (_newPhoto != null) {
-        final uploaded = await _uploadPhoto(user.id);
+        final storageUid = FirebaseAuth.instance.currentUser?.uid ?? user.id;
+        final uploaded = await _uploadPhoto(storageUid);
         if (uploaded != null) photoUrl = uploaded;
       }
 

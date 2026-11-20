@@ -198,6 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor:
             isDark ? const Color(0xFF121514) : const Color(0xFFF7F7F5),
         body: SafeArea(
+          top: false,
           child: RefreshIndicator(
             onRefresh: _refreshData,
             color: const Color(0xFF3D6B5E),
@@ -245,86 +246,56 @@ class _HomeScreenState extends State<HomeScreen> {
                     SliverAppBar(
                       pinned: true,
                       floating: false,
-                      expandedHeight: 110,
-                      backgroundColor: isDark
-                          ? const Color(0xFF1B201E)
-                          : Colors.white,
+                      toolbarHeight: 56,
+                      backgroundColor: const Color(0xFF3D6B5E),
+                      foregroundColor: Colors.white,
                       surfaceTintColor: Colors.transparent,
                       elevation: 0,
                       automaticallyImplyLeading: false,
-                      flexibleSpace: FlexibleSpaceBar(
-                        collapseMode: CollapseMode.pin,
-                        background: Container(
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF1B201E)
-                                : Colors.white,
-                            border: Border(
-                              bottom: BorderSide(
-                                color: isDark
-                                    ? const Color(0xFF2B3330)
-                                    : const Color(0xFFE4E5E2),
-                                width: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                       title: Row(
                         children: [
-                          // ✅ زر القائمة الجانبية بمساحة لمس قياسية 48×48 سهل الفتح
                           IconButton(
                             onPressed: () => MainScreen.openDrawer(),
                             tooltip: 'القائمة',
-                            icon: Icon(Icons.menu_rounded,
-                                color: isDark ? const Color(0xFFE6E8EB) : const Color(0xFF1A1D21), size: 26),
+                            icon: const Icon(Icons.menu_rounded,
+                                color: Colors.white, size: 25),
                             constraints: const BoxConstraints(
                               minWidth: 44,
                               minHeight: 44,
                             ),
                             padding: EdgeInsets.zero,
                           ),
-                          const SizedBox(width: 6),
-
-                          // ✅ أيقونة الموقع — تظهر فقط إذا فعّلها الأدمن
                           if (_showLocationFilter)
                             GestureDetector(
                               onTap: _showRegionPicker,
                               child: const Padding(
-                                padding:
-                                    EdgeInsets.symmetric(horizontal: 4),
+                                padding: EdgeInsets.symmetric(horizontal: 4),
                                 child: Icon(Icons.location_on_outlined,
                                     color: Colors.white70, size: 20),
                               ),
                             ),
-
-                          // اسم التطبيق
-                          Expanded(
+                          const Expanded(
                             child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
                                   'سنهور أونلاين',
                                   style: TextStyle(
-                                    color: isDark
-                                        ? const Color(0xFFE6E8EB)
-                                        : const Color(0xFF1A1D21),
+                                    color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                                    fontSize: 17,
                                   ),
                                 ),
                                 Text(
                                   'سنهور كلها في جيبك',
                                   style: TextStyle(
-                                    color: isDark
-                                        ? const Color(0xFF8E95A0)
-                                        : const Color(0xFF6B7280),
+                                    color: Colors.white70,
                                     fontSize: 11,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-
                           const SizedBox(width: 44),
                         ],
                       ),
@@ -583,7 +554,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            const Icon(Icons.sell_outlined, color: Colors.white54, size: 72),
+            const Icon(Icons.handshake_rounded, color: Colors.white70, size: 68),
           ]),
         ),
       ],

@@ -174,14 +174,15 @@ class _MainScreenState extends State<MainScreen> {
             ),
             NavigationDestination(
               icon: DealerIcon(
-                size: 22,
-                color: _selectedIndex == 4
-                    ? const Color(0xFF3D6B5E)
-                    : isDark
-                        ? Colors.grey[400]!
-                        : Colors.grey[600]!,
+                size: 24,
+                isSelected: false,
+                color: isDark ? Colors.grey[400]! : Colors.grey[600]!,
               ),
-              selectedIcon: DealerIcon(size: 22, color: const Color(0xFF3D6B5E)),
+              selectedIcon: const DealerIcon(
+                size: 24,
+                isSelected: true,
+                color: Color(0xFF3D6B5E),
+              ),
               label: 'ديلز',
             ),
             NavigationDestination(

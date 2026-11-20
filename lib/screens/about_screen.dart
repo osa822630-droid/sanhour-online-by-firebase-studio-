@@ -152,7 +152,7 @@ class _AboutScreenState extends State<AboutScreen> {
                       text: 'قوائم مفضلة ومشاركة مع العائلة'),
                   _FeatureRow(
                       icon: Icons.motorcycle,
-                      text: 'سنهور ديلر — خدمة توصيل محلية'),
+                      text: 'ديلز — سوق بيع وشراء المستعمل'),
                   _FeatureRow(
                       icon: Icons.campaign,
                       text: 'إعلانات ذكية ومحلية'),

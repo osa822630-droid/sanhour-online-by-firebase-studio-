@@ -106,7 +106,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
           switch (_selectedTypeIndex) {
             0 => 'توليد كود متجر (SHOP)',
             1 => 'توليد كود إعلان (50 ج)',
-            2 => 'توليد كود ديلر (${DealerListingService.extraListingFee} ج)',
+            2 => 'توليد كود ديلز (${DealerListingService.extraListingFee} ج)',
             _ => 'توليد كود تجديد (RNW)',
           },
           style:
@@ -131,7 +131,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                       _buildTypeButton('🏪 المتاجر', 0, Colors.blue.shade800, isDark),
                       _buildTypeButton(
                           '📢 الإعلانات', 1, Colors.deepOrange.shade800, isDark),
-                      _buildTypeButton('🏷️ الديلر', 2, Colors.teal.shade800, isDark),
+                      _buildTypeButton('🤝 ديلز', 2, Colors.teal.shade800, isDark),
                       _buildTypeButton('🔄 التجديد', 3, Colors.indigo.shade800, isDark),
                     ],
                   ),
@@ -462,7 +462,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                 0 => 'كود لتفعيل حساب تاجر جديد',
                 1 => 'كوبون إعلاني بقيمة 50 ج.م',
                 2 =>
-                  'كود دفع إعلان ديلر إضافي بقيمة ${DealerListingService.extraListingFee} ج.م',
+                  'كود دفع إعلان ديلز إضافي بقيمة ${DealerListingService.extraListingFee} ج.م',
                 _ => 'كود لتجديد اشتراك متجر حالي',
               },
               style: const TextStyle(color: Colors.grey, fontSize: 12),

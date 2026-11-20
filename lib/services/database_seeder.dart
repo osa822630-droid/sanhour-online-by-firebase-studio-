@@ -90,10 +90,10 @@ class DatabaseSeeder {
   // ─────────────────────────────────────────────────────────────────────────
   static Future<void> seedAll({
     ProgressCallback? onProgress,
+    bool allowSuperAdmin = false,
   }) async {
-    // ✅ إصلاح مشكلة #5: تتجاوز الـ seeder تلقائياً إلا في وضع الاختبار
-    // (Debug عادي أو --dart-define=ENABLE_MOCK_MODE=true صراحةً)
-    if (!BuildFlags.mockModeEnabled) {
+    // ✅ السماح بالرفع في وضع الاختبار أو لصاحب صلاحية Super Admin صراحةً
+    if (!BuildFlags.mockModeEnabled && !allowSuperAdmin) {
       developer.log('DatabaseSeeder: skipped (mock mode disabled)',
           name: 'DatabaseSeeder');
       return;
@@ -1023,7 +1023,7 @@ class DatabaseSeeder {
   static Future<void> _phase9CommunityContent(
       void Function(int, String, int, {String? detail}) report) async {
     const phase = 9;
-    const name = 'وظائف وطلبات وديلر';
+    const name = 'وظائف وطلبات وديلز';
     report(phase, name, 0);
 
     final now = DateTime.now();
@@ -1204,11 +1204,11 @@ class DatabaseSeeder {
         items: dealerListings,
         buildData: (item) => item,
         onBatchDone: (done, total) =>
-            report(phase, name, 60 + (done * 40 ~/ total), detail: 'ديلر: $done/$total'),
+            report(phase, name, 60 + (done * 40 ~/ total), detail: 'ديلز: $done/$total'),
       );
 
       report(phase, name, 100, detail:
-          'تم: ${jobAds.length} وظائف + ${serviceRequests.length} طلبات + ${dealerListings.length} ديلر');
+          'تم: ${jobAds.length} وظائف + ${serviceRequests.length} طلبات + ${dealerListings.length} ديلز');
     } catch (e, s) {
       developer.log('Phase $phase error: $e', name: 'DatabaseSeeder', error: e, stackTrace: s);
       report(phase, name, 100, detail: '⚠️ خطأ: $e');

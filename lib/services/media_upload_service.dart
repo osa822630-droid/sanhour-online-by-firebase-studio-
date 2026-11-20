@@ -48,6 +48,7 @@ class MediaUploadService {
   MediaUploadService._();
 
   static final FirebaseStorage _storage = FirebaseStorage.instance;
+  static String? _fallbackBucket;
 
   // ── حدود الحجم — تطابق storage.rules ────────────────────────────────────
   static const int maxImageBytes = 10 * 1024 * 1024; // 10MB
@@ -63,7 +64,7 @@ class MediaUploadService {
         case 'canceled':
           return 'تم إلغاء عملية الرفع.';
         case 'object-not-found':
-          return 'الملف المطلوب غير موجود على الخادم.';
+          return 'تعذّر الوصول لمساحة تخزين الصور (تأكد من تفعيل Firebase Storage ومطابقة اسم الباكيت في لوحة Firebase).';
         case 'quota-exceeded':
           return 'تم تجاوز سعة التخزين المتاحة. تواصل مع الدعم.';
         case 'unauthenticated':
@@ -162,7 +163,10 @@ class MediaUploadService {
       UploadTask? task;
       StreamSubscription<TaskSnapshot>? progressSub;
       try {
-        final ref = _storage.ref().child(path);
+        final activeStorage = (attempt > 1 && _fallbackBucket != null)
+            ? FirebaseStorage.instanceFor(bucket: _fallbackBucket!)
+            : _storage;
+        final ref = activeStorage.ref().child(path);
         final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
         final uploadTask = ref.putFile(
           file,
@@ -222,6 +226,16 @@ class MediaUploadService {
         try {
           await task?.cancel();
         } catch (_) {}
+
+        if (e is FirebaseException &&
+            e.code == 'object-not-found' &&
+            attempt == 1 &&
+            _storage.bucket.endsWith('.firebasestorage.app')) {
+          final projectPrefix =
+              _storage.bucket.replaceAll('.firebasestorage.app', '');
+          _fallbackBucket = 'gs://$projectPrefix.appspot.com';
+          continue;
+        }
 
         final isTransient = e is FirebaseException &&
             (e.code == 'retry-limit-exceeded' ||

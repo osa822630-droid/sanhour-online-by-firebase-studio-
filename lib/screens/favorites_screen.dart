@@ -60,9 +60,10 @@ class _FavoritesScreenState extends State<FavoritesScreen>
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 46,
         title: const Text(
           'المفضلة',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
         backgroundColor: const Color(0xFF3D6B5E),
         foregroundColor: Colors.white,
@@ -79,24 +80,26 @@ class _FavoritesScreenState extends State<FavoritesScreen>
             ),
           ),
         ],
-        // ✅ إصلاح TabBar: isScrollable: false مع tabAlignment لملء العرض الكامل
-        // يمنع المساحة الفارغة ويجعل الأيقونات ثابتة في أماكنها
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          isScrollable: false, // ← الإصلاح الأساسي للمساحة الفارغة
-          indicatorWeight: 3,
-          labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-          unselectedLabelStyle: const TextStyle(fontSize: 10),
-          tabs: const [
-            Tab(text: 'قوائمي', icon: Icon(Icons.collections_bookmark, size: 16)),
-            Tab(text: 'محلات',  icon: Icon(Icons.store, size: 16)),
-            Tab(text: 'منتجات', icon: Icon(Icons.shopping_bag, size: 16)),
-            Tab(text: 'عروض',   icon: Icon(Icons.local_offer, size: 16)),
-            Tab(text: 'خدمات',  icon: Icon(Icons.handyman, size: 16)),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(44),
+          child: TabBar(
+            controller: _tabController,
+            indicatorColor: Colors.white,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            isScrollable: false,
+            indicatorWeight: 2.5,
+            labelPadding: EdgeInsets.zero,
+            labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            unselectedLabelStyle: const TextStyle(fontSize: 10),
+            tabs: const [
+              Tab(height: 44, iconMargin: EdgeInsets.only(bottom: 2), text: 'قوائمي', icon: Icon(Icons.collections_bookmark, size: 15)),
+              Tab(height: 44, iconMargin: EdgeInsets.only(bottom: 2), text: 'محلات',  icon: Icon(Icons.store, size: 15)),
+              Tab(height: 44, iconMargin: EdgeInsets.only(bottom: 2), text: 'منتجات', icon: Icon(Icons.shopping_bag, size: 15)),
+              Tab(height: 44, iconMargin: EdgeInsets.only(bottom: 2), text: 'عروض',   icon: Icon(Icons.local_offer, size: 15)),
+              Tab(height: 44, iconMargin: EdgeInsets.only(bottom: 2), text: 'خدمات',  icon: Icon(Icons.handyman, size: 15)),
+            ],
+          ),
         ),
       ),
       body: Column(
@@ -220,6 +223,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
   // ── القوائم (Collections) ────────────────────────────────────────────
   Widget _buildCollectionsGrid(FavoritesProvider provider) {
     return GridView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,

@@ -210,23 +210,37 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : requests.isEmpty
-                    ? _buildEmpty()
-                    : ListView(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              '${requests.length} طلب مفتوح',
-                              style: TextStyle(
-                                  color: Colors.grey[500], fontSize: 12),
-                            ),
+                : RefreshIndicator(
+                    color: const Color(0xFF3D6B5E),
+                    onRefresh: () async {
+                      _listen();
+                      await Future.delayed(const Duration(milliseconds: 350));
+                    },
+                    child: requests.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              const SizedBox(height: 80),
+                              _buildEmpty(),
+                            ],
+                          )
+                        : ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  '${requests.length} طلب مفتوح',
+                                  style: TextStyle(
+                                      color: Colors.grey[500], fontSize: 12),
+                                ),
+                              ),
+                              ...requests.map((r) => _buildRequestCard(r, isDark)),
+                              const AppFooter(),
+                            ],
                           ),
-                          ...requests.map((r) => _buildRequestCard(r, isDark)),
-                          const AppFooter(),
-                        ],
-                      ),
+                  ),
           ),
         ],
       ),

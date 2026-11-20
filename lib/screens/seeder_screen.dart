@@ -30,7 +30,7 @@ class _SeederScreenState extends State<SeederScreen> {
     'العروض',
     'الخدمات والتقييمات',
     'الإعلانات التجارية',
-    'وظائف وطلبات وديلر',
+    'وظائف وطلبات وديلز',
     'القوائم والإشعارات والأكواد',
   ];
 
@@ -60,6 +60,7 @@ class _SeederScreenState extends State<SeederScreen> {
 
     try {
       await DatabaseSeeder.seedAll(
+        allowSuperAdmin: isSuperAdmin,
         onProgress: (progress) {
           if (!mounted) return;
           setState(() {
@@ -81,7 +82,7 @@ class _SeederScreenState extends State<SeederScreen> {
         backgroundColor: Colors.red,
       ));
     } finally {
-      if (mounted) setState(() { _isRunning = false; _isDone = true; });
+      if (mounted) setState(() { _isRunning = false; _isDone = (_current?.overallPercent ?? 0) >= 100; });
     }
   }
 

@@ -218,31 +218,48 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
             }
             final docs = snap.data?.docs ?? [];
             if (docs.isEmpty) {
-              return Center(
-                  child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                    Icon(Icons.sell_outlined,
-                        size: 60, color: Colors.grey[300]),
-                    const SizedBox(height: 10),
-                    const Text('لا توجد إعلانات حالياً',
-                        style: TextStyle(color: Colors.grey)),
-                    const SizedBox(height: 6),
-                    const Text('كن أول من يضيف إعلاناً!',
-                        style:
-                            TextStyle(color: Color(0xFF3D6B5E), fontSize: 13)),
-                  ]));
+              return RefreshIndicator(
+                color: const Color(0xFF3D6B5E),
+                onRefresh: _refreshDealerData,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    const SizedBox(height: 100),
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.handshake_outlined,
+                              size: 60, color: Colors.grey[300]),
+                          const SizedBox(height: 10),
+                          const Text('لا توجد إعلانات حالياً',
+                              style: TextStyle(color: Colors.grey)),
+                          const SizedBox(height: 6),
+                          const Text('كن أول من يضيف إعلاناً!',
+                              style: TextStyle(
+                                  color: Color(0xFF3D6B5E), fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
             }
-            return GridView.builder(
-              padding: const EdgeInsets.all(12),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.72,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10),
-              itemCount: docs.length,
-              itemBuilder: (_, i) => _buildAdCard(
-                  docs[i].data() as Map<String, dynamic>, docs[i].id),
+            return RefreshIndicator(
+              color: const Color(0xFF3D6B5E),
+              onRefresh: _refreshDealerData,
+              child: GridView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(12),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.72,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10),
+                itemCount: docs.length,
+                itemBuilder: (_, i) => _buildAdCard(
+                    docs[i].data() as Map<String, dynamic>, docs[i].id),
+              ),
             );
           },
         ),
