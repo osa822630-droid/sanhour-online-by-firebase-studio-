@@ -218,7 +218,7 @@ class _MainScreenState extends State<MainScreen> {
             Consumer<AuthProvider>(
               builder: (ctx, auth, _) => Container(
                 width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 20, 20, 24),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     colors: [Color(0xFF3D6B5E), Color(0xFF4B5E6F)],

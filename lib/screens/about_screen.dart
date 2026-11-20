@@ -61,7 +61,7 @@ class _AboutScreenState extends State<AboutScreen> {
                   end: Alignment.bottomRight,
                 ),
               ),
-              padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
+              padding: const EdgeInsetsDirectional.fromSTEB(24, 40, 24, 40),
               child: Column(
                 children: [
                   Container(

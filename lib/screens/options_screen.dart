@@ -372,7 +372,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
   }
 
   Widget _sectionTitle(String t) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+        padding: const EdgeInsetsDirectional.fromSTEB(20, 20, 20, 8),
         child: Text(t,
             style: const TextStyle(
                 fontWeight: FontWeight.bold,
@@ -549,6 +549,7 @@ class _OptionsScreenState extends State<OptionsScreen> {
             ),
           ),
           IconButton(
+            tooltip: 'تعديل',
             icon: const Icon(Icons.edit_outlined,
                 color: Color(0xFF3D6B5E), size: 20),
             onPressed: () => Navigator.push(context,

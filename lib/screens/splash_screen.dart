@@ -178,7 +178,7 @@ class _SplashScreenState extends State<SplashScreen> {
               )),
               if (ad.text.isNotEmpty)
                 Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    padding: const EdgeInsetsDirectional.fromSTEB(16, 10, 16, 0),
                     child: Text(ad.text,
                         textAlign: TextAlign.center,
                         style: const TextStyle(

@@ -99,6 +99,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
             left: 8,
             child: SafeArea(
               child: IconButton(
+                tooltip: 'إغلاق',
                 icon: const Icon(Icons.close, color: Colors.white, size: 28),
                 onPressed: () => Navigator.of(context).pop(),
                 style: IconButton.styleFrom(

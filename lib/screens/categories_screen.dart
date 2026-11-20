@@ -152,6 +152,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         centerTitle: true,
         leading: _selectedCategory != null
             ? IconButton(
+                tooltip: 'رجوع',
                 icon: const Icon(Icons.arrow_back),
                 onPressed: _resetToGrid,
               )
@@ -190,7 +191,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   Widget _buildSearchField(bool isDark, String hint) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 4),
       child: TextField(
         controller: _searchController,
         onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
@@ -199,6 +200,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           prefixIcon: const Icon(Icons.search_rounded, size: 22),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
+                  tooltip: 'مسح',
                   icon: const Icon(Icons.clear_rounded, size: 20),
                   onPressed: () {
                     _searchController.clear();
@@ -267,7 +269,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             },
             color: const Color(0xFF3D6B5E),
             child: GridView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 8),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           childAspectRatio: 1.2,
@@ -408,7 +410,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 4),
               child: Text(
                 '${shops.length} محل${_activeFilterLabel != null ? ' في "$_activeFilterLabel"' : ''}',
                 style: TextStyle(color: Colors.grey[600], fontSize: 13),
@@ -446,7 +448,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         isSecondLevel ? const Color(0xFF00897B) : const Color(0xFF3D6B5E);
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(16, isSecondLevel ? 0 : 12, 16, 10),
+      padding: EdgeInsetsDirectional.fromSTEB(16, isSecondLevel ? 0 : 12, 16, 10),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,

@@ -245,6 +245,7 @@ class _AllAdsScreenState extends State<AllAdsScreen> {
               centerTitle: true,
               actions: [
                 IconButton(
+                  tooltip: 'تحديث',
                   icon: const Icon(Icons.refresh),
                   onPressed: _loadFirstPage,
                 ),

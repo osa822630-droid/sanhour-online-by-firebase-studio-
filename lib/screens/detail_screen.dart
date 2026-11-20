@@ -129,6 +129,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   backgroundColor:
                       isDark ? const Color(0xFF1B201E) : Colors.white,
                   leading: IconButton(
+                    tooltip: 'رجوع',
                     icon: CircleAvatar(
                       backgroundColor: isDark ? Colors.white12 : Colors.white,
                       child: Icon(Icons.arrow_back,
@@ -142,6 +143,7 @@ class _DetailScreenState extends State<DetailScreen> {
                         final isFav = fav.isFavorite(
                             isProduct ? 'product' : 'offer', id);
                         return IconButton(
+                          tooltip: 'المفضلة',
                           icon: CircleAvatar(
                             backgroundColor:
                                 isDark ? Colors.white12 : Colors.white,

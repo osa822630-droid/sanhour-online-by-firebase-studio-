@@ -370,7 +370,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Stack(
-          alignment: Alignment.topLeft,
+          alignment: AlignmentDirectional.topStart,
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -431,7 +431,7 @@ class _MerchantStatsTabState extends State<MerchantStatsTab>
                           color: isDark ? Colors.white12 : Colors.blue[100],
                           borderRadius: BorderRadius.circular(2)),
                       child: FractionallySizedBox(
-                        alignment: Alignment.centerRight,
+                        alignment: AlignmentDirectional.centerEnd,
                         widthFactor: widthFactor,
                         child: Container(
                             decoration: BoxDecoration(

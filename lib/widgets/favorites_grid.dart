@@ -135,6 +135,7 @@ class FavoritesGrid extends StatelessWidget {
                 radius: 16,
                 backgroundColor: Colors.black.withValues(alpha: 0.45),
                 child: IconButton(
+                  tooltip: 'إضافة',
                   padding: EdgeInsets.zero,
                   icon: const Icon(Icons.favorite, color: Colors.red, size: 18),
                   onPressed: () => provider.toggleFavorite(item),

@@ -423,6 +423,7 @@ class _MyServiceHistoryScreenState extends State<MyServiceHistoryScreen>
                     ),
                   ),
                   IconButton(
+                    tooltip: 'إغلاق',
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
                   ),
@@ -465,6 +466,7 @@ class _MyServiceHistoryScreenState extends State<MyServiceHistoryScreen>
                           subtitle: b.note.isNotEmpty ? Text(b.note) : null,
                           trailing: b.isAccepted
                               ? IconButton(
+                                  tooltip: 'اتصال',
                                   icon: const Icon(Icons.phone,
                                       color: Colors.green),
                                   onPressed: () async {

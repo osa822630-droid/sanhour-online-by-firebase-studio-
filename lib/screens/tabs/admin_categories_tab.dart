@@ -90,7 +90,7 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
                   : RefreshIndicator(
                       onRefresh: _loadCategories,
                       child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                        padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 80),
                         itemCount: _categories.length,
                         itemBuilder: (ctx, i) {
                           final cat = _categories[i];
@@ -164,7 +164,7 @@ class _AdminCategoriesTabState extends State<AdminCategoriesTab> {
               )
             else
               Align(
-                alignment: Alignment.centerRight,
+                alignment: AlignmentDirectional.centerEnd,
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -708,6 +708,7 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
                           ),
                           const SizedBox(width: 8),
                           IconButton(
+                            tooltip: 'إضافة',
                             icon: const Icon(Icons.add_circle,
                                 color: Colors.blue),
                             onPressed: () => _addSubSub(sub),
@@ -716,7 +717,7 @@ class _CategoryEditScreenState extends State<_CategoryEditScreen> {
                         if (subSubs.isNotEmpty) ...[
                           const SizedBox(height: 10),
                           Align(
-                            alignment: Alignment.centerRight,
+                            alignment: AlignmentDirectional.centerEnd,
                             child: Wrap(
                               spacing: 6,
                               runSpacing: 6,

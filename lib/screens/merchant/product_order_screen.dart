@@ -262,6 +262,7 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.drag_handle, color: Colors.grey),
                   IconButton(
+                    tooltip: 'إزالة',
                     icon: const Icon(Icons.remove_circle_outline,
                         color: Colors.red, size: 20),
                     onPressed: () => _unpin(p),
@@ -299,6 +300,7 @@ class _ProductOrderScreenState extends State<ProductOrderScreen>
               subtitle:
                   Text('${p.price} ج', style: const TextStyle(fontSize: 12)),
               trailing: IconButton(
+                tooltip: 'إضافة',
                 icon: const Icon(Icons.add_circle_outline,
                     color: Color(0xFF3D6B5E)),
                 onPressed: () => _pin(p),

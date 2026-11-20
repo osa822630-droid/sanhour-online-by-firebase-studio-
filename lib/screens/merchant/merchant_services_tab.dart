@@ -215,14 +215,15 @@ class _MerchantServicesTabState extends State<MerchantServicesTab> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
+              tooltip: 'إظهار أو إخفاء',
               icon: Icon(isVisible ? Icons.visibility : Icons.visibility_off, color: isVisible ? Colors.green : Colors.grey),
               onPressed: () async {
                 await ApiService.updateService(service['id'], {'isVisible': !isVisible});
                 _loadServices();
               },
             ),
-            IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showServiceDialog(service)),
-            IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteService(service['id'])),
+            IconButton(tooltip: 'تعديل', icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _showServiceDialog(service)),
+            IconButton(tooltip: 'حذف', icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteService(service['id'])),
           ],
         ),
       ),

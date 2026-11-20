@@ -58,7 +58,7 @@ class _ShopMediaGalleryState extends State<ShopMediaGallery> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 10),
           child: Row(
             children: [
               const Icon(Icons.photo_library_outlined,

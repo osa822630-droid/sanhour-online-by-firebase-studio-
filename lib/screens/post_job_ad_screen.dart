@@ -320,6 +320,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
             const SizedBox(height: 8),
             Row(children: [
               IconButton(
+                tooltip: 'إزالة',
                 onPressed: () {
                   if (_requiredCount > 1) {
                     setState(() => _requiredCount--);
@@ -338,6 +339,7 @@ class _PostJobAdScreenState extends State<PostJobAdScreen> {
                 ),
               ),
               IconButton(
+                tooltip: 'إضافة',
                 onPressed: () => setState(() => _requiredCount++),
                 icon: const Icon(Icons.add_circle_outline,
                     color: Color(0xFF3D6B5E)),

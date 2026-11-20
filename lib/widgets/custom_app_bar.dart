@@ -25,6 +25,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: true,
       leading: hasBackButton
           ? IconButton(
+              tooltip: 'رجوع',
               icon: const Icon(Icons.arrow_back),
               onPressed: () => Navigator.of(context).pop(),
             )

@@ -164,7 +164,7 @@ class LineChartWidget extends StatelessWidget {
       return Container(
         width: double.infinity,
         height: constraints.maxHeight > 0 ? constraints.maxHeight : 200,
-        padding: const EdgeInsets.fromLTRB(10, 10, 20, 20),
+        padding: const EdgeInsetsDirectional.fromSTEB(10, 10, 20, 20),
         child: CustomPaint(
           painter: LineChartPainter(
             data: data,

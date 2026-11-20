@@ -184,7 +184,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
                     builder: (_) => const MyServiceHistoryScreen()),
               ),
               child: Container(
-                margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                margin: const EdgeInsetsDirectional.fromSTEB(12, 4, 12, 4),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
@@ -226,7 +226,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
                           )
                         : ListView(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+                            padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 80),
                             children: [
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
@@ -249,7 +249,7 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
 
   Widget _buildCategoryFilter(bool isDark) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 4, 12, 8),
       child: SizedBox(
         height: 34,
         child: ListView(
@@ -516,11 +516,11 @@ class _ServiceRequestsTabScreenState extends State<ServiceRequestsTabScreen> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
+          padding: EdgeInsetsDirectional.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
             top: 20,
-            left: 20,
-            right: 20,
+            start: 20,
+            end: 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

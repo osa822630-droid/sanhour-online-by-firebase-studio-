@@ -250,7 +250,7 @@ class _MyComplaintsScreenState extends State<MyComplaintsScreen> {
     }
 
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      margin: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 0),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1B201E) : Colors.white,
         borderRadius: BorderRadius.circular(16),

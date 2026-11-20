@@ -71,6 +71,7 @@ class _MerchantOffersTabState extends State<MerchantOffersTab>
                           const Icon(Icons.search, color: Colors.grey),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
+                              tooltip: 'مسح',
                               icon: const Icon(Icons.clear),
                               onPressed: () {
                                 setState(() {

@@ -44,11 +44,11 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLS) => Padding(
-          padding: EdgeInsets.only(
+          padding: EdgeInsetsDirectional.only(
             bottom: MediaQuery.of(ctx).viewInsets.bottom,
             top: 20,
-            left: 20,
-            right: 20,
+            start: 20,
+            end: 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -63,6 +63,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                         TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(
+                  tooltip: 'إغلاق',
                   onPressed: () => Navigator.pop(ctx),
                   icon: const Icon(Icons.close),
                 ),
@@ -456,6 +457,7 @@ class _CollectionDetailScreenState extends State<CollectionDetailScreen> {
                                           color: Color(0xFF3D6B5E)))
                                   : null,
                               trailing: IconButton(
+                                tooltip: 'حذف',
                                 icon: const Icon(Icons.delete_outline,
                                     color: Colors.red, size: 20),
                                 onPressed: () =>

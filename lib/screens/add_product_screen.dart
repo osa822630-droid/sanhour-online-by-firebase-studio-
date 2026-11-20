@@ -378,6 +378,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
             labelText: label,
             prefixIcon: Icon(icon),
             suffixIcon: IconButton(
+              tooltip: 'مسح',
               icon: const Icon(Icons.add_circle, color: Color(0xFF3D6B5E)),
               onPressed: () {
                 final v = ctrl.text.trim();

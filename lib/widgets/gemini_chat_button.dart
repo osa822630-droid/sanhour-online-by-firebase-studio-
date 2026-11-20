@@ -163,7 +163,7 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
         children: [
           // ─── Header ───
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+            padding: const EdgeInsetsDirectional.fromSTEB(20, 16, 16, 12),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [Color(0xFF26483F), Color(0xFF3D6B5E)],
@@ -190,6 +190,7 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
                 ),
               ])),
               IconButton(
+                tooltip: 'إغلاق',
                 icon: const Icon(Icons.close, color: Colors.white),
                 onPressed: () => Navigator.pop(context),
               ),
@@ -229,7 +230,7 @@ class _GeminiChatSheetState extends State<GeminiChatSheet> {
 
           // ─── Input ───
           Container(
-            padding: EdgeInsets.fromLTRB(12, 8, 12, MediaQuery.of(context).viewInsets.bottom + 12),
+            padding: EdgeInsetsDirectional.fromSTEB(12, 8, 12, MediaQuery.of(context).viewInsets.bottom + 12),
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, -2))],

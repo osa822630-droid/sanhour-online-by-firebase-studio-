@@ -69,6 +69,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            tooltip: 'التنبيهات',
             onPressed: _toggleNotifications,
             icon: Icon(
               _isNotificationEnabled
@@ -371,6 +372,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                 style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text(subtitle),
             trailing: IconButton(
+              tooltip: 'المفضلة',
               icon: const Icon(Icons.favorite, color: Colors.red),
               onPressed: () =>
                   provider.toggleFavorite(item, explicitType: type),

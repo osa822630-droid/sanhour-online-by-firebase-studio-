@@ -131,7 +131,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Align(
-                      alignment: Alignment.centerRight,
+                      alignment: AlignmentDirectional.centerEnd,
                       child: Text('الصلاحية:',
                           style: TextStyle(fontWeight: FontWeight.bold))),
                   const SizedBox(height: 8),
@@ -280,6 +280,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
           ),
         ]),
         trailing: IconButton(
+          tooltip: 'إزالة',
           icon: const Icon(Icons.person_remove_outlined, color: Colors.red),
           onPressed: () => _confirmRemove(member),
         ),

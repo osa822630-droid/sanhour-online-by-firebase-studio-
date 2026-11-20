@@ -309,7 +309,7 @@ class _ContextSearchBarState extends State<ContextSearchBar>
             child: SizeTransition(
               sizeFactor: _filterFade,
               child: Container(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                padding: const EdgeInsetsDirectional.fromSTEB(12, 0, 12, 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -321,7 +321,7 @@ class _ContextSearchBarState extends State<ContextSearchBar>
                     ),
                     if (widget.onAdvancedSearch != null)
                       Align(
-                        alignment: Alignment.centerRight,
+                        alignment: AlignmentDirectional.centerEnd,
                         child: TextButton.icon(
                           onPressed: widget.onAdvancedSearch,
                           icon: const Icon(Icons.manage_search,

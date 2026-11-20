@@ -301,7 +301,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (items == null || items.isEmpty) continue;
       widgets.add(
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 4),
           child: Text(
             key,
             style: TextStyle(
@@ -430,7 +430,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
           if (isPendingInvite)
             Padding(
-              padding: const EdgeInsets.fromLTRB(72, 0, 16, 12),
+              padding: const EdgeInsetsDirectional.fromSTEB(72, 0, 16, 12),
               child: Row(children: [
                 Expanded(
                   child: OutlinedButton.icon(
@@ -468,7 +468,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
           if (type == 'collection_invite' && inviteStatus != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(72, 0, 16, 10),
+              padding: const EdgeInsetsDirectional.fromSTEB(72, 0, 16, 10),
               child: Row(children: [
                 Icon(
                   inviteStatus == 'accepted'

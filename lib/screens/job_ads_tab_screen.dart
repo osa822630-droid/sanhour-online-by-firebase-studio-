@@ -209,7 +209,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
                           )
                         : ListView(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+                            padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 80),
                             children: [
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
@@ -232,7 +232,7 @@ class _JobAdsTabScreenState extends State<JobAdsTabScreen> {
 
   Widget _buildSubscriptionStrip(bool isDark) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

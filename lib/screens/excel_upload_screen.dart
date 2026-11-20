@@ -260,6 +260,7 @@ class _ExcelUploadScreenState extends State<ExcelUploadScreen> {
                         top: 5,
                         right: 5,
                         child: IconButton(
+                          tooltip: 'إغلاق',
                           icon: const Icon(Icons.close, color: Colors.red),
                           onPressed: _clearFile,
                         ),

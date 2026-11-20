@@ -83,8 +83,9 @@ class _InterestsScreenState extends State<InterestsScreen> {
             children: [
               if (widget.fromSettings)
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                   child: IconButton(
+                    tooltip: 'رجوع',
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
                     onPressed: () => Navigator.pop(context),
                   ),
@@ -173,7 +174,7 @@ class _InterestsScreenState extends State<InterestsScreen> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                        padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 24),
                         child: Column(children: [
                           if (_selected.isNotEmpty)
                             Text('اخترت ${_selected.length} اهتمام',

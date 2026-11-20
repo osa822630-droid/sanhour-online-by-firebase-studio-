@@ -173,7 +173,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                 : _filteredCodes.isEmpty
                     ? _buildEmptyState()
                     : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                        padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 80),
                         itemCount: _filteredCodes.length,
                         itemBuilder: (ctx, i) {
                           final codeData = _filteredCodes[i];
@@ -360,6 +360,7 @@ class _AdminCodesTabState extends State<AdminCodesTab> {
                   ),
                   if (!isUsed)
                     IconButton(
+                      tooltip: 'نسخ',
                       icon: const Icon(Icons.copy, color: Colors.blue),
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: code));

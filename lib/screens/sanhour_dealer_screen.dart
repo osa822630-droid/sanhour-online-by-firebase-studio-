@@ -671,7 +671,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(builder: (ctx, setSheetState) {
         return Padding(
-          padding: EdgeInsets.fromLTRB(
+          padding: EdgeInsetsDirectional.fromSTEB(
               20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
           child: SingleChildScrollView(
             child: Column(
@@ -685,6 +685,7 @@ class _SanhourDealerScreenState extends State<SanhourDealerScreen>
                             style: const TextStyle(
                                 fontSize: 18, fontWeight: FontWeight.bold)),
                         IconButton(
+                            tooltip: 'إغلاق',
                             icon: const Icon(Icons.close),
                             onPressed: () => Navigator.pop(ctx)),
                       ]),

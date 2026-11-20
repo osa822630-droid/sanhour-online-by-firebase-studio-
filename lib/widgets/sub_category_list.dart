@@ -446,6 +446,7 @@ class _ListItem extends StatelessWidget {
                 style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ),
           trailing: IconButton(
+            tooltip: 'المفضلة',
             icon: Icon(isFav ? Icons.favorite : Icons.favorite_border,
                 color: isFav ? Colors.red : Colors.grey),
             onPressed: () {

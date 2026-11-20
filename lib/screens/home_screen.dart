@@ -507,7 +507,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onViewAll: () => MainScreen.switchTab(MainScreen.dealerTab),
         ),
         Container(
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          margin: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 16),
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
@@ -581,7 +581,7 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 100,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 0),
                 itemCount: jobs.length,
                 itemBuilder: (_, i) {
                   final data = jobs[i].data() as Map<String, dynamic>;
@@ -665,7 +665,7 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 110,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 0),
                 itemCount: requests.length,
                 itemBuilder: (_, i) {
                   final data = requests[i].data() as Map<String, dynamic>;
@@ -733,7 +733,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _sectionHeader(String title, {VoidCallback? onViewAll}) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -759,7 +759,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

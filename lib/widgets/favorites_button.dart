@@ -138,6 +138,7 @@ class _AddToCollectionSheetState extends State<_AddToCollectionSheet> {
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ]),
                 IconButton(
+                    tooltip: 'إغلاق',
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context)),
               ],
@@ -212,6 +213,7 @@ class _AddToCollectionSheetState extends State<_AddToCollectionSheet> {
                   ),
                 ),
                 IconButton(
+                  tooltip: 'مسح',
                   icon: const Icon(Icons.check, color: Colors.green),
                   onPressed: () async {
                     if (_newCollectionController.text.trim().isNotEmpty) {
@@ -234,7 +236,7 @@ class _AddToCollectionSheetState extends State<_AddToCollectionSheet> {
                   foregroundColor: isDark ? Colors.white : Colors.black87,
                   elevation: 0,
                   minimumSize: const Size(double.infinity, 48),
-                  alignment: Alignment.centerRight,
+                  alignment: AlignmentDirectional.centerEnd,
                 ),
               ),
           ],

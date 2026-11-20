@@ -298,7 +298,7 @@ class _MerchantReviewsScreenState extends State<MerchantReviewsScreen> {
               _buildReplySection(review, isDark)
             else
               Align(
-                alignment: Alignment.bottomLeft,
+                alignment: AlignmentDirectional.bottomStart,
                 child: TextButton.icon(
                   onPressed: () => _showReplyDialog(review),
                   icon: const Icon(Icons.reply, size: 18),

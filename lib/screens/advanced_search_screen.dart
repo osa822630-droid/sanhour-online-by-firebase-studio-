@@ -364,6 +364,7 @@ class _AdvancedSearchScreenState extends State<AdvancedSearchScreen>
             filled: false,
             suffixIcon: _searchCtrl.text.isNotEmpty
                 ? IconButton(
+                    tooltip: 'مسح',
                     icon: const Icon(Icons.clear, color: Colors.white),
                     onPressed: () {
                       _searchCtrl.clear();

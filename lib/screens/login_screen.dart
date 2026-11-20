@@ -344,7 +344,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       final isLoading =
                           auth.status == AuthStatus.authenticating;
                       return SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                        padding: const EdgeInsetsDirectional.fromSTEB(24, 28, 24, 24),
                         child: Form(
                           key: _formKey,
                           autovalidateMode: _autovalidateMode,
@@ -422,6 +422,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     border: const OutlineInputBorder(),
                                     prefixIcon: const Icon(Icons.lock),
                                     suffixIcon: IconButton(
+                                      tooltip: 'إظهار أو إخفاء',
                                       icon: Icon(_isPasswordVisible
                                           ? Icons.visibility
                                           : Icons.visibility_off),

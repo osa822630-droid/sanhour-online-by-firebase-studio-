@@ -74,6 +74,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
               title: Text('${_selectedProductIds.length} عنصر محدد'),
               backgroundColor: Colors.grey[800],
               leading: IconButton(
+                  tooltip: 'إغلاق',
                   icon: const Icon(Icons.close),
                   onPressed: _exitSelectionMode),
               actions: _buildSelectionActions(),
@@ -160,7 +161,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
 
     return Container(
       color: isDark ? const Color(0xFF1B201E) : Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 5),
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 5),
       child: Column(
         children: [
           Row(
@@ -173,6 +174,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
                     prefixIcon: const Icon(Icons.search, color: Colors.grey),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
+                            tooltip: 'مسح',
                             icon: const Icon(Icons.clear),
                             onPressed: () {
                               setState(() {
@@ -356,6 +358,7 @@ class _MerchantProductsTabState extends State<MerchantProductsTab> {
                         _toggleProductVisibility(product, !isVisible),
                   ),
                   IconButton(
+                    tooltip: 'تعديل',
                     icon: const Icon(Icons.edit, color: Colors.blue),
                     onPressed: () async {
                       await Navigator.push(

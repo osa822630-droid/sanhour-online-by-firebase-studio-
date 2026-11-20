@@ -119,6 +119,7 @@ class _AdminUsersTabState extends State<AdminUsersTab>
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
+                        tooltip: 'مسح',
                         icon: const Icon(Icons.clear),
                         onPressed: () {
                           setState(() {

@@ -124,7 +124,7 @@ class _AdCarouselState extends State<AdCarousel> {
                               ],
                             ),
                           ),
-                          padding: const EdgeInsets.fromLTRB(12, 20, 12, 12),
+                          padding: const EdgeInsetsDirectional.fromSTEB(12, 20, 12, 12),
                           child: Text(
                             ad.text,
                             style: const TextStyle(

@@ -228,7 +228,7 @@ class _MerchantMarketingTabState extends State<MerchantMarketingTab> {
                 ),
                 const Divider(),
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   child: TextButton.icon(
                     icon: const Icon(Icons.edit),
                     label: const Text('تعديل'),

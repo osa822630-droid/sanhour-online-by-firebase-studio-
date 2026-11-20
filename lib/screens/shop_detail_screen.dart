@@ -303,6 +303,7 @@ class _ShopDetailScreenState extends State<ShopDetailScreen>
         Consumer<FavoritesProvider>(builder: (ctx, fav, _) {
           final isFav = fav.isFavorite('shop', widget.shop.id);
           return IconButton(
+            tooltip: 'المفضلة',
             icon: Icon(isFav ? Icons.favorite : Icons.favorite_border,
                 color: isFav ? Colors.red[300] : Colors.white),
             onPressed: () {

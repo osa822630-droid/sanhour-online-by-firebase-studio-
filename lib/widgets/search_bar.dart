@@ -136,6 +136,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
             children: [
               if (_controller.text.isNotEmpty)
                 IconButton(
+                  tooltip: 'إغلاق',
                   icon: const Icon(Icons.close, color: Colors.grey),
                   onPressed: _clearSearch,
                 ),

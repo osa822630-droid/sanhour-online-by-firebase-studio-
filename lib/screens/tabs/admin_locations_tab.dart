@@ -265,11 +265,13 @@ class _AdminLocationsTabState extends State<AdminLocationsTab> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
+                          tooltip: 'تعديل',
                           icon: const Icon(Icons.edit_outlined,
                               color: Colors.blue, size: 20),
                           onPressed: () => _editRegion(r),
                         ),
                         IconButton(
+                          tooltip: 'حذف',
                           icon: const Icon(Icons.delete_outline,
                               color: Colors.red, size: 20),
                           onPressed: () => _removeRegion(r),

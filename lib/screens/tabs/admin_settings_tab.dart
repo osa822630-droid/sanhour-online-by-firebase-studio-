@@ -324,6 +324,7 @@ class _AdminSettingsTabState extends State<AdminSettingsTab> {
                     prefixIcon: const Icon(Icons.vpn_key_outlined),
                     border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
+                      tooltip: 'إظهار أو إخفاء',
                       icon: Icon(_isKeyVisible
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined),
