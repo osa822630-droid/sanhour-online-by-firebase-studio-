@@ -31,12 +31,11 @@ class MainScreen extends StatefulWidget {
 
   const MainScreen({super.key, this.initialIndex = homeTab});
 
-  static final GlobalKey<ScaffoldState> scaffoldKey =
-      GlobalKey<ScaffoldState>();
+  static GlobalKey<ScaffoldState>? _activeScaffoldKey;
 
   static void openDrawer() {
     HapticFeedback.selectionClick();
-    scaffoldKey.currentState?.openDrawer();
+    _activeScaffoldKey?.currentState?.openDrawer();
   }
 
   static final ValueNotifier<int?> tabSwitchRequest = ValueNotifier<int?>(null);
@@ -55,6 +54,7 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late int _selectedIndex;
   late final Set<int> _activatedTabs;
 
@@ -93,11 +93,15 @@ class _MainScreenState extends State<MainScreen> {
     _selectedIndex =
         (index >= 0 && index < _screens.length) ? index : MainScreen.homeTab;
     _activatedTabs = {_selectedIndex};
+    MainScreen._activeScaffoldKey = _scaffoldKey;
     MainScreen.tabSwitchRequest.addListener(_onExternalTabRequest);
   }
 
   @override
   void dispose() {
+    if (MainScreen._activeScaffoldKey == _scaffoldKey) {
+      MainScreen._activeScaffoldKey = null;
+    }
     MainScreen.tabSwitchRequest.removeListener(_onExternalTabRequest);
     super.dispose();
   }
@@ -130,7 +134,7 @@ class _MainScreenState extends State<MainScreen> {
         setState(() => _selectedIndex = 0);
       },
       child: Scaffold(
-        key: MainScreen.scaffoldKey,
+        key: _scaffoldKey,
         drawer: _buildOptionsDrawer(context, isDark),
         body: IndexedStack(
           index: _selectedIndex,

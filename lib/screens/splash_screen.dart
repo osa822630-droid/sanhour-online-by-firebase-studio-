@@ -1,5 +1,6 @@
 // lib/screens/splash_screen.dart
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -36,6 +37,12 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _startStartupSequence() async {
+    if (kIsWeb) {
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
+      _replaceSelfNamed('/home');
+      return;
+    }
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final shopsProvider = Provider.of<ShopsProvider>(context, listen: false);
 

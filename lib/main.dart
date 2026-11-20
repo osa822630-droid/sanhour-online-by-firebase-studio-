@@ -98,6 +98,21 @@ void main() async {
     }
   }
 
+  if (kIsWeb) {
+    ErrorWidget.builder = (FlutterErrorDetails details) => Material(
+          color: const Color(0xFF1A332C),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Web UI Error: ${details.exceptionAsString()}',
+                textDirection: TextDirection.ltr,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+              ),
+            ),
+          ),
+        );
+  }
   runApp(const MyApp());
 }
 
@@ -124,6 +139,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _initDeepLinks() async {
+    if (kIsWeb) return;
     _appLinks = AppLinks();
 
     try {
@@ -228,7 +244,7 @@ class _MyAppState extends State<MyApp> {
           final darkBase = AppTheme.dark;
           return MaterialApp(
             navigatorKey: NotificationService.navigatorKey,
-            navigatorObservers: [AnalyticsService.observer],
+            navigatorObservers: kIsWeb ? const [] : [AnalyticsService.observer],
             title: 'سنهور أونلاين',
             debugShowCheckedModeBanner: false,
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
